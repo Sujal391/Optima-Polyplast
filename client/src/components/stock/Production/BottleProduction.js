@@ -808,8 +808,8 @@ const autoCheckAvailability = async () => {
           error={listError}
           pagination={pagination}
           columns={[
-            { key: 'preformType', label: 'Preform Type', render: (row) => row.preformType?.type || 'N/A' },
-            { key: 'bottleCategory', label: 'Bottle Category', render: (row) => row.bottleCategory?.name || 'N/A' },
+            { key: 'preformType', label: 'Preform Type', render: (row) => row.preformType || 'N/A' },
+            { key: 'bottleCategory', label: 'Bottle Category', render: (row) => row.bottleCategory || 'N/A' },
             { key: 'boxesProduced', label: 'Boxes Produced', render: (row) => row.boxesProduced || 0 },
             { key: 'bottlesPerBox', label: 'Bottles/Box', render: (row) => row.bottlesPerBox || 0 },
             { key: 'totalBottles', label: 'Total Bottles', render: (row) => row.details?.totalBottles || (row.boxesProduced * row.bottlesPerBox) || 0 },

@@ -91,7 +91,7 @@ const StockReportTab = () => {
                     {item.itemName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {item.subcategory}
+                    {item.subcategory || 'NA'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {item.unit}
