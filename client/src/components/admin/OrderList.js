@@ -312,7 +312,7 @@ const Order = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [headerDropdownOpen, setHeaderDropdownOpen] = useState(false);
   const [orders, setOrders] = useState([]);
-  const [filterStatus, setFilterStatus] = useState(statusFromUrl || "preview"); // Use URL param or default to preview
+  const [filterStatus, setFilterStatus] = useState(statusFromUrl || "All"); // Use URL param or default to preview
   const [filterCategory, setFilterCategory] = useState("All");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -435,6 +435,7 @@ const Order = () => {
         gstNumber: order.gstNumber || "N/A",
         createdAt: order.createdAt || new Date(),
         type: order.type || "N/A",
+        totalAmountWithDelivery: order.totalAmountWithDelivery || 0,
       }));
 
       setOrders(mappedOrders);
@@ -716,83 +717,94 @@ const Order = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {pagedOrders.map((order, index) => (
-                        <tr
-                          key={order._id}
-                          className={`${
-                            index % 2 === 0 ? "bg-gray-50" : "bg-white"
-                          } hover:bg-indigo-50 transition-colors`}
-                        >
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.orderId}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.customerName}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.customerEmail}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.customerPhone}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.firmName}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.shippingAddress &&
-                            typeof order.shippingAddress === "object"
-                              ? `${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pinCode}`
-                              : order.shippingAddress || "N/A"}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.userCode}
-                          </td>
-                          <td
-                            className={`py-3 px-4 ${getStatusClass(order.orderStatus)}`}
+                      {pagedOrders && pagedOrders.length > 0 ? (
+                        pagedOrders.map((order, index) => (
+                          <tr
+                            key={order._id}
+                            className={`${
+                              index % 2 === 0 ? "bg-gray-50" : "bg-white"
+                            } hover:bg-indigo-50 transition-colors`}
                           >
-                            {order.orderStatus}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.paymentStatus}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.paymentMethod}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.products.map((item, index) => (
-                              <div key={index} className="mb-1">
-                                {item.name || item.product?.name || "N/A"}:{" "}
-                                {item.quantity || 1}
-                              </div>
-                            ))}
-                          </td>
-                          <td className="py-3 px-4 text-gray-800">
-                            {order.priceUpdated ? (
-                              <div className="flex flex-col">
-                                <span className="line-through text-gray-500 inline-block">
-                                  ₹{order.oldTotalAmount}
-                                </span>
-                                <span className="text-gray-800 font-semibold">
-                                  ₹{order.totalAmount}
-                                </span>
-                              </div>
-                            ) : (
-                              <span>₹{order.totalAmount}</span>
-                            )}
-                          </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.orderId}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.customerName}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.customerEmail}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.customerPhone}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.firmName}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.shippingAddress &&
+                              typeof order.shippingAddress === "object"
+                                ? `${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pinCode}`
+                                : order.shippingAddress || "N/A"}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.userCode}
+                            </td>
+                            <td
+                              className={`py-3 px-4 ${getStatusClass(order.orderStatus)}`}
+                            >
+                              {order.orderStatus}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.paymentStatus}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.paymentMethod}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.products.map((item, index) => (
+                                <div key={index} className="mb-1">
+                                  {item.name || item.product?.name || "N/A"}:{" "}
+                                  {item.quantity || 1}
+                                </div>
+                              ))}
+                            </td>
+                            <td className="py-3 px-4 text-gray-800">
+                              {order.priceUpdated ? (
+                                <div className="flex flex-col">
+                                  <span className="line-through text-gray-500 inline-block">
+                                    ₹{order.totalAmountWithDelivery}
+                                  </span>
+                                  <span className="text-gray-800 font-semibold">
+                                    ₹{order.totalAmount}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span>₹{order.totalAmount}</span>
+                              )}
+                            </td>
 
-                          <td className="py-3 px-4">
-                            {order.orderStatus === "preview" && (
-                              <button
-                                onClick={() => handleChangeOrderStatus(order)}
-                                className="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 transition-colors text-sm"
-                              >
-                                Mark as Processing
-                              </button>
-                            )}
+                            <td className="py-3 px-4">
+                              {order.orderStatus === "preview" && (
+                                <button
+                                  onClick={() => handleChangeOrderStatus(order)}
+                                  className="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+                                >
+                                  Mark as Processing
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="13"
+                            className="text-center py-12 text-gray-500 text-lg"
+                          >
+                            No orders available for this filter
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

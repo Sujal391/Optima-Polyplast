@@ -25,6 +25,7 @@ import RawMaterialSummary from './components/admin/RawMaterialSummary';
 import CategoryManagement from './components/admin/CategoryManagement';
 import FormulaManagement from './components/admin/FormulaManagement';
 import ReportsExport from './components/admin/ReportsExport';
+import PaymentReport from './components/admin/PaymentReport';
 
 // Reception Panel Components
 import ReceptionDashboard from './components/reception/Dashboard';
@@ -105,6 +106,14 @@ function App() {
             <HeaderWithConditionalRender />
             <AuthLayout>
               <OrderList />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/PaymentReport" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <HeaderWithConditionalRender />
+            <AuthLayout>
+              <PaymentReport />
             </AuthLayout>
           </PrivateRoute>
         }/>

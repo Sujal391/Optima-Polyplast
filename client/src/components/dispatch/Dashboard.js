@@ -86,20 +86,14 @@ const Navbar = () => {
         <Link to="/dispatch/dashboard" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
             Home
           </Link>
-          {/* <Link to="/dispatch/attandance" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-            Attendance
-          </Link> */}
-          <Link to="/dispatch/challan-history" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-             Challan History
-          </Link>
-          {/* <Link to="/dispatch/pending-payment" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-           Pending Payments
-          </Link> */}
           <Link to="/dispatch/processing-orders" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
             Processing Orders
           </Link>
           <Link to="/dispatch/dispatch-history" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
             Dispatch History
+          </Link>
+          <Link Link to="/dispatch/challan-history" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
+            Challan History
           </Link>
                  
 

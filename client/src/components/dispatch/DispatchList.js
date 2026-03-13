@@ -3,7 +3,7 @@ import axios from "axios";
 import html2pdf from "html2pdf.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { FaDownload, FaPrint, FaTimes, FaCheck, FaSync } from "react-icons/fa";
+import { FaDownload, FaPrint, FaTimes, FaCheck, FaSync, FaEllipsisV } from "react-icons/fa";
 import {
   Table,
   TableBody,
@@ -16,7 +16,23 @@ import {
   CircularProgress,
   Box,
   Typography,
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
+import {
+  LocalShipping as ShippedIcon,
+  Cancel as CancelIcon,
+  PictureAsPdf as PdfIcon,
+  Print as PrintIcon,
+  Edit as EditIcon,
+  Warning as WarningIcon,
+} from "@mui/icons-material";
 import logo from "../../assets/logo1.png";
 import cookies from "js-cookie";
 import OrderActions from "./OrderActions";
@@ -42,6 +58,10 @@ api.interceptors.request.use(
 );
 
 const DispatchComponent = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [processingOrders, setProcessingOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [challanData, setChallanData] = useState({
@@ -69,6 +89,26 @@ const DispatchComponent = () => {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
+  
+  // Menu state for better positioning
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [menuOrder, setMenuOrder] = useState(null);
+  const [expandedRow, setExpandedRow] = useState(null);
+
+  const handleMenuOpen = (event, order) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+    setMenuOrder(order);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+    setMenuOrder(null);
+  };
+
+  const handleRowExpand = (orderId) => {
+    setExpandedRow(expandedRow === orderId ? null : orderId);
+  };
 
   /** ------------------------------------------------------
    * FETCH PROCESSING ORDERS
@@ -102,6 +142,7 @@ const DispatchComponent = () => {
         );
       }
       await fetchProcessingOrders();
+      handleMenuClose();
     } catch (error) {
       toast.error(
         error.response?.data?.error || "Error updating order status"
@@ -256,6 +297,7 @@ const DispatchComponent = () => {
       deliveryChoice: order.deliveryChoice || "homeDelivery",
     });
     setShowWizard(true);
+    handleMenuClose();
   };
 
   /** ------------------------------------------------------
@@ -359,23 +401,122 @@ const DispatchComponent = () => {
     fetchProcessingOrders();
   }, []);
 
+  // Mobile card view for orders
+  const renderMobileOrderCard = (order) => (
+    <Paper
+      key={order._id}
+      elevation={2}
+      sx={{
+        mb: 2,
+        p: 2,
+        borderRadius: 2,
+        position: 'relative',
+        '&:hover': { backgroundColor: '#f9fafb' }
+      }}
+    >
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+        <Box>
+          <Typography variant="subtitle1" fontWeight={600}>
+            {order.firmName}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {order.user?.name} | {order.user?.phoneNumber}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Code: {order.user?.customerDetails?.userCode || "N/A"}
+          </Typography>
+        </Box>
+        <Box display="flex" alignItems="center" gap={1}>
+          <Chip
+            label={order.orderStatus}
+            color={getStatusColor(order.orderStatus)}
+            size="small"
+          />
+          <IconButton
+            onClick={(e) => handleMenuOpen(e, order)}
+            size="small"
+            sx={{ ml: 1 }}
+          >
+            <FaEllipsisV />
+          </IconButton>
+        </Box>
+      </Box>
+
+      <Box mt={1.5} display="flex" flexWrap="wrap" gap={1}>
+        <Chip
+          label={`Payment: ${order.paymentStatus}`}
+          color={getPaymentColor(order.paymentStatus)}
+          size="small"
+          variant="outlined"
+        />
+        <Chip
+          label={`Delivery: ₹${order.deliveryCharge || 0}`}
+          size="small"
+          variant="outlined"
+        />
+        <Chip
+          label={`Total: ₹${order.totalAmountWithDelivery || order.totalAmount}`}
+          color="primary"
+          size="small"
+        />
+      </Box>
+
+      {expandedRow === order._id && (
+        <Box mt={2}>
+          <Typography variant="body2" fontWeight={500}>Items:</Typography>
+          {order.products.map((item, i) => (
+            <Typography key={i} variant="body2" color="text.secondary">
+              {item.product?.name}: {item.boxes} boxes
+            </Typography>
+          ))}
+          <Typography variant="body2" fontWeight={500} mt={1}>Address:</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {order.shippingAddress
+              ? `${order.shippingAddress.address || ""}, ${
+                  order.shippingAddress.city || ""
+                }, ${order.shippingAddress.state || ""} - ${
+                  order.shippingAddress.pinCode || ""
+                }`
+              : "N/A"}
+          </Typography>
+        </Box>
+      )}
+
+      <Box display="flex" justifyContent="flex-end" mt={1}>
+        <Tooltip title={expandedRow === order._id ? "Show less" : "Show more"}>
+          <IconButton size="small" onClick={() => handleRowExpand(order._id)}>
+            <Typography variant="body2">
+              {expandedRow === order._id ? "▲" : "▼"}
+            </Typography>
+          </IconButton>
+        </Tooltip>
+      </Box>
+    </Paper>
+  );
+
   return (
-    <div className="p-6 bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen">
+    <div className="p-4 md:p-6 bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen">
       <ToastContainer position="top-right" autoClose={3000} />
 
       {/* ACTIVE ORDERS TABLE */}
-      <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-100 transform transition-all duration-300 hover:shadow-2xl">
-        <div className="flex justify-between">
-          <h2 className="text-xl md:text-2xl font-semibold mb-6 text-gray-800 bg-gradient-to-r from-blue-500 to-teal-500 bg-clip-text text-transparent">
+      <div className="bg-white p-4 md:p-6 rounded-xl shadow-xl border border-gray-100 transform transition-all duration-300 hover:shadow-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg md:text-xl lg:text-2xl font-semibold text-gray-800 bg-gradient-to-r from-blue-500 to-teal-500 bg-clip-text text-transparent">
             Active Processing Orders
           </h2>
-          <button
-            onClick={fetchProcessingOrders}
-            className="p-3 bg-blue-600 text-white w-10 h-10 rounded-full hover:bg-blue-700 transition-colors duration-200"
-            title="Refresh Orders"
-          >
-            <FaSync className={isLoading ? "animate-spin" : ""} />
-          </button>
+          <Tooltip title="Refresh Orders">
+            <IconButton
+              onClick={fetchProcessingOrders}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+              sx={{ 
+                bgcolor: '#2563eb', 
+                color: 'white',
+                '&:hover': { bgcolor: '#1d4ed8' }
+              }}
+            >
+              <FaSync className={isLoading ? "animate-spin" : ""} />
+            </IconButton>
+          </Tooltip>
         </div>
 
         {isLoading ? (
@@ -383,106 +524,215 @@ const DispatchComponent = () => {
             <CircularProgress size={48} />
           </Box>
         ) : processingOrders.length > 0 ? (
-          <TableContainer component={Paper} sx={{ maxHeight: "70vh" }}>
-            <Table stickyHeader sx={{ minWidth: 1000 }}>
-              <TableHead>
-                <TableRow>
-                  {[
-                    "Firm Name",
-                    "Type",
-                    "Customer",
-                    "User Code",
-                    "Phone",
-                    "Address",
-                    "Status",
-                    "Payment",
-                    "Method",
-                    "Items",
-                    "Delivery",
-                    "Total",
-                    "Actions",
-                  ].map((header) => (
-                    <TableCell
-                      key={header}
-                      sx={{
-                        fontWeight: 600,
-                        backgroundColor: "#f0f9ff",
-                        color: "#374151",
-                      }}
-                    >
-                      {header}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {processingOrders.map((order) => (
-                  <TableRow
-                    key={order._id}
-                    sx={{
-                      "&:hover": { backgroundColor: "#f9fafb" },
-                      "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
-                    }}
-                  >
-                    <TableCell sx={{ fontWeight: 500 }}>
-                      {order.firmName}
-                    </TableCell>
-                    <TableCell>{order.type}</TableCell>
-                    <TableCell>{order.user?.name}</TableCell>
-                    <TableCell>
-                      {order.user?.customerDetails?.userCode || "N/A"}
-                    </TableCell>
-                    <TableCell>{order.user?.phoneNumber || "N/A"}</TableCell>
-                    <TableCell sx={{ maxWidth: 250 }}>
-                      <Typography variant="body2" noWrap>
-                        {order.shippingAddress
-                          ? `${order.shippingAddress.address || ""}, ${
-                              order.shippingAddress.city || ""
-                            }, ${order.shippingAddress.state || ""} - ${
-                              order.shippingAddress.pinCode || ""
-                            }`
-                          : "N/A"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={order.orderStatus}
-                        color={getStatusColor(order.orderStatus)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={order.paymentStatus}
-                        color={getPaymentColor(order.paymentStatus)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{order.paymentMethod}</TableCell>
-                    <TableCell>
-                      {order.products.map((item, i) => (
-                        <Typography key={i} variant="body2" fontSize="0.875rem">
-                          {item.product?.name}: {item.boxes}
-                        </Typography>
+          <>
+            {/* Mobile View - Cards */}
+            {isMobile && (
+              <Box sx={{ maxHeight: "70vh", overflow: "auto", px: 1 }}>
+                {processingOrders.map(renderMobileOrderCard)}
+              </Box>
+            )}
+
+            {/* Tablet/Desktop View - Table with overflow handling */}
+            {!isMobile && (
+              <TableContainer 
+                component={Paper} 
+                sx={{ 
+                  maxHeight: "70vh",
+                  overflow: "auto",
+                  position: 'relative',
+                  '& .MuiTable-root': {
+                    minWidth: isTablet ? 1200 : 1400,
+                  }
+                }}
+              >
+                <Table stickyHeader size={isTablet ? "small" : "medium"}>
+                  <TableHead>
+                    <TableRow>
+                      {[
+                        "Firm Name",
+                        "Type",
+                        "Customer",
+                        "User Code",
+                        "Phone",
+                        "Address",
+                        "Status",
+                        "Payment",
+                        "Method",
+                        "Items",
+                        "Delivery",
+                        "Total",
+                        "Actions",
+                      ].map((header) => (
+                        <TableCell
+                          key={header}
+                          sx={{
+                            fontWeight: 600,
+                            backgroundColor: "#f0f9ff",
+                            color: "#374151",
+                            whiteSpace: 'nowrap',
+                            py: isTablet ? 1 : 1.5,
+                          }}
+                        >
+                          {header}
+                        </TableCell>
                       ))}
-                    </TableCell>
-                    <TableCell>₹ {order.deliveryCharge || 0}</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#2563eb" }}>
-                      ₹{" "}
-                      {order.totalAmountWithDelivery || order.totalAmount}
-                    </TableCell>
-                    <TableCell>
-                      <OrderActions
-                        order={order}
-                        updateOrderStatus={updateOrderStatus}
-                        handleOrderSelection={handleOrderSelection}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {processingOrders.map((order) => (
+                      <TableRow
+                        key={order._id}
+                        sx={{
+                          "&:hover": { backgroundColor: "#f9fafb" },
+                          "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
+                          position: 'relative',
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+                          {order.firmName}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.type}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.user?.name}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          {order.user?.customerDetails?.userCode || "N/A"}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.user?.phoneNumber || "N/A"}</TableCell>
+                        <TableCell sx={{ maxWidth: 200 }}>
+                          <Tooltip title={
+                            order.shippingAddress
+                              ? `${order.shippingAddress.address || ""}, ${
+                                  order.shippingAddress.city || ""
+                                }, ${order.shippingAddress.state || ""} - ${
+                                  order.shippingAddress.pinCode || ""
+                                }`
+                              : "N/A"
+                          }>
+                            <Typography variant="body2" noWrap>
+                              {order.shippingAddress
+                                ? `${order.shippingAddress.address || ""}, ${
+                                    order.shippingAddress.city || ""
+                                  }, ${order.shippingAddress.state || ""} - ${
+                                    order.shippingAddress.pinCode || ""
+                                  }`
+                                : "N/A"}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={order.orderStatus}
+                            color={getStatusColor(order.orderStatus)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={order.paymentStatus}
+                            color={getPaymentColor(order.paymentStatus)}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.paymentMethod}</TableCell>
+                        <TableCell>
+                          <Tooltip title={
+                            order.products.map(item => `${item.product?.name}: ${item.boxes}`).join(', ')
+                          }>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
+                              {order.products.map((item, i) => (
+                                <span key={i}>
+                                  {item.product?.name}: {item.boxes}
+                                  {i < order.products.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>₹ {order.deliveryCharge || 0}</TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: "#2563eb", whiteSpace: 'nowrap' }}>
+                          ₹ {order.totalAmountWithDelivery || order.totalAmount}
+                        </TableCell>
+                        <TableCell>
+                          <IconButton
+                            onClick={(e) => handleMenuOpen(e, order)}
+                            size="small"
+                            sx={{ 
+                              bgcolor: '#f3f4f6',
+                              '&:hover': { bgcolor: '#e5e7eb' }
+                            }}
+                          >
+                            <FaEllipsisV size={14} />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            {/* Action Menu - Fixed positioning to avoid overflow issues */}
+            <Menu
+              anchorEl={menuAnchorEl}
+              open={Boolean(menuAnchorEl)}
+              onClose={handleMenuClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              PaperProps={{
+                elevation: 3,
+                sx: {
+                  minWidth: 200,
+                  maxWidth: 300,
+                  borderRadius: 2,
+                  mt: 1,
+                }
+              }}
+            >
+              {menuOrder && (
+                <>
+                  <MenuItem 
+                    onClick={() => {
+                      handleOrderSelection(menuOrder);
+                      handleMenuClose();
+                    }}
+                    sx={{ py: 1.5 }}
+                  >
+                    <ListItemIcon>
+                      <PdfIcon fontSize="small" color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Generate Challan" />
+                  </MenuItem>
+                  <MenuItem 
+                    onClick={() => {
+                      updateOrderStatus(menuOrder._id, "shipped");
+                    }}
+                    sx={{ py: 1.5 }}
+                  >
+                    <ListItemIcon>
+                      <ShippedIcon fontSize="small" color="success" />
+                    </ListItemIcon>
+                    <ListItemText primary="Mark as Shipped" />
+                  </MenuItem>
+                  <MenuItem 
+                    onClick={() => {
+                      updateOrderStatus(menuOrder._id, "cancelled");
+                    }}
+                    sx={{ py: 1.5 }}
+                  >
+                    <ListItemIcon>
+                      <CancelIcon fontSize="small" color="error" />
+                    </ListItemIcon>
+                    <ListItemText primary="Cancel Order" />
+                  </MenuItem>
+                </>
+              )}
+            </Menu>
+          </>
         ) : (
           <Typography
             variant="body1"
@@ -507,28 +757,6 @@ const DispatchComponent = () => {
         />
       )}
       
-      {/* GENERATED CHALLANS LIST */}
-      {/* {generatedChallans.length > 0 && (
-        <div className="mt-6 bg-white p-6 rounded-xl shadow-xl border border-gray-100">
-          <h2 className="text-xl font-semibold mb-6 text-gray-800 bg-gradient-to-r from-blue-500 to-teal-500 bg-clip-text text-transparent">
-            Generated Challans
-          </h2>
-          <ChallanListView
-            challans={generatedChallans}
-            onReschedule={(challan) => {
-              setSelectedChallan(challan);
-              setShowRescheduleModal(true);
-            }}
-            onDownload={(challan) => {
-              toast.info("Download functionality coming soon");
-            }}
-            onView={() => toast.info("View functionality coming soon")}
-            onDelete={() => toast.info("Delete functionality coming soon")}
-            loading={isLoading}
-          />
-        </div>
-      )} */}
-
       {/* RESCHEDULE MODAL */}
       {showRescheduleModal && selectedChallan && (
         <RescheduleModal
@@ -544,7 +772,7 @@ const DispatchComponent = () => {
 
       {/* SINGLE CHALLAN MODAL */}
       {showChallanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[1000]">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto transform transition-all duration-300 scale-95 hover:scale-100">
             <h2 className="text-xl font-semibold mb-6 text-gray-800">
               Generate Delivery Challan
@@ -621,13 +849,6 @@ const DispatchComponent = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
-
-      {/* VIEW SINGLE CHALLAN */}
-      {generatedChallan && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
-
         </div>
       )}
     </div>

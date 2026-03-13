@@ -17,28 +17,46 @@ const ProductionReportTab = () => {
     setError(null);
 
     try {
-        const params = {};
-        if (filters.startDate) params.startDate = filters.startDate;
-        if (filters.endDate) params.endDate = filters.endDate;
-        if (filters.type) params.type = filters.type;
+      const params = {};
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+      if (filters.type) params.type = filters.type;
 
-        // Use your service API instead of fetch
-        const result = await getProductionReport(params);
+      const result = await getProductionReport(params);
 
-        if (result.success) {
+      if (result.success) {
         setProductionData(result.data);
-        } else {
+      } else {
         setError(result.message || 'Failed to fetch production report');
-        }
+      }
     } catch (err) {
-        setError('Error fetching production report: ' + err.message);
+      setError('Error fetching production report: ' + err.message);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    };
+  };
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  // Calculate total raw material quantity used
+  const calculateTotalRawMaterialUsed = (rawMaterials) => {
+    if (!rawMaterials || !Array.isArray(rawMaterials)) return 0;
+    return rawMaterials.reduce((total, rm) => total + (rm.quantityUsed || 0), 0);
+  };
+
+  // Get unique raw material info (assuming all entries have same material)
+  const getRawMaterialInfo = (rawMaterials) => {
+    if (!rawMaterials || !Array.isArray(rawMaterials) || rawMaterials.length === 0) {
+      return { itemName: 'N/A', itemCode: 'N/A', unit: 'Kg' };
+    }
+    const material = rawMaterials[0]?.material;
+    return {
+      itemName: material?.itemName || 'N/A',
+      itemCode: material?.itemCode || 'N/A',
+      unit: material?.unit || 'Kg'
+    };
   };
 
   return (
@@ -78,14 +96,14 @@ const ProductionReportTab = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Type
+              Outcome Type
             </label>
             <input
               type="text"
               name="type"
               value={filters.type}
               onChange={handleFilterChange}
-              placeholder="Enter type"
+              placeholder="Enter outcome type (e.g., 1l, 20mm)"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -116,16 +134,31 @@ const ProductionReportTab = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Outcome Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Raw Material
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Item Code
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Used (Kg)
+                  Quantity Produced
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Wastage (Kg)
+                  Raw Material Used (Kg)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total Wastage (Kg)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Wastage Type 1
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Wastage Type 2
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Used in Bottles
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Production Date
@@ -136,28 +169,48 @@ const ProductionReportTab = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {productionData.map((item) => (
-                <tr key={item._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {item.rawMaterial?.itemName || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {item.rawMaterial?.itemCode || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.usedRawMaterialKg} {item.rawMaterial?.unit || 'Kg'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                    {item.wastageKg} Kg
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {new Date(item.productionDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {item.recordedBy?.name || 'N/A'}
-                  </td>
-                </tr>
-              ))}
+              {productionData.map((item) => {
+                const materialInfo = getRawMaterialInfo(item.rawMaterials);
+                const totalRawMaterialUsed = calculateTotalRawMaterialUsed(item.rawMaterials);
+                
+                return (
+                  <tr key={item._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {item.outcomeType || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {materialInfo.itemName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {materialInfo.itemCode}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {item.quantityProduced?.toLocaleString() || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {totalRawMaterialUsed} {materialInfo.unit}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                      {item.wastageKg || 0} Kg
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                      {item.wastageType1 || 0} Kg
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                      {item.wastageType2 || 0} Kg
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {item.usedInBottles?.toLocaleString() || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {item.productionDate ? new Date(item.productionDate).toLocaleDateString() : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {item.recordedBy?.name || 'N/A'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {productionData.length === 0 && !loading && (

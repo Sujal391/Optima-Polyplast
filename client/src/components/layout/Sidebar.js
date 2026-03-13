@@ -161,7 +161,7 @@
 
 
 import React, { useState } from "react";
-import { FaBars, FaTimes, FaHome, FaUser, FaProductHunt,FaCalendarCheck, FaBullhorn, FaShoppingCart, FaUserPlus, FaBox, FaChevronDown, FaThList, FaDownload } from "react-icons/fa";
+import { FaBars, FaTimes, FaHome, FaUser, FaProductHunt,FaCalendarCheck, FaFileInvoiceDollar, FaBullhorn, FaShoppingCart, FaUserPlus, FaBox, FaChevronDown, FaThList, FaDownload } from "react-icons/fa";
 import { Link, useLocation } from "react-router-dom";
 import logo from "../../assets/logo1.png";
 
@@ -176,23 +176,23 @@ const Sidebar = () => {
   // Navigation items array for better maintainability
   const navItems = [
     { path: "/admin/dashboard", icon: FaHome, label: "Dashboard" },
+    { path: "/product", icon: FaProductHunt, label: "Product" },
     { path: "/order", icon: FaShoppingCart, label: "Order" },
     { path: "/users", icon: FaUser, label: "Users" },
-    { path: "/product", icon: FaProductHunt, label: "Product" },
-    { path: "/attandance", icon: FaCalendarCheck, label: "Attendance" }, // Fixed typo
+    { path: "/PaymentReport", icon: FaFileInvoiceDollar, label: "Payment Report" },
     { path: "/marketing", icon: FaBullhorn, label: "Marketing" },
     { path: "/createUser", icon: FaUserPlus, label: "Create Panels" },
     { path: "/upload-banner", icon: FaUserPlus, label: "Upload Banner" },
-    { path: "/categories", icon: FaThList, label: "Categories" },
-    { path: "/formulas", icon: FaBox, label: "Formulas" },
-    { path: "/export-reports", icon: FaDownload, label: "Export Reports" },
+    // { path: "/categories", icon: FaThList, label: "Categories" },
+    // { path: "/formulas", icon: FaBox, label: "Formulas" },
+    // { path: "/export-reports", icon: FaDownload, label: "Export Reports" },
   ];
 
   // Stock dropdown items
-  const stockDropdownItems = [
-    { path: "/stock", label: "Stock History" },
-    { path: "/raw-material-summary", label: "Raw Material Summary" },
-  ];
+  // const stockDropdownItems = [
+  //   { path: "/stock", label: "Stock History" },
+  //   { path: "/raw-material-summary", label: "Raw Material Summary" },
+  // ];
 
   // Common classes
   const sidebarClasses = `
@@ -243,7 +243,7 @@ const Sidebar = () => {
             ))}
 
             {/* Stock Dropdown - placed after Product */}
-            <li className="hover:bg-gray-700 p-2 rounded-lg">
+            {/* <li className="hover:bg-gray-700 p-2 rounded-lg">
               <button
                 onClick={toggleStockDropdown}
                 className="flex items-center space-x-3 text-white w-full"
@@ -273,7 +273,7 @@ const Sidebar = () => {
                   ))}
                 </ul>
               )}
-            </li>
+            </li> */}
 
             {/* Remaining items after Stock */}
             {navItems.slice(4).map(({ path, icon: Icon, label }) => (

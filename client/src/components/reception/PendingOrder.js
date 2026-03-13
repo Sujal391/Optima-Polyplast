@@ -16,7 +16,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { MoreVertical } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
+import { MoreVertical, X } from "lucide-react";
 import cookies from "js-cookie";
 import Paginator from "../common/Paginator";
 
@@ -32,6 +39,13 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Toast utility
+const toast = {
+  success: (msg) => console.log("✓", msg),
+  error: (msg) => console.error("✗", msg),
+  warning: (msg) => console.warn("⚠", msg),
+};
 
 const PendingOrders = () => {
   const [pendingOrders, setPendingOrders] = useState([]);
@@ -64,7 +78,7 @@ const PendingOrders = () => {
   const [pageSize, setPageSize] = useState(10);
 
   // fetch orders
-    const fetchPendingOrders = async () => {
+  const fetchPendingOrders = async () => {
     setLoading(true);
     try {
       const response = await api.get("/reception/orders/pending");
@@ -76,6 +90,7 @@ const PendingOrders = () => {
       setLoading(false);
     }
   };
+  
   useEffect(() => {
     fetchPendingOrders();
   }, []);
@@ -104,16 +119,19 @@ const PendingOrders = () => {
     if (order.priceUpdated && order.priceUpdateHistory?.length > 0) {
       setConfirmDialog({
         isOpen: true,
-        order,
+        order: order,
         priceUpdates: order.priceUpdateHistory,
       });
-    } else updateOrderStatus(order._id);
+    } else {
+      updateOrderStatus(order._id);
+    }
   };
 
   const filteredOrders = pendingOrders.filter((order) => {
     const s = search.toLowerCase();
     return (
       order._id.toLowerCase().includes(s) ||
+      order.orderId?.toLowerCase().includes(s) ||
       order.user?.name?.toLowerCase().includes(s) ||
       order.user?.email?.toLowerCase().includes(s) ||
       order.user?.phoneNumber?.toLowerCase().includes(s) ||
@@ -133,6 +151,7 @@ const PendingOrders = () => {
       paid: "text-green-600",
       pending: "text-yellow-600",
       failed: "text-red-600",
+      partial: "text-orange-600",
     };
     return colors[status?.toLowerCase()] || "text-gray-600";
   };
@@ -145,6 +164,10 @@ const PendingOrders = () => {
   const formatDate = (d) => {
     if (!d) return "N/A";
     return new Date(d).toLocaleString("en-IN");
+  };
+
+  const formatCurrency = (amount) => {
+    return typeof amount === "number" ? `₹${amount.toFixed(2)}` : "N/A";
   };
 
   return (
@@ -163,14 +186,19 @@ const PendingOrders = () => {
           />
         </div>
 
-        {/*  TABLE  */}
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* TABLE */}
         <div className="overflow-y-auto shadow-xl rounded-xl bg-white">
           <table className="min-w-full text-sm table-auto">
-            {" "}
-            {/* 👈 changed for free width */}
             <thead className="bg-gray-300 text-gray-700">
               <tr>
-                <th className="px-4 py-2">Order ID</th> {/* 👈 NEW */}
+                <th className="px-4 py-2">Order ID</th>
                 <th className="px-4 py-2">User Code</th>
                 <th className="px-4 py-2">Date & Time</th>
                 <th className="px-4 py-2">Customer</th>
@@ -182,11 +210,20 @@ const PendingOrders = () => {
               </tr>
             </thead>
             <tbody>
-              {pagedOrders.length ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="10" className="text-center py-8">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                  </td>
+                </tr>
+              ) : pagedOrders.length ? (
                 pagedOrders.map((order) => (
                   <tr key={order._id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2">{order.orderId}</td>{" "}
-                    {/* 👈 NEW */}
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {order.orderId || order._id.slice(-8)}
+                    </td>
                     <td className="px-4 py-2">
                       {order.user?.customerDetails?.userCode || "(Misc)"}
                     </td>
@@ -198,15 +235,12 @@ const PendingOrders = () => {
                     <td className="px-4 py-2">
                       {order.user?.customerDetails?.firmName || "N/A"}
                     </td>
-                    <td
-                      className={`px-4 py-2 font-semibold ${getPaymentStatusColor(order.paymentStatus)}`}
-                    >
-                      {order.paymentStatus}
+                    <td className={`px-4 py-2 font-semibold ${getPaymentStatusColor(order.paymentStatus)}`}>
+                      {order.paymentStatus || "pending"}
                     </td>
                     <td className="px-4 py-2">
-                      ₹{order.totalAmountWithDelivery}
-                    </td>{" "}
-                    {/* 👈 UPDATED */}
+                      {formatCurrency(order.totalAmount)}
+                    </td>
                     <td className="px-4 py-2 text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger className="p-2 rounded hover:bg-gray-200">
@@ -232,7 +266,7 @@ const PendingOrders = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="9" className="text-center py-4">
+                  <td colSpan="10" className="text-center py-8 text-gray-500">
                     No pending orders found.
                   </td>
                 </tr>
@@ -261,7 +295,7 @@ const PendingOrders = () => {
               setPageSize(parseInt(e.target.value));
             }}
           >
-            {[5, 10, 20].map((n) => (
+            {[5, 10, 20, 50].map((n) => (
               <option key={n} value={n}>
                 {n} / page
               </option>
@@ -270,67 +304,117 @@ const PendingOrders = () => {
         </div>
       </div>
 
-      {/*  VIEW DETAILS MODAL  */}
+      {/* VIEW DETAILS MODAL */}
       {detailsModal.isOpen && detailsModal.order && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white max-w-3xl w-full mx-4 rounded-lg p-6 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">
-              Order Details – {detailsModal.order.orderId}
-            </h2>
-
-            {/* CUSTOMER */}
-            <div className="mb-4 text-sm">
-              <p>
-                <strong>Firm:</strong>{" "}
-                {detailsModal.order.user?.customerDetails?.firmName}
-              </p>
-              <p>
-                <strong>Name:</strong> {detailsModal.order.user?.name}
-              </p>
-              <p>
-                <strong>Email:</strong> {detailsModal.order.user?.email}
-              </p>
-              <p>
-                <strong>Phone:</strong> {detailsModal.order.user?.phoneNumber}
-              </p>
+          <div className="bg-white max-w-4xl w-full mx-4 rounded-lg p-6 shadow-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">
+                Order Details – {detailsModal.order.orderId || detailsModal.order._id}
+              </h2>
+              <button
+                onClick={() => setDetailsModal({ isOpen: false, order: null })}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            {/* PRODUCTS */}
-            <h3 className="font-semibold mt-4 mb-2">Products:</h3>
-            <table className="min-w-full text-sm">
+            {/* Status Badges */}
+            <div className="flex gap-4 mb-4">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                detailsModal.order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                detailsModal.order.paymentStatus === 'partial' ? 'bg-orange-100 text-orange-800' :
+                'bg-yellow-100 text-yellow-800'
+              }`}>
+                Payment: {detailsModal.order.paymentStatus || 'pending'}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                detailsModal.order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                detailsModal.order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                detailsModal.order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                'bg-yellow-100 text-yellow-800'
+              }`}>
+                Status: {detailsModal.order.status || 'pending'}
+              </span>
+            </div>
+
+            {/* Customer Information */}
+            <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded">
+              <div>
+                <p className="text-sm text-gray-600">Customer Name</p>
+                <p className="font-medium">{detailsModal.order.user?.name || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Firm Name</p>
+                <p className="font-medium">{detailsModal.order.user?.customerDetails?.firmName || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium">{detailsModal.order.user?.email || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Phone</p>
+                <p className="font-medium">{detailsModal.order.user?.phoneNumber || "N/A"}</p>
+              </div>
+            </div>
+
+            {/* Shipping Address */}
+            <div className="mb-4 p-4 bg-gray-50 rounded">
+              <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
+              <p className="font-medium">{formatShippingAddress(detailsModal.order.shippingAddress)}</p>
+            </div>
+
+            {/* Products */}
+            <h3 className="font-semibold mb-2">Products:</h3>
+            <table className="min-w-full text-sm mb-4">
               <thead className="bg-gray-200">
                 <tr>
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Boxes</th>
-                  <th className="px-3 py-2">Price</th>
-                  <th className="px-3 py-2">Total</th>
+                  <th className="px-3 py-2 text-left">Product</th>
+                  <th className="px-3 py-2 text-center">Boxes</th>
+                  <th className="px-3 py-2 text-right">Price/Box</th>
+                  <th className="px-3 py-2 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {detailsModal.order.products?.map((p, i) => (
-                  <tr key={i} className="border-b text-center">
-                    <td className="px-3 py-2">{p.product?.name}</td>
-                    <td className="px-3 py-2">{p.boxes}</td>
-                    <td className="px-3 py-2">₹{p.price}</td>
-                    <td className="px-3 py-2">₹{p.boxes * p.price}</td>
+                  <tr key={i} className="border-b">
+                    <td className="px-3 py-2">
+                      {p.product?.name} - {p.product?.category}
+                    </td>
+                    <td className="px-3 py-2 text-center">{p.boxes}</td>
+                    <td className="px-3 py-2 text-right">₹{p.price}</td>
+                    <td className="px-3 py-2 text-right">₹{p.boxes * p.price}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-gray-100">
+                <tr>
+                  <td colSpan="3" className="px-3 py-2 text-right font-bold">Total:</td>
+                  <td className="px-3 py-2 text-right font-bold">₹{detailsModal.order.totalAmount}</td>
+                </tr>
+              </tfoot>
             </table>
 
-            {/* PAYMENT HISTORY */}
-            <h3 className="font-semibold mt-4 mb-2">Payment Status History:</h3>
-            {detailsModal.order.paymentStatusHistory?.map((h, idx) => (
-              <p key={idx} className="text-sm">
-                🔹 {h.status} — {formatDate(h.updatedAt)}
-              </p>
-            ))}
+            {/* Payment History */}
+            {detailsModal.order.paymentStatusHistory?.length > 0 && (
+              <>
+                <h3 className="font-semibold mb-2">Payment History:</h3>
+                <div className="space-y-2">
+                  {detailsModal.order.paymentStatusHistory.map((h, idx) => (
+                    <div key={idx} className="text-sm p-2 bg-gray-50 rounded">
+                      <span className="font-medium">{h.status}</span> - {formatDate(h.updatedAt)}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
-            {/* CLOSE */}
+            {/* Close Button */}
             <div className="mt-6 text-right">
               <button
                 onClick={() => setDetailsModal({ isOpen: false, order: null })}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
               >
                 Close
               </button>
@@ -338,6 +422,72 @@ const PendingOrders = () => {
           </div>
         </div>
       )}
+
+      {/* CONFIRM PRICE UPDATE MODAL */}
+      <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => !open && setConfirmDialog({ isOpen: false, order: null, priceUpdates: [] })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Price Updated</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2">
+                {confirmDialog.priceUpdates.map((p, i) => {
+                  const product = confirmDialog.order?.products?.find(
+                    (item) => item.product?._id === p.product
+                  );
+                  return (
+                    <div key={i} className="p-2 bg-yellow-50 rounded">
+                      <span className="font-medium">{product?.product?.name || "Product"}</span>
+                      <br />
+                      <span className="text-sm">
+                        Price changed from <span className="line-through">₹{p.oldPrice}</span> → <span className="font-bold">₹{p.newPrice}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+                <p className="mt-4 text-sm">
+                  Are you sure you want to mark this order as processing with the updated prices?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+              
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() =>
+                setConfirmDialog({ isOpen: false, order: null, priceUpdates: [] })
+              }
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                updateOrderStatus(confirmDialog.order?._id);
+                setConfirmDialog({ isOpen: false, order: null, priceUpdates: [] });
+              }}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* SUCCESS DIALOG */}
+      <AlertDialog open={successDialog.isOpen} onOpenChange={(open) => !open && setSuccessDialog({ isOpen: false, message: "" })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Success</AlertDialogTitle>
+            <AlertDialogDescription>
+              {successDialog.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setSuccessDialog({ isOpen: false, message: "" })}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
