@@ -359,7 +359,7 @@ export default function PreformProduction() {
     {
       key: 'action',
       label: 'Action',
-      render: (row) => <button onClick={() => handleViewDetails(row)}>View</button>
+      render: (row) => <button className='bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded' onClick={() => handleViewDetails(row)}>View</button>
     }
   ];
 

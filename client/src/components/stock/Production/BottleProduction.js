@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../../ui/button';
 import ProductionList from './ProductionList';
 
@@ -14,6 +14,23 @@ import {
   getBottleProductionCategories
 } from '../../../services/api/stock';
 
+// Debounce hook
+function useDebounce(callback, delay) {
+  const timeoutRef = useRef();
+
+  const debouncedCallback = useCallback((...args) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  }, [callback, delay]);
+
+  return debouncedCallback;
+}
+
 export default function BottleProduction() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -23,10 +40,10 @@ export default function BottleProduction() {
   const [success, setSuccess] = useState('');
 
   // Dropdown data
-  const [preformTypes, setPreformTypes] = useState([]); // Now contains objects with _id
+  const [preformTypes, setPreformTypes] = useState([]);
   const [caps, setCaps] = useState([]);
   const [labels, setLabels] = useState([]);
-  const [categories, setCategories] = useState([]); // Categories with IDs
+  const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
 
   const [availability, setAvailability] = useState(null);
@@ -48,17 +65,17 @@ export default function BottleProduction() {
   });
 
   const [formData, setFormData] = useState({
-  preformTypeId: '', // For check-availability API
-  preformType: '',   // For record production API (the name like "500ml")
-  boxesProduced: '',
-  bottlesPerBox: '',
-  bottleCategoryId: '',
-  bottleCategoryName: '',
-  labelId: '',
-  capId: '',
-  remarks: '',
-  productionDate: new Date().toISOString().split('T')[0],
-});
+    preformTypeId: '',
+    preformType: '',
+    boxesProduced: '',
+    bottlesPerBox: '',
+    bottleCategoryId: '',
+    bottleCategoryName: '',
+    labelId: '',
+    capId: '',
+    remarks: '',
+    productionDate: new Date().toISOString().split('T')[0],
+  });
 
   // Wastage form state
   const [wastageData, setWastageData] = useState({
@@ -68,21 +85,21 @@ export default function BottleProduction() {
     remarks: '',
   });
 
+  // Create debounced check availability function
+  const debouncedCheckAvailability = useDebounce(async () => {
+    await checkAvailability();
+  }, 800); // 800ms delay
+
   // 🔹 Load Preform Types, Caps, Labels on Mount
   useEffect(() => {
     async function loadDropdowns() {
       try {
-        // Fetch preform types with IDs
         const pf = await getAvailablePreformTypes();
-        console.log('📦 Preform Types API response:', pf);
-        console.log('📦 Preform Types data structure:', pf?.data?.[0]);
         setPreformTypes(pf?.data || []);
 
-        // Fetch caps
         const capsRes = await getCaps();
         setCaps(capsRes?.data || []);
 
-        // Fetch labels
         const labelsRes = await getLabels();
         setLabels(labelsRes?.data || []);
 
@@ -132,7 +149,7 @@ export default function BottleProduction() {
     }
   };
 
-  // Apply local filtering, sorting, and pagination
+  // Apply local filtering, sorting, and pagination with proper mapping
   const applyLocalFilters = (data, filters) => {
     let filtered = [...data];
 
@@ -210,134 +227,116 @@ export default function BottleProduction() {
     setListFilters(prev => ({ ...prev, sortBy, sortOrder, page: 1 }));
   };
 
-  // 🔹 Auto Check Availability when form fields change
+  // 🔹 Check availability with debounce
   useEffect(() => {
-  autoCheckAvailability();
-}, [formData.preformTypeId, formData.boxesProduced, formData.bottlesPerBox, 
-    formData.bottleCategoryId, formData.labelId, formData.capId]);
+    const requiredFields = [
+      formData.preformTypeId,
+      formData.boxesProduced,
+      formData.bottlesPerBox,
+      formData.bottleCategoryId,
+      formData.labelId,
+      formData.capId
+    ];
 
-  // 🔹 UPDATED: Check availability with IDs
-const autoCheckAvailability = async () => {
-  // Check if all required fields are filled
-  const requiredFields = [
-    formData.preformTypeId,
-    formData.boxesProduced,
-    formData.bottlesPerBox,
-    formData.bottleCategoryId,
-    formData.labelId,
-    formData.capId
-  ];
-
-  if (requiredFields.some(field => !field)) {
-    console.log('Missing form data, cannot check availability');
-    console.log('Missing fields:', {
-      preformTypeId: !formData.preformTypeId,
-      boxesProduced: !formData.boxesProduced,
-      bottlesPerBox: !formData.bottlesPerBox,
-      bottleCategoryId: !formData.bottleCategoryId,
-      labelId: !formData.labelId,
-      capId: !formData.capId
-    });
-    setAvailability(null);
-    return;
-  }
-
-  try {
-    setChecking(true);
-    setError('');
-
-    const params = {
-      preformTypeId: formData.preformTypeId,
-      boxes: Number(formData.boxesProduced),
-      bottlesPerBox: Number(formData.bottlesPerBox),
-      bottleCategoryId: formData.bottleCategoryId,
-      labelId: formData.labelId,
-      capId: formData.capId
-    };
-
-    console.log('📤 Sending availability check with params:', params);
-    console.log('📤 API endpoint: POST stock/production/check-availability');
-    
-    const res = await checkMaterialAvailability(params);
-
-    console.log('✅ Availability check response:', res);
-
-    if (res?.success) {
-      setAvailability(res.data || null);
+    if (requiredFields.every(field => field)) {
+      debouncedCheckAvailability();
     } else {
       setAvailability(null);
-      console.warn('Availability check returned without success:', res);
     }
+  }, [
+    formData.preformTypeId, 
+    formData.boxesProduced, 
+    formData.bottlesPerBox, 
+    formData.bottleCategoryId, 
+    formData.labelId, 
+    formData.capId
+  ]);
 
-  } catch (err) {
-    console.error('❌ Availability check failed:', err);
-    
-    if (err.response) {
-      console.error('Error response status:', err.response.status);
-      console.error('Error response data:', err.response.data);
+  // 🔹 Check availability function
+  const checkAvailability = async () => {
+    try {
+      setChecking(true);
+      setError('');
+
+      const params = {
+        preformTypeId: formData.preformTypeId,
+        boxes: Number(formData.boxesProduced),
+        bottlesPerBox: Number(formData.bottlesPerBox),
+        bottleCategoryId: formData.bottleCategoryId,
+        labelId: formData.labelId,
+        capId: formData.capId
+      };
+
+      console.log('📤 Sending availability check with params:', params);
       
-      // More specific error handling
-      if (err.response.status === 400) {
-        console.error('400 Bad Request - Likely missing or invalid parameters');
-        console.error('Expected parameters:', [
-          'preformTypeId',
-          'boxes',
-          'bottlesPerBox',
-          'bottleCategoryId',
-          'labelId',
-          'capId'
-        ]);
-        
-        setError(`Validation error: ${err.response.data?.message || 'Missing required parameters'}`);
-      } else if (err.response.status === 404) {
-        setError('API endpoint not found. Please check the backend server.');
-      } else {
-        setError(`Server error: ${err.response.status}`);
-      }
-    } else if (err.request) {
-      console.error('No response received:', err.request);
-      setError('No response from server. Please check your connection.');
-    } else {
-      console.error('Request setup error:', err.message);
-      setError(`Request error: ${err.message}`);
-    }
-    
-    setAvailability(null);
-  } finally {
-    setChecking(false);
-  }
-};
+      const res = await checkMaterialAvailability(params);
 
-  // 🔹 Input Handler - Updated for IDs
+      console.log('✅ Availability check response:', res);
+
+      if (res?.success) {
+        setAvailability(res.data || null);
+      } else {
+        setAvailability(null);
+        console.warn('Availability check returned without success:', res);
+      }
+
+    } catch (err) {
+      console.error('❌ Availability check failed:', err);
+      
+      if (err.response) {
+        console.error('Error response status:', err.response.status);
+        console.error('Error response data:', err.response.data);
+        
+        if (err.response.status === 400) {
+          setError(`Validation error: ${err.response.data?.message || 'Missing required parameters'}`);
+        } else if (err.response.status === 404) {
+          setError('API endpoint not found. Please check the backend server.');
+        } else {
+          setError(`Server error: ${err.response.status}`);
+        }
+      } else if (err.request) {
+        console.error('No response received:', err.request);
+        setError('No response from server. Please check your connection.');
+      } else {
+        console.error('Request setup error:', err.message);
+        setError(`Request error: ${err.message}`);
+      }
+      
+      setAvailability(null);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // 🔹 Input Handler
   const handleInputChange = (e) => {
-  const { name, value } = e.target;
-  
-  if (name === 'preformTypeId') {
-    // Find the selected preform to get both ID and type name
-    const selectedPreform = preformTypes.find(p => p.preformTypeId === value);
+    const { name, value } = e.target;
     
-    setFormData(prev => ({
-      ...prev,
-      preformTypeId: value,              // ObjectId for check-availability
-      preformType: selectedPreform?.type || ''  // Type name for record production
-    }));
-  } else if (name === 'bottleCategoryId') {
-    const selectedCat = categories.find(cat => cat._id === value);
-    
-    setFormData(prev => ({
-      ...prev,
-      bottleCategoryId: value,
-      bottleCategoryName: selectedCat?.name || ''
-    }));
-    
-    setSelectedCategory(value);
-  } else {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  }
-};
+    if (name === 'preformTypeId') {
+      const selectedPreform = preformTypes.find(p => p.preformTypeId === value);
+      
+      setFormData(prev => ({
+        ...prev,
+        preformTypeId: value,
+        preformType: selectedPreform?.type || ''
+      }));
+    } else if (name === 'bottleCategoryId') {
+      const selectedCat = categories.find(cat => cat._id === value);
+      
+      setFormData(prev => ({
+        ...prev,
+        bottleCategoryId: value,
+        bottleCategoryName: selectedCat?.name || ''
+      }));
+      
+      setSelectedCategory(value);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
 
   // Wastage input handler
   const handleWastageChange = (e) => {
@@ -348,7 +347,7 @@ const autoCheckAvailability = async () => {
     }));
   };
 
-  // 🔹 UPDATED: Submit Handler with new payload format
+  // 🔹 Submit Handler
   const handleSubmit = async () => {
     setError('');
     setSuccess('');
@@ -372,22 +371,19 @@ const autoCheckAvailability = async () => {
     try {
       setLoading(true);
 
-      // UPDATED payload structure
       const payload = {
-      preformType: formData.preformType,  // ✅ Send "500ml" (the type name)
-      bottleCategoryId: formData.bottleCategoryId,
-      boxesProduced: Number(formData.boxesProduced),
-      bottlesPerBox: Number(formData.bottlesPerBox),
-      labelId: formData.labelId,
-      capId: formData.capId,
-      remarks: formData.remarks,
-      productionDate: formData.productionDate,
-    };
+        preformType: formData.preformType,
+        bottleCategoryId: formData.bottleCategoryId,
+        boxesProduced: Number(formData.boxesProduced),
+        bottlesPerBox: Number(formData.bottlesPerBox),
+        labelId: formData.labelId,
+        capId: formData.capId,
+        remarks: formData.remarks,
+        productionDate: formData.productionDate,
+      };
 
-      // Step 1: Record production
       await recordBottleProduction(payload);
 
-      // Step 2: Record wastage if applicable
       const hasWastage = wastageData.quantityType1 || wastageData.quantityType2;
       if (hasWastage) {
         const wastagePayload = {
@@ -404,17 +400,17 @@ const autoCheckAvailability = async () => {
 
       // Reset forms
       setFormData({
-  preformTypeId: '',
-  preformType: '',     // ✅ Add this
-  boxesProduced: '',
-  bottlesPerBox: '',
-  bottleCategoryId: '',
-  bottleCategoryName: '',
-  labelId: '',
-  capId: '',
-  remarks: '',
-  productionDate: new Date().toISOString().split('T')[0],
-});
+        preformTypeId: '',
+        preformType: '',
+        boxesProduced: '',
+        bottlesPerBox: '',
+        bottleCategoryId: '',
+        bottleCategoryName: '',
+        labelId: '',
+        capId: '',
+        remarks: '',
+        productionDate: new Date().toISOString().split('T')[0],
+      });
 
       setWastageData({
         source: 'Bottle',
@@ -424,7 +420,7 @@ const autoCheckAvailability = async () => {
       });
 
       setAvailability(null);
-      fetchAllProductionData(); // Refresh data
+      fetchAllProductionData();
 
     } catch (err) {
       const msg = err?.response?.data?.message || err.message || "Failed to record bottle production";
@@ -452,7 +448,7 @@ const autoCheckAvailability = async () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Record Bottle Production</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {/* UPDATED: Preform Dropdown - now uses ID */}
+          {/* Preform Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Preform Type *
@@ -472,7 +468,7 @@ const autoCheckAvailability = async () => {
             </select>
           </div>
 
-          {/* UPDATED: Bottle Category Dropdown - now uses ID */}
+          {/* Bottle Category Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Bottle Category *
@@ -812,11 +808,68 @@ const autoCheckAvailability = async () => {
             { key: 'bottleCategory', label: 'Bottle Category', render: (row) => row.bottleCategory || 'N/A' },
             { key: 'boxesProduced', label: 'Boxes Produced', render: (row) => row.boxesProduced || 0 },
             { key: 'bottlesPerBox', label: 'Bottles/Box', render: (row) => row.bottlesPerBox || 0 },
-            { key: 'totalBottles', label: 'Total Bottles', render: (row) => row.details?.totalBottles || (row.boxesProduced * row.bottlesPerBox) || 0 },
-            { key: 'labelUsed', label: 'Label Used', render: (row) => row.labelUsed?.bottleName || 'N/A' },
-            { key: 'capUsed', label: 'Cap Used', render: (row) => row.capUsed ? `${row.capUsed.size} ${row.capUsed.color}` : 'N/A' },
-            { key: 'productionDate', label: 'Production Date', render: (row) => new Date(row.productionDate).toLocaleDateString() },
-            { key: 'recordedBy', label: 'Recorded By', render: (row) => row.recordedBy?.name || 'N/A' }
+            { 
+              key: 'totalBottles', 
+              label: 'Total Bottles', 
+              render: (row) => {
+                // Check if details object exists and has totalBottles
+                if (row.details?.totalBottles) {
+                  return row.details.totalBottles;
+                }
+                // Fallback calculation
+                return (row.boxesProduced * row.bottlesPerBox) || 0;
+              }
+            },
+            { 
+              key: 'labelUsed', 
+              label: 'Label Used', 
+              render: (row) => {
+                // Check if labelUsed exists and has bottleName
+                if (row.labelUsed?.bottleName) {
+                  return `${row.labelUsed.bottleName} (${row.labelUsed.quantity || 0} used)`;
+                }
+                return 'N/A';
+              }
+            },
+            { 
+              key: 'capUsed', 
+              label: 'Cap Used', 
+              render: (row) => {
+                // Check if capUsed exists and has the properties
+                if (row.capUsed) {
+                  return `${row.capUsed.size || ''} ${row.capUsed.color || ''} ${row.capUsed.neckType || ''}`.trim() || 'N/A';
+                }
+                return 'N/A';
+              }
+            },
+            { 
+              key: 'productionDate', 
+              label: 'Production Date', 
+              render: (row) => new Date(row.productionDate).toLocaleDateString() 
+            },
+            { 
+              key: 'recordedBy', 
+              label: 'Recorded By', 
+              render: (row) => row.recordedBy?.name || 'N/A' 
+            },
+            { 
+              key: 'preformBatch', 
+              label: 'Preform Batch', 
+              render: (row) => {
+                // Check if preformBatchUsage exists and has data
+                if (row.details?.preformBatchUsage && row.details.preformBatchUsage.length > 0) {
+                  return row.details.preformBatchUsage.map(batch => 
+                    `Batch: ${batch.batchId} (${batch.quantityUsed} used)`
+                  ).join(', ');
+                }
+                return 'N/A';
+              }
+            },
+            { 
+              key: 'shrinkRollUsed', 
+              label: 'Shrink Roll Used', 
+              render: (row) => row.details?.shrinkRollUsed ? `${row.details.shrinkRollUsed} gm` : 'N/A'
+            }
           ]}
           filterOptions={[
             { key: 'bottleCategory', label: 'Bottle Category', type: 'text', placeholder: 'Enter bottle category...' }

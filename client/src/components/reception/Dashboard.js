@@ -250,17 +250,23 @@ const Navbar = () => {
           >
             Home
           </Link>
-          <Link
+          {/* <Link
             to="/attandance/reception"
             className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
           >
             Attendance
-          </Link>
+          </Link> */}
           <Link
             to="/total-users"
             className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
           >
             Total Users
+          </Link>
+          <Link
+            to="/create-order"
+            className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
+          >
+            Create Order
           </Link>
 
           {/* Orders Dropdown */}
@@ -273,12 +279,6 @@ const Navbar = () => {
             </button>
             {isDropdownOpen && (
               <div className="absolute mt-2 bg-teal-400 text-black rounded-lg shadow-lg w-48">
-                <Link
-                  to="/create-order"
-                  className="block px-4 py-2 hover:bg-teal-500"
-                >
-                  Create Order
-                </Link>
                 <Link
                   to="/pending-orders"
                   className="block px-4 py-2 hover:bg-teal-500"
