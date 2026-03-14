@@ -207,6 +207,7 @@ const DispatchComponent = () => {
         deliveryChoice: selectedOrder.deliveryChoice || "homeDelivery",
         shippingAddress: selectedOrder.shippingAddress || {},
         vehicleDetails: wizardData.vehicleDetails || [],
+        deliveryChargePerBox: wizardData.deliveryChargePerBox || [],
         receiverName:
           wizardData.receiverName ||
           selectedOrder.firmName ||
