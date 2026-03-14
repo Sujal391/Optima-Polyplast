@@ -33,8 +33,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       productCategory: p.product?.category || "N/A",
       boxes: p.boxes,
       originalBoxes: p.boxes,
-      pricePerBox: p.pricePerBox || p.product?.price || 0, // Use existing price or product price
-      originalPrice: p.pricePerBox || p.product?.price || 0, // Store original price for comparison
+      pricePerBox: p.pricePerBox || p.product?.price || 0,
+      originalPrice: p.pricePerBox || p.product?.price || 0,
       isNew: false,
     })) || []
   );
@@ -42,34 +42,9 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [orderEdited, setOrderEdited] = useState(false);
 
-  // --- Delivery Charge State (from PendingOrders) ---
-  const [deliveryCharge, setDeliveryCharge] = useState({
-    perBox: order?.deliveryChargePerBox || 0,
-    total: order?.deliveryCharge || 0,
-    isSet: order?.deliveryChargePerBox ? true : false,
-    loading: false,
-    error: ""
-  });
-
   // Recompute total from (possibly edited) orderProducts
   const totalOrderQty = orderProducts.reduce((acc, p) => acc + (p.boxes || 0), 0);
   const totalOrderValue = orderProducts.reduce((acc, p) => acc + ((p.boxes || 0) * (p.pricePerBox || 0)), 0);
-
-  // Update total delivery charge when perBox rate or quantity changes
-  useEffect(() => {
-    if (deliveryCharge.perBox > 0) {
-      const total = deliveryCharge.perBox * totalOrderQty;
-      setDeliveryCharge(prev => ({
-        ...prev,
-        total: total
-      }));
-    } else {
-      setDeliveryCharge(prev => ({
-        ...prev,
-        total: 0
-      }));
-    }
-  }, [deliveryCharge.perBox, totalOrderQty]);
 
   const [wizardData, setWizardData] = useState({
     splitInfo: {
@@ -91,17 +66,14 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
         mobileNo: order?.user?.customerDetails?.phone || "",
       },
     ],
+    deliveryChargePerBox: [0], // Array — one entry per challan
     receiverName: order?.firmName || order?.user?.name || "",
-    // Add delivery charge to wizard data for final submission
-    deliveryChargePerBox: deliveryCharge.perBox,
-    deliveryChargeTotal: deliveryCharge.total
   });
 
   const [quantityWarning, setQuantityWarning] = useState("");
 
   const steps = [
     { title: "Edit Order", description: "Modify order products, quantities & prices" },
-    { title: "Delivery Charge", description: "Add delivery charge per box" },
     { title: "Challan Generation", description: "Split order & delivery details" },
   ];
 
@@ -112,48 +84,11 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     }
   }, [isEditingOrder]);
 
-  // Update wizardData when delivery charge changes
-  useEffect(() => {
-    setWizardData(prev => ({
-      ...prev,
-      deliveryChargePerBox: deliveryCharge.perBox,
-      deliveryChargeTotal: deliveryCharge.total
-    }));
-  }, [deliveryCharge.perBox, deliveryCharge.total]);
-
-  const fetchAvailableProducts = async () => {
-    try {
-      setLoadingProducts(true);
-      setProductsError(null);
-      const response = await api.get("/dispatch/products");
-      
-      // Ensure response.data is an array
-      const products = Array.isArray(response.data) ? response.data : 
-                      (response.data?.data && Array.isArray(response.data.data)) ? response.data.data :
-                      response.data?.products && Array.isArray(response.data.products) ? response.data.products :
-                      [];
-      
-      setAvailableProducts(products);
-      
-      if (products.length === 0) {
-        setProductsError("No products available");
-      }
-    } catch (error) {
-      setProductsError("Failed to fetch products");
-      toast.error("Failed to fetch products");
-      console.error("Error fetching products:", error);
-      setAvailableProducts([]); // Ensure it's an empty array on error
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
-
   // Keep splitInfo in sync when totalOrderQty changes after save
   useEffect(() => {
     setWizardData((prev) => {
       const num = prev.splitInfo.numberOfChallans;
       const newQuantities = [...prev.splitInfo.quantities];
-      // Recalculate last challan's quantity
       const filledQty = newQuantities.slice(0, num - 1).reduce((acc, q) => acc + (q || 0), 0);
       newQuantities[num - 1] = Math.max(totalOrderQty - filledQty, 0);
       return {
@@ -178,66 +113,33 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     return true;
   };
 
-  /** -----------------------------------------------------------
-   * DELIVERY CHARGE FUNCTIONS (from PendingOrders)
-   * ----------------------------------------------------------- */
-  const addDeliveryCharge = async () => {
-    const charge = parseFloat(deliveryCharge.perBox);
-
-    if (isNaN(charge) || charge < 0) {
-      setDeliveryCharge(prev => ({
-        ...prev,
-        error: 'Please enter a valid delivery charge per box (₹).'
-      }));
-      return false;
-    }
-
-    setDeliveryCharge(prev => ({ ...prev, loading: true, error: "" }));
-
+  const fetchAvailableProducts = async () => {
     try {
-      const res = await api.post("/dispatch/orders/add-delivery-charge", {
-        orderId: order._id,
-        deliveryChargePerBox: charge,
-      });
+      setLoadingProducts(true);
+      setProductsError(null);
+      const response = await api.get("/dispatch/products");
 
-      toast.success(res.data?.message || "Delivery Charge Added Successfully!");
-      setDeliveryCharge(prev => ({ 
-        ...prev, 
-        isSet: true,
-        loading: false,
-        error: ""
-      }));
-      
-      // Update the order object with new delivery charge
-      order.deliveryChargePerBox = charge;
-      order.deliveryCharge = deliveryCharge.total;
-      
-      return true;
-    } catch (err) {
-      const errorMsg = err.response?.data?.error || err.response?.data?.message || "Error adding delivery charge";
-      setDeliveryCharge(prev => ({ 
-        ...prev, 
-        error: errorMsg,
-        loading: false 
-      }));
-      return false;
+      const products = Array.isArray(response.data) ? response.data :
+        (response.data?.data && Array.isArray(response.data.data)) ? response.data.data :
+          response.data?.products && Array.isArray(response.data.products) ? response.data.products :
+            [];
+
+      setAvailableProducts(products);
+      if (products.length === 0) setProductsError("No products available");
+    } catch (error) {
+      setProductsError("Failed to fetch products");
+      toast.error("Failed to fetch products");
+      console.error("Error fetching products:", error);
+      setAvailableProducts([]);
+    } finally {
+      setLoadingProducts(false);
     }
-  };
-
-  const handleDeliveryChargeChange = (value) => {
-    setDeliveryCharge(prev => ({
-      ...prev,
-      perBox: value,
-      error: ''
-    }));
   };
 
   /** -----------------------------------------------------------
    * SAVE EDITED ORDER PRODUCTS via PATCH /dispatch/orders/:id/edit
-   * Now includes pricePerBox in the payload
    * ----------------------------------------------------------- */
   const handleSaveOrderEdit = async () => {
-    // Basic validation: no product can have 0 boxes or invalid price
     const invalid = orderProducts.some((p) => !p.boxes || p.boxes <= 0);
     if (invalid) {
       toast.error("All products must have at least 1 box.");
@@ -246,38 +148,30 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
     try {
       setIsSavingOrder(true);
-      
-      // Prepare payload with price information
-      // If price hasn't changed, we can either send it or not - backend should handle default
+
       const payload = {
         products: orderProducts.map((p) => {
           const productPayload = {
             productId: p.productId,
             boxes: p.boxes,
           };
-          
-          // Only include pricePerBox if it has been modified from original
-          // Or always include it based on your backend requirements
-          // The updated payload shows both formats are accepted
           if (p.pricePerBox !== p.originalPrice) {
             productPayload.pricePerBox = p.pricePerBox;
           }
-          
           return productPayload;
         }),
       };
-      
+
       await api.patch(`/dispatch/orders/${order._id}/edit`, payload);
       toast.success("Order products updated successfully!");
       setIsEditingOrder(false);
       setOrderEdited(true);
-      // Update originalBoxes and originalPrice to reflect saved state
       setOrderProducts((prev) =>
-        prev.map((p) => ({ 
-          ...p, 
+        prev.map((p) => ({
+          ...p,
           originalBoxes: p.boxes,
           originalPrice: p.pricePerBox,
-          isNew: false 
+          isNew: false,
         }))
       );
     } catch (error) {
@@ -288,12 +182,11 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   };
 
   const handleCancelOrderEdit = () => {
-    // Revert to original boxes/prices and remove new products
     setOrderProducts((prev) =>
-      prev.filter((p) => !p.isNew).map((p) => ({ 
-        ...p, 
+      prev.filter((p) => !p.isNew).map((p) => ({
+        ...p,
         boxes: p.originalBoxes,
-        pricePerBox: p.originalPrice 
+        pricePerBox: p.originalPrice,
       }))
     );
     setIsEditingOrder(false);
@@ -325,21 +218,18 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       toast.error("Invalid product selected");
       return;
     }
-
-    // Check if product already exists
-    const exists = orderProducts.some(p => p.productId === product._id);
+    const exists = orderProducts.some((p) => p.productId === product._id);
     if (exists) {
       toast.error("Product already added to order");
       return;
     }
-
     const newProduct = {
       productId: product._id,
       productName: product.name || "Unknown Product",
       productCategory: product.category || "Unknown Category",
       boxes: 1,
       originalBoxes: 0,
-      pricePerBox: product.price || 0, // Default price from admin
+      pricePerBox: product.price || 0,
       originalPrice: product.price || 0,
       isNew: true,
     };
@@ -357,8 +247,9 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     const currentQuantities = [...wizardData.splitInfo.quantities];
     const currentDates = [...wizardData.scheduledDates];
     const currentVehicles = [...wizardData.vehicleDetails];
+    const currentDeliveryCharges = [...wizardData.deliveryChargePerBox];
 
-    let newQuantities, newDates, newVehicles;
+    let newQuantities, newDates, newVehicles, newDeliveryCharges;
 
     if (num > currentQuantities.length) {
       newQuantities = [...currentQuantities, ...Array(num - currentQuantities.length).fill(0)];
@@ -371,10 +262,12 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
           mobileNo: order?.user?.customerDetails?.phone || "",
         }),
       ];
+      newDeliveryCharges = [...currentDeliveryCharges, ...Array(num - currentDeliveryCharges.length).fill(0)];
     } else {
       newQuantities = currentQuantities.slice(0, num);
       newDates = currentDates.slice(0, num);
       newVehicles = currentVehicles.slice(0, num);
+      newDeliveryCharges = currentDeliveryCharges.slice(0, num);
     }
 
     const filledQty = newQuantities.slice(0, num - 1).reduce((acc, qty) => acc + (qty || 0), 0);
@@ -385,6 +278,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       splitInfo: { numberOfChallans: num, quantities: newQuantities },
       scheduledDates: newDates,
       vehicleDetails: newVehicles,
+      deliveryChargePerBox: newDeliveryCharges,
     });
   };
 
@@ -414,6 +308,13 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     });
   };
 
+  const handleDeliveryChargePerBoxChange = (index, value) => {
+    const num = parseFloat(value) || 0;
+    const newCharges = [...wizardData.deliveryChargePerBox];
+    newCharges[index] = num;
+    setWizardData({ ...wizardData, deliveryChargePerBox: newCharges });
+  };
+
   const handleVehicleChange = (index, field, value) => {
     const newVehicles = [...wizardData.vehicleDetails];
     newVehicles[index] = { ...newVehicles[index], [field]: value };
@@ -434,13 +335,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       toast.error("Please save or cancel your order edits before proceeding.");
       return false;
     }
-    if (step === 1) { // Delivery Charge Step
-      if (!deliveryCharge.perBox || deliveryCharge.perBox <= 0) {
-        toast.error("Please add a delivery charge per box");
-        return false;
-      }
-    }
-    if (step === 2) { // Challan Generation Step
+    if (step === 1) {
       if (!validateQuantities()) {
         toast.error("Please ensure total quantity matches order quantity");
         return false;
@@ -453,6 +348,10 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
         toast.error("Please fill vehicle details for all challans");
         return false;
       }
+      if (wizardData.deliveryChargePerBox.some((c) => c === "" || c === null || c === undefined || isNaN(c) || c < 0)) {
+        toast.error("Please enter a valid delivery charge per box for all challans");
+        return false;
+      }
       if (!wizardData.receiverName.trim()) {
         toast.error("Please enter receiver name");
         return false;
@@ -461,15 +360,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     return true;
   };
 
-  const handleNext = async () => {
-    if (currentStep === 1) {
-      // If it's delivery charge step, save to backend first
-      if (!deliveryCharge.isSet || deliveryCharge.perBox !== parseFloat(wizardData.deliveryChargePerBox)) {
-        const success = await addDeliveryCharge();
-        if (!success) return;
-      }
-    }
-    
+  const handleNext = () => {
     if (validateStep(currentStep)) {
       setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
     }
@@ -485,9 +376,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       deliveryChoice: wizardData.deliveryChoice,
       shippingAddress: wizardData.shippingAddress,
       vehicleDetails: wizardData.vehicleDetails,
-      receiverName: wizardData.receiverName,
       deliveryChargePerBox: wizardData.deliveryChargePerBox,
-      deliveryChargeTotal: wizardData.deliveryChargeTotal,
+      receiverName: wizardData.receiverName,
     });
   };
 
@@ -528,17 +418,15 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
         {/* Step Content */}
         <div className="px-6 py-6 min-h-[400px]">
 
-          {/* ─── STEP 0: Edit Order Products with Price ─── */}
+          {/* ─── STEP 0: Edit Order Products ─── */}
           {currentStep === 0 && (
             <div className="space-y-6">
-
-              {/* Order Products Edit Section */}
               <div className="border border-gray-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between bg-gray-50 px-4 py-3 border-b border-gray-200">
                   <div>
                     <h3 className="text-base font-semibold text-gray-800">Order Products</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      Total: <span className="font-medium text-blue-600">{totalOrderQty} boxes</span> | 
+                      Total: <span className="font-medium text-blue-600">{totalOrderQty} boxes</span> |
                       Value: <span className="font-medium text-green-600">₹{totalOrderValue.toFixed(2)}</span>
                       {orderEdited && (
                         <span className="ml-2 text-green-600 font-medium">✓ Saved</span>
@@ -591,9 +479,9 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                       <select
                         className="w-full p-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
                         onChange={(e) => {
-                          const product = availableProducts.find(p => p._id === e.target.value);
+                          const product = availableProducts.find((p) => p._id === e.target.value);
                           if (product) handleAddProduct(product);
-                          e.target.value = ""; // Reset select
+                          e.target.value = "";
                         }}
                         value=""
                       >
@@ -610,9 +498,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
                 <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
                   {orderProducts.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-gray-500">
-                      No products in order
-                    </div>
+                    <div className="px-4 py-8 text-center text-gray-500">No products in order</div>
                   ) : (
                     orderProducts.map((product, index) => (
                       <div
@@ -693,111 +579,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* ─── STEP 1: Delivery Charge (from PendingOrders) ─── */}
+          {/* ─── STEP 1: Challan Split + Vehicle Details + Delivery Charge Per Challan ─── */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                  <h3 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-                    <FaTruck className="text-blue-600" />
-                    Delivery Charge
-                  </h3>
-                </div>
-
-                <div className="p-6">
-                  {/* Order Summary */}
-                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Order Summary</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500">Order ID</p>
-                        <p className="font-mono font-medium">{order?.orderId || order?._id}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Customer</p>
-                        <p className="font-medium">{order?.user?.name || "N/A"}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Total Products</p>
-                        <p className="font-medium">{orderProducts.length} items</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Total Boxes</p>
-                        <p className="font-medium">{totalOrderQty} boxes</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Delivery Charge Input */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Delivery Charge per Box (₹)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={deliveryCharge.perBox}
-                        onChange={(e) => handleDeliveryChargeChange(e.target.value)}
-                        placeholder="Enter charge per box"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        disabled={deliveryCharge.loading}
-                      />
-                    </div>
-
-                    {/* Calculation Preview */}
-                    {deliveryCharge.perBox > 0 && (
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <h4 className="text-sm font-medium text-blue-800 mb-2">Charge Calculation</h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-blue-700">Per Box Rate:</span>
-                            <span className="font-medium">₹{parseFloat(deliveryCharge.perBox).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-blue-700">Total Boxes:</span>
-                            <span className="font-medium">{totalOrderQty}</span>
-                          </div>
-                          <div className="border-t border-blue-200 pt-2 mt-2">
-                            <div className="flex justify-between font-bold">
-                              <span className="text-blue-800">Total Delivery Charge:</span>
-                              <span className="text-blue-800">₹{deliveryCharge.total.toFixed(2)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Error Message */}
-                    {deliveryCharge.error && (
-                      <div className="p-3 bg-red-100 text-red-700 rounded-lg">
-                        {deliveryCharge.error}
-                      </div>
-                    )}
-
-                    {/* Info Message */}
-                    <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
-                      <FaExclamationTriangle className="inline mr-1 text-yellow-500" />
-                      This charge will be multiplied by the total number of boxes ({totalOrderQty}) in the order.
-                      The total delivery charge will be added to the order total.
-                    </p>
-
-                    {/* Success Message */}
-                    {deliveryCharge.isSet && (
-                      <div className="p-3 bg-green-100 text-green-700 rounded-lg flex items-center gap-2">
-                        <FaCheck size={14} />
-                        Delivery charge has been set successfully!
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ─── STEP 2: Challan Split + Vehicle Details (unchanged) ─── */}
-          {currentStep === 2 && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Challan Generation</h3>
@@ -812,9 +595,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Total order quantity: <strong>{totalOrderQty} boxes</strong> | 
-                    Total value: <strong>₹{totalOrderValue.toFixed(2)}</strong> |
-                    Delivery charge: <strong>₹{deliveryCharge.total.toFixed(2)}</strong>
+                    Total order quantity: <strong>{totalOrderQty} boxes</strong> |
+                    Total value: <strong>₹{totalOrderValue.toFixed(2)}</strong>
                     {orderEdited && <span className="ml-1 text-green-600">(updated)</span>}
                   </p>
                 </div>
@@ -829,6 +611,10 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                 <div className="space-y-4">
                   {Array.from({ length: wizardData.splitInfo.numberOfChallans }).map((_, idx) => {
                     const isLastRow = idx === wizardData.splitInfo.numberOfChallans - 1;
+                    const challanQty = wizardData.splitInfo.quantities[idx] || 0;
+                    const challanCharge = wizardData.deliveryChargePerBox[idx] || 0;
+                    const challanDeliveryTotal = challanQty * challanCharge;
+
                     return (
                       <div key={idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                         <h4 className="font-semibold text-gray-700 mb-3">Challan {idx + 1}</h4>
@@ -847,6 +633,25 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                                 isLastRow ? "bg-gray-100 cursor-not-allowed" : ""
                               }`}
                             />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">
+                              Delivery Charge / Box (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={wizardData.deliveryChargePerBox[idx] ?? ""}
+                              onChange={(e) => handleDeliveryChargePerBoxChange(idx, e.target.value)}
+                              placeholder="e.g. 5"
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                            />
+                            {challanCharge > 0 && (
+                              <p className="text-xs text-blue-600 mt-1">
+                                Total delivery: ₹{challanDeliveryTotal.toFixed(2)} ({challanQty} boxes × ₹{challanCharge})
+                              </p>
+                            )}
                           </div>
                           <div>
                             <label className="block text-sm text-gray-700 mb-1">Delivery Date</label>

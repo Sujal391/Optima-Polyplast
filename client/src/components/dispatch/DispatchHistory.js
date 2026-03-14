@@ -194,7 +194,7 @@ const DispatchComponent = () => {
                   <th className="py-2 px-4 border-b">Customer</th>
                   <th className="py-2 px-4 border-b">Firm Name</th>
                   <th className="py-2 px-4 border-b">Total Boxes</th>
-                  <th className="py-2 px-4 border-b">Total Amount</th>
+                  <th className="py-2 px-4 border-b">Total Amount With Delivery</th>
                   <th className="py-2 px-4 border-b">Order Status</th>
                   <th className="py-2 px-4 border-b">Payment</th>
                   <th className="py-2 px-4 border-b">Created By</th>
