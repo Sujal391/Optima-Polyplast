@@ -5,14 +5,13 @@ import { Trash2 } from 'lucide-react';
 
 // 👉 API imports
 import {
-  recordBottleProduction,
-  getAvailablePreformTypes,
-  getCaps,
+  getBottleProductionCategories,
   getLabels,
+  getCaps,
   checkMaterialAvailability,
-  getBottleProductions,
   recordWastage,
-  getBottleProductionCategories
+  recordBottleProduction,
+  getBottleProductions
 } from '../../../services/api/stock';
 
 // Debounce hook
@@ -108,18 +107,27 @@ export default function BottleProduction() {
     await checkAvailability();
   }, 800); // 800ms delay
 
-  // 🔹 Load Preform Types, Caps, Labels on Mount
+  // 🔹 Load Caps and Labels on Mount
   useEffect(() => {
     async function loadDropdowns() {
       try {
-        const pf = await getAvailablePreformTypes();
-        setPreformTypes(pf?.data || []);
-
         const capsRes = await getCaps();
-        setCaps(capsRes?.data || []);
+        if (Array.isArray(capsRes?.data)) {
+          setCaps(capsRes.data);
+        } else if (Array.isArray(capsRes)) {
+          setCaps(capsRes);
+        } else {
+          setCaps([]);
+        }
 
         const labelsRes = await getLabels();
-        setLabels(labelsRes?.data || []);
+        if (Array.isArray(labelsRes?.data)) {
+          setLabels(labelsRes.data);
+        } else if (Array.isArray(labelsRes)) {
+          setLabels(labelsRes);
+        } else {
+          setLabels([]);
+        }
 
       } catch (err) {
         console.error('Dropdown load failed', err);
@@ -132,22 +140,31 @@ export default function BottleProduction() {
   // 🔹 Load Bottle Categories
   useEffect(() => {
     const loadBottleCategories = async () => {
-      setLoadingCategories(true);
-      try {
-        const categoriesRes = await getBottleProductionCategories();
-        
-        if (categoriesRes?.status && categoriesRes?.data) {
-          setCategories(categoriesRes.data || []);
-        } else {
-          console.warn('No categories data received');
-        }
-      } catch (error) {
-        console.error('Failed to load bottle categories:', error);
-        setError('Failed to load bottle categories. Please refresh the page.');
-      } finally {
-        setLoadingCategories(false);
+  setLoadingCategories(true);
+  try {
+    const categoriesRes = await getBottleProductionCategories();
+
+    console.log("API Response:", categoriesRes);
+
+    if (categoriesRes?.status && categoriesRes.data) {
+      if (Array.isArray(categoriesRes.data.bottleCategories)) {
+        setCategories(categoriesRes.data.bottleCategories);
       }
-    };
+      if (Array.isArray(categoriesRes.data.preformTypes)) {
+        setPreformTypes(categoriesRes.data.preformTypes);
+      }
+    } else {
+      console.warn('Invalid categories format:', categoriesRes);
+      setCategories([]);
+    }
+
+  } catch (error) {
+    console.error('Failed to load bottle categories:', error);
+    setError('Failed to load bottle categories. Please refresh the page.');
+  } finally {
+    setLoadingCategories(false);
+  }
+};
 
     loadBottleCategories();
   }, []);
@@ -332,6 +349,20 @@ export default function BottleProduction() {
 
   const handleBottleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Auto-fill bottlesPerBox when category is selected
+    if (name === 'bottleCategoryId' && value) {
+      const selectedCat = categories.find(c => c._id === value);
+      if (selectedCat && selectedCat.bottlesPerBox) {
+        setBottleInput(prev => ({ 
+          ...prev, 
+          [name]: value,
+          bottlesPerBox: selectedCat.bottlesPerBox.toString()
+        }));
+        return;
+      }
+    }
+    
     setBottleInput(prev => ({ ...prev, [name]: value }));
   };
 
@@ -354,6 +385,7 @@ export default function BottleProduction() {
       bottles: [...prev.bottles, {
         bottleCategoryId: bottleInput.bottleCategoryId,
         categoryName: cat?.name || 'Unknown',
+        categorySize: cat?.category || '',
         boxesProduced: parseInt(bottleInput.boxesProduced, 10),
         bottlesPerBox: parseInt(bottleInput.bottlesPerBox, 10),
         labelId: bottleInput.labelId,
@@ -482,8 +514,8 @@ export default function BottleProduction() {
             >
               <option value="">Select Preform</option>
               {preformTypes.map((p) => (
-                <option key={p.preformTypeId} value={p.preformTypeId}>
-                  {p.type} (Available: {p.totalAvailable})
+                <option key={p._id || p.preformTypeId} value={p._id || p.preformTypeId}>
+                  {p.name || p.type} {p.totalAvailable !== undefined ? `(Available: ${p.totalAvailable})` : ''}
                 </option>
               ))}
             </select>
@@ -586,7 +618,7 @@ export default function BottleProduction() {
                 {formData.bottles.map((bottle, index) => (
                   <div key={index} className="flex justify-between items-center bg-white p-3 rounded border border-blue-200">
                     <span className="text-sm text-gray-800">
-                      <strong>{bottle.categoryName}</strong> | {bottle.boxesProduced} Boxes x {bottle.bottlesPerBox} 
+                      <strong>{bottle.categoryName} {bottle.categorySize ? `- ${bottle.categorySize}` : ''}</strong> | {bottle.boxesProduced} Boxes x {bottle.bottlesPerBox} 
                       | Label: {bottle.labelName} | Cap: {bottle.capName}
                     </span>
                     <button onClick={() => handleRemoveBottle(index)} className="text-red-500 hover:text-red-700">
@@ -694,7 +726,7 @@ export default function BottleProduction() {
                   {/* Preforms */}
                   {availability.availability.preforms && (
                     <MaterialCard
-                      title="Preforms"
+                      title={`Preforms (${availability.availability.preforms.type || 'N/A'})`}
                       icon="🔹"
                       data={availability.availability.preforms}
                       required={availability.requirements?.preforms}
@@ -731,7 +763,7 @@ export default function BottleProduction() {
                   {/* Labels */}
                   {availability.availability.labels && (
                     <MaterialCard
-                      title="Labels"
+                      title={`Labels (${availability.availability.labels.name} - ${availability.availability.labels.category})`}
                       icon="🏷️"
                       data={{
                         available: availability.availability.labels.available,
