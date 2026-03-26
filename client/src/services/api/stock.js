@@ -865,3 +865,61 @@ export const exportWastageReport = async (params = {}) => {
     throw error.response?.data || error;
   }
 };
+
+// ============ PREFORM TYPE MANAGEMENT APIs ============
+
+/**
+ * Get all preform types
+ * GET /stock/preform-type/
+ */
+export const getPreformTypeList = async () => {
+  try {
+    const response = await apiClient.get('stock/preform-type/');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+/**
+ * Add a new preform type
+ * POST /stock/preform-type/add
+ * @param {Object} data - { name, description? }
+ */
+export const addPreformType = async (data) => {
+  try {
+    const response = await apiClient.post('stock/preform-type/add', data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+/**
+ * Update a preform type
+ * PATCH /stock/preform-type/:id
+ * @param {string} id
+ * @param {Object} data - { name?, description? }
+ */
+export const updatePreformType = async (id, data) => {
+  try {
+    const response = await apiClient.patch(`stock/preform-type/${id}`, data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+/**
+ * Delete a preform type
+ * DELETE /stock/preform-type/:id
+ * @param {string} id
+ */
+export const deletePreformType = async (id) => {
+  try {
+    const response = await apiClient.delete(`stock/preform-type/${id}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};

@@ -1,10 +1,9 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { faEdit,faTrashCan } from "@fortawesome/free-solid-svg-icons";
 
 // Layout components
-import Header from './components/layout/Header';
 import AuthLayout from './components/layout/AuthLayout';
 import PrivateRoute from './components/layout/PrivateRoute';
 
@@ -16,7 +15,6 @@ import ForgotPassword from './components/auth/ForgotPassword';
 import AdminDashboard from './components/admin/Dashboard';
 import AdminMarketing from './components/admin/Marketing';
 import UploadBanner from './components/admin/UploadBanner';
-import AdminAttendance from './components/admin/AdminAttendance';
 import UserList from './components/admin/UserList';
 import CreateUser from './components/admin/CreateUser';
 import TotalUser from './components/reception/TotalUser';
@@ -29,9 +27,6 @@ import PaymentReport from './components/admin/PaymentReport';
 
 // Reception Panel Components
 import ReceptionDashboard from './components/reception/Dashboard';
-import ReceptionAttendance from './components/reception/Attendance';
-// import DeliveryCharge from './components/reception/DeliveryCharge';
-import PendingOrder from './components/reception/PendingOrder';
 import CreateOrder from './components/reception/CreateOrder';
 import TotalOrder from './components/reception/TotalOrder';
 import ReceptionPendingPayment from './components/reception/PendingPayment';
@@ -39,42 +34,32 @@ import ReceptionPartialPayment from './components/reception/PartialPayment';
 
 // Dispatch Panel Components
 import DispatchDashboard from './components/dispatch/Dashboard';
-import DispatchAttendance from './components/dispatch/Attendance';
 import DispatchList from './components/dispatch/DispatchList';
 import DispatchHistory from './components/dispatch/DispatchHistory';
 import ChallanHistory from './components/dispatch/ChallanHistory';
-import PendingPayment from './components/dispatch/PendingPayment';
 
 // Stock Panel Components
 import StockDashboard from './components/stock/Dashboard';
-import StockAttendance from './components/stock/Attendance';
 import StockList from './components/admin/StockList';
 import AddStock from './components/stock/Stock';
 import RawMaterial from './components/stock/RawMaterial';
 import Labels from './components/stock/Labels';
 import Caps from './components/stock/Caps';
+import PreformTypes from './components/stock/PreformTypes';
 import Production from './components/stock/Production/Production';
 import Outcome from './components/stock/Outcome';
 import Wastage from './components/stock/Wastage';
 import DirectUsage from './components/stock/Production/DirectUsage';
 import Reports from './components/stock/Report/Reports';
 
+// Sales Panel Components
+import SalesDashboard from './components/sales/Dashboard';
+import SalesOrders from './components/sales/SalesOrders';
+
 // Shared Components
 import ProductList from './components/admin/ProductList';
 
 library.add(faEdit, faTrashCan);
-
-// Conditional Header rendering (only for admin routes)
-function HeaderWithConditionalRender() {
-  const location = useLocation();
-  const publicPaths = ['/', '/ForgotPassword'];
-  
-  if (publicPaths.includes(location.pathname)) {
-    return null;
-  }
-
-  return <Header />;
-}
 
 function App() {
   return (
@@ -87,7 +72,6 @@ function App() {
         {/* Admin Panel Routes */}
         <Route path="/admin/dashboard" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <AdminDashboard />
             </AuthLayout>
@@ -95,7 +79,6 @@ function App() {
         }/>
         <Route path="/users" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <UserList />
             </AuthLayout>
@@ -103,7 +86,6 @@ function App() {
         }/>
         <Route path="/orders" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <OrderList />
             </AuthLayout>
@@ -111,23 +93,13 @@ function App() {
         }/>
         <Route path="/PaymentReport" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <PaymentReport />
             </AuthLayout>
           </PrivateRoute>
         }/>
-        <Route path="/attandance" element={
-          <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
-            <AuthLayout>
-              <AdminAttendance />
-            </AuthLayout>
-          </PrivateRoute>
-        }/>
         <Route path="/createUser" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <CreateUser />
             </AuthLayout>
@@ -135,7 +107,6 @@ function App() {
         }/>
         <Route path="/upload-banner" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <UploadBanner />
             </AuthLayout>
@@ -143,7 +114,6 @@ function App() {
         }/>
         <Route path="/categories" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <CategoryManagement />
             </AuthLayout>
@@ -151,7 +121,6 @@ function App() {
         }/>
         <Route path="/formulas" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <FormulaManagement />
             </AuthLayout>
@@ -159,7 +128,6 @@ function App() {
         }/>
         <Route path="/export-reports" element={
           <PrivateRoute allowedRoles={['admin']}>
-            <HeaderWithConditionalRender />
             <AuthLayout>
               <ReportsExport />
             </AuthLayout>
@@ -190,30 +158,6 @@ function App() {
             </AuthLayout>
           </PrivateRoute>
         }/>
-        <Route path="/attandance/reception" element={
-          <PrivateRoute allowedRoles={['reception']}>
-            <AuthLayout>
-              <ReceptionDashboard />
-              <ReceptionAttendance />
-            </AuthLayout>
-          </PrivateRoute>
-        }/>
-        <Route path="/pending-orders" element={
-          <PrivateRoute allowedRoles={['reception']}>
-            <AuthLayout>
-              <ReceptionDashboard />
-              <PendingOrder />
-            </AuthLayout>
-          </PrivateRoute>
-        }/>
-        {/* <Route path="/add-delivery-charges" element={
-          <PrivateRoute allowedRoles={['reception']}>
-            <AuthLayout>
-              <ReceptionDashboard />
-              <DeliveryCharge />
-            </AuthLayout>
-          </PrivateRoute>
-        }/> */}
         <Route path="/create-order" element={
           <PrivateRoute allowedRoles={['reception']}>
             <AuthLayout>
@@ -244,14 +188,6 @@ function App() {
           <PrivateRoute allowedRoles={['stock']}>
             <AuthLayout>
               <StockDashboard />
-            </AuthLayout>
-          </PrivateRoute>
-        }/>
-        <Route path="/attandance/stock" element={
-          <PrivateRoute allowedRoles={['stock']}>
-            <AuthLayout>
-              <StockDashboard />
-              <StockAttendance />
             </AuthLayout>
           </PrivateRoute>
         }/>
@@ -292,6 +228,14 @@ function App() {
             <AuthLayout>
               <StockDashboard />
               <Caps />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/stock/preform-types" element={
+          <PrivateRoute allowedRoles={['stock']}>
+            <AuthLayout>
+              <StockDashboard />
+              <PreformTypes />
             </AuthLayout>
           </PrivateRoute>
         }/>
@@ -344,14 +288,6 @@ function App() {
             </AuthLayout>
           </PrivateRoute>
         }/>
-        <Route path="/dispatch/attandance" element={
-          <PrivateRoute allowedRoles={['dispatch']}>
-            <AuthLayout>
-              <DispatchDashboard />
-              <DispatchAttendance />
-            </AuthLayout>
-          </PrivateRoute>
-        }/>
         <Route path="/dispatch/processing-orders" element={
           <PrivateRoute allowedRoles={['dispatch']}>
             <AuthLayout>
@@ -376,11 +312,20 @@ function App() {
             </AuthLayout>
           </PrivateRoute>
         }/>
-        <Route path="/dispatch/pending-payment" element={
-          <PrivateRoute allowedRoles={['dispatch']}>
+
+        {/* Sales Panel Routes */}
+        <Route path="/sales/dashboard" element={
+          <PrivateRoute allowedRoles={['sales']}>
             <AuthLayout>
-              <DispatchDashboard />
-              <PendingPayment />
+              <SalesDashboard />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/sales/orders" element={
+          <PrivateRoute allowedRoles={['sales']}>
+            <AuthLayout>
+              <SalesDashboard />
+              <SalesOrders />
             </AuthLayout>
           </PrivateRoute>
         }/>
@@ -388,7 +333,6 @@ function App() {
         {/* Shared Routes with Role Restrictions */}
         <Route path="/order" element={
           <PrivateRoute allowedRoles={['admin', 'reception']}>
-            {['admin'].some(role => ['admin', 'reception'].includes(role)) && <HeaderWithConditionalRender />}
             <AuthLayout>
               <OrderList />
             </AuthLayout>
@@ -396,7 +340,6 @@ function App() {
         }/>
         <Route path="/product" element={
           <PrivateRoute allowedRoles={['admin', 'stock']}>
-            {['admin'].some(role => ['admin', 'stock'].includes(role)) && <HeaderWithConditionalRender />}
             <AuthLayout>
               <ProductList />
             </AuthLayout>
@@ -404,7 +347,6 @@ function App() {
         }/>
         <Route path="/stock" element={
           <PrivateRoute allowedRoles={['admin', 'stock']}>
-            {['admin'].some(role => ['admin', 'stock'].includes(role)) && <HeaderWithConditionalRender />}
             <AuthLayout>
               <StockList />
             </AuthLayout>
@@ -412,7 +354,6 @@ function App() {
         }/>
         <Route path="/raw-material-summary" element={
           <PrivateRoute allowedRoles={['admin']}>
-            {['admin'].some(role => ['admin'].includes(role)) && <HeaderWithConditionalRender />}
             <AuthLayout>
               <RawMaterialSummary />
             </AuthLayout>
@@ -420,7 +361,6 @@ function App() {
         }/>
         <Route path="/marketing" element={
           <PrivateRoute allowedRoles={['admin', 'marketing']}>
-            {['admin'].some(role => ['admin', 'marketing'].includes(role)) && <HeaderWithConditionalRender />}
             <AuthLayout>
               <AdminMarketing />
             </AuthLayout>

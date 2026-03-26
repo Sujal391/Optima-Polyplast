@@ -1,245 +1,338 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import axios from 'axios';
-import profile from '../../assets/profiles.jpg';
-import img from '../../assets/logo1.png';
-import cookies from 'js-cookie';
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import axios from "axios";
+import {
+  Menu, X, ChevronDown, LogOut, Home, Layers, Flame, Package,
+  Tag, LayoutGrid, BarChart2, ClipboardList, Inbox,
+} from "lucide-react";
+import profile from "../../assets/profiles.jpg";
+import img from "../../assets/logo1.png";
+import cookies from "js-cookie";
+
+const api = axios.create({ baseURL: process.env.REACT_APP_API });
+api.interceptors.request.use(
+  (config) => {
+    const token = cookies.get("token");
+    if (token) {
+      config.headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Navigation structure
+const navLinks = [
+  { to: "/stock/dashboard",  label: "Home",       icon: Home },
+  { to: "/stock/production", label: "Production",  icon: Flame },
+  { to: "/stock/wastage",    label: "Wastage",     icon: Layers },
+];
+
+const stockDropdown = [
+  { to: "/stock/raw-material",  label: "Raw Material", icon: Inbox },
+  { to: "/stock/bottles-caps",  label: "Bottles",      icon: Package },
+  { to: "/stock/labels",        label: "Labels",       icon: Tag },
+  { to: "/stock/caps",          label: "Caps",         icon: LayoutGrid },
+  { to: "/stock/preform-types", label: "Preforms",     icon: Layers },
+  { to: "/stock/outcome",       label: "Outcome",      icon: ClipboardList },
+];
 
 const Navbar = () => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isStockDropdownOpen, setIsStockDropdownOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profileData, setProfileData] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen]     = useState(false);
+  const [isProfileOpen, setIsProfileOpen]       = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profileData, setProfileData]           = useState(null);
   const dropdownRef = useRef(null);
-  const stockDropdownRef = useRef(null);
-  const profileRef = useRef(null);
-  const location = useLocation();
-
-  // const api = axios.create({
-  //   baseURL: 'https://rewa-project.onrender.com/api',
-  // });
-
-  const api = axios.create({
-    baseURL: process.env.REACT_APP_API,
-  });
-
-  api.interceptors.request.use(
-    (config) => {
-      // const token = localStorage.getItem('token');
-      const token = cookies.get("token");
-      if (token) {
-        config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
+  const profileRef  = useRef(null);
+  const location    = useLocation();
 
   useEffect(() => {
-    const fetchProfileData = async () => {
+    const fetchProfile = async () => {
       try {
-        // const token = localStorage.getItem('token');
-      const token = cookies.get("token");
-        if (!token) {
-          window.location.href = '/login';
-          return;
-        }
-        const response = await api.get('/auth/profile');
-        setProfileData(response.data);
+        const token = cookies.get("token");
+        if (!token) { window.location.href = "/login"; return; }
+        const res = await api.get("/auth/profile");
+        setProfileData(res.data);
       } catch (err) {
-        console.error('Error fetching profile:', err);
+        console.error("Error fetching profile:", err);
       }
     };
-    fetchProfileData();
+    fetchProfile();
   }, []);
 
-  // Click outside handler for dropdown and profile modal
+  // Close dropdown / profile on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-      if (stockDropdownRef.current && !stockDropdownRef.current.contains(event.target)) {
-        setIsStockDropdownOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setIsProfileOpen(false);
-      }
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target)) setIsProfileOpen(false);
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsDropdownOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
-    cookies.remove('token');
-    window.location.href = '/';
+    cookies.remove("token");
+    window.location.href = "/";
   };
+
+  const isActive  = (to) => location.pathname === to;
+  const linkBase  = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200";
+  const activeLink   = "bg-amber-500 text-white";
+  const inactiveLink = "text-amber-100 hover:bg-amber-700/60 hover:text-white";
 
   return (
     <>
-      {/* Navbar */}
-      <header className="bg-blue-600 text-white p-6 flex justify-between items-center shadow-lg">
-        <Link to="/stock/dashboard" className="w-40 h-26">
-          <img src={img} alt="Stock Panel Logo" />
-        </Link>
+      {/* ─── Top Navbar ─────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-amber-900 shadow-lg">
+        <div className="max-w-screen-xl mx-auto px-3 sm:px-5">
+          <div className="flex items-center justify-between h-14">
 
-        <div className="flex space-x-4 items-center">
-          <Link to="/stock/dashboard" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-            Home
-          </Link>
-          <Link
-              to="/stock/production"
-              className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300"
-              onClick={() => setIsStockDropdownOpen(false)}
-            >
-              Production
-          </Link>
-          <Link
-              to="/stock/wastage"
-              className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300"
-              onClick={() => setIsStockDropdownOpen(false)}
-            >
-              Wastage
-          </Link>
-          {/* <Link to="/attandance/stock" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-            Attendance
-          </Link> */}
+            {/* Logo */}
+            <Link to="/stock/dashboard" className="shrink-0 flex items-center">
+              <img src={img} alt="Stock" className="h-9 w-auto object-contain" />
+            </Link>
 
-          {/* Stock Dropdown */}
-          <div className="relative" ref={stockDropdownRef}>
-            <button
-              onClick={() => setIsStockDropdownOpen(!isStockDropdownOpen)}
-              className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300 flex items-center space-x-2"
-            >
-              <span>Stock</span>
-              <svg
-                className={`w-4 h-4 transition-transform ${isStockDropdownOpen ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-            </button>
+            {/* ── Desktop nav (md+) ── */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navLinks.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`${linkBase} ${isActive(to) ? activeLink : inactiveLink}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </Link>
+              ))}
 
-            {/* Dropdown Menu */}
-            {isStockDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-48 bg-white text-gray-800 rounded-lg shadow-lg z-50">
-                <Link
-                  to="/stock/raw-material"
-                  className="block px-4 py-2 hover:bg-blue-100 transition duration-300"
-                  onClick={() => setIsStockDropdownOpen(false)}
+              {/* Stock dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsDropdownOpen((v) => !v)}
+                  className={`${linkBase} ${inactiveLink} min-w-max`}
                 >
-                  Raw Material
-                </Link>
-                <Link
-                  to="/stock/bottles-caps"
-                  className="block px-4 py-2 hover:bg-blue-100 rounded-t-lg transition duration-300"
-                  onClick={() => setIsStockDropdownOpen(false)}
-                >
-                  Bottles
-                </Link>
-                <Link
-                  to="/stock/labels"
-                  className="block px-4 py-2 hover:bg-blue-100 transition duration-300"
-                  onClick={() => setIsStockDropdownOpen(false)}
-                >
-                  Labels
-                </Link>
-                <Link
-                  to="/stock/caps"
-                  className="block px-4 py-2 hover:bg-blue-100 transition duration-300"
-                  onClick={() => setIsStockDropdownOpen(false)}
-                >
-                  Caps
-                </Link>
-                <Link
-                  to="/stock/outcome"
-                  className="block px-4 py-2 hover:bg-blue-100 rounded-b-lg transition duration-300"
-                  onClick={() => setIsStockDropdownOpen(false)}
-                >
-                  Outcome
-                </Link>
+                  <Package className="h-4 w-4 shrink-0" />
+                  Stock
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute top-full mt-1 left-0 w-48 bg-white text-gray-800 rounded-xl
+                                  shadow-xl border border-gray-100 py-1 z-50">
+                    {stockDropdown.map(({ to, label, icon: Icon }) => (
+                      <Link
+                        key={to}
+                        to={to}
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-amber-50
+                                   hover:text-amber-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                      >
+                        <Icon className="h-4 w-4 text-amber-500 shrink-0" />
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <Link to="/stock/reports" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-            Reports
-          </Link>
 
-          {/* Profile Section */}
-          <div className="relative flex items-center space-x-3" ref={profileRef}>
-            <div className="text-right">
-              <p className="font-semibold">{profileData?.name || 'N/A'}</p>
-              <p className="text-sm text-gray-200">{profileData?.role || 'N/A'}</p>
+              <Link
+                to="/stock/reports"
+                className={`${linkBase} ${isActive("/stock/reports") ? activeLink : inactiveLink}`}
+              >
+                <BarChart2 className="h-4 w-4 shrink-0" />
+                Reports
+              </Link>
+            </nav>
+
+            {/* ── Right: profile + logout (desktop), hamburger (mobile) ── */}
+            <div className="flex items-center gap-2">
+              {/* Profile avatar */}
+              <div className="relative hidden sm:block" ref={profileRef}>
+                <button
+                  onClick={() => setIsProfileOpen((v) => !v)}
+                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-amber-700/50 transition-colors"
+                >
+                  <img
+                    src={profileData?.image || profile}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full border-2 border-amber-400 object-cover"
+                  />
+                  <div className="hidden lg:block text-left leading-tight">
+                    <p className="text-sm font-semibold text-white line-clamp-1">
+                      {profileData?.name || "User"}
+                    </p>
+                    <p className="text-xs text-amber-300">{profileData?.role || ""}</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Logout — desktop */}
+              <button
+                onClick={handleLogout}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500
+                           text-white text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">Logout</span>
+              </button>
+
+              {/* Mobile hamburger */}
+              <button
+                className="md:hidden p-2 rounded-lg text-amber-200 hover:bg-amber-700/50 hover:text-white transition-colors"
+                onClick={() => setIsMobileMenuOpen((v) => !v)}
+                aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              >
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
             </div>
-            {/* Clickable Profile Image */}
-            <img
-              src={profileData?.image || profile}
-              alt="Profile"
-              className="w-10 h-10 rounded-full border cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-            />
           </div>
-
-          {/* Logout Button */}
-          <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300">
-            Logout
-          </button>
         </div>
+
+        {/* ── Mobile Menu ─────────────────────────────────────────────── */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-amber-700/60 bg-amber-900 px-4 py-3 space-y-1">
+            {navLinks.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`${linkBase} w-full ${isActive(to) ? activeLink : inactiveLink}`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </Link>
+            ))}
+
+            {/* Stock group */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-400 px-3 pt-2 pb-1">
+                Stock
+              </p>
+              {stockDropdown.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`${linkBase} w-full ${isActive(to) ? activeLink : inactiveLink}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+
+            <Link
+              to="/stock/reports"
+              className={`${linkBase} w-full ${isActive("/stock/reports") ? activeLink : inactiveLink}`}
+            >
+              <BarChart2 className="h-4 w-4 shrink-0" />
+              Reports
+            </Link>
+
+            {/* Profile + logout row */}
+            <div className="flex items-center justify-between pt-3 border-t border-amber-700/40">
+              <div className="flex items-center gap-2">
+                <img
+                  src={profileData?.image || profile}
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full border-2 border-amber-400 object-cover"
+                />
+                <div className="text-left leading-tight">
+                  <p className="text-sm font-semibold text-white">{profileData?.name || "User"}</p>
+                  <p className="text-xs text-amber-300">{profileData?.role || ""}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500
+                           text-white text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Welcome Message Centered */}
-      {location.pathname === '/stock/dashboard' && (
+      {/* ── Dashboard welcome screen ─────────────────────────────────── */}
+      {location.pathname === "/stock/dashboard" && (
         <motion.div
-          className="flex flex-col items-center justify-center h-screen bg-gradient-to-r from-blue-500 to-indigo-500"
+          className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)]
+                     bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 px-4 text-center"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
+          transition={{ duration: 0.7 }}
         >
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
-            Welcome to Stock Dashboard
+          <h1 className="text-3xl sm:text-5xl font-bold text-slate-800 mb-3">
+            Welcome to Stock Panel
           </h1>
-          <p className="text-xl md:text-3xl text-white">
-            Manage your Dispatch operations with ease.
+          <p className="text-base sm:text-2xl text-slate-600 mb-6 max-w-xl">
+            Manage production, inventory and wastage operations with ease.
           </p>
-          <Link to="/attandance/stock" className="mt-4 px-6 py-2 bg-white text-blue-500 rounded-lg hover:bg-gray-200 transition duration-300">
-            Explore Features
+          <Link
+            to="/stock/production"
+            className="px-6 py-2.5 bg-amber-500 text-white rounded-xl font-medium
+                       hover:bg-amber-600 transition-colors shadow-md"
+          >
+            View Production →
           </Link>
         </motion.div>
       )}
 
       {/* Profile Modal */}
       {isProfileOpen && profileData && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white text-black rounded-lg p-6 max-w-sm w-full shadow-lg">
-            <h2 className="text-xl font-semibold mb-4 text-center">User Profile</h2>
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+          onClick={() => setIsProfileOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-gray-700
+                         hover:bg-gray-100 transition-colors"
+              onClick={() => setIsProfileOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h2 className="text-lg font-semibold text-center text-gray-800 mb-4">User Profile</h2>
             <div className="flex justify-center mb-4">
               <img
                 src={profileData?.image || profile}
                 alt="Profile"
-                className="w-40 h-40 rounded-full border-2 border-blue-500"
+                className="w-20 h-20 rounded-full border-2 border-amber-400 object-cover"
               />
             </div>
-            <div className="space-y-2">
-              <p><strong>Name:</strong> {profileData?.name || 'N/A'}</p>
-              <p><strong>Email:</strong> {profileData?.email || 'N/A'}</p>
-              <p><strong>Phone No:</strong> {profileData?.phoneNumber || 'N/A'}</p>
-              <p><strong>Role:</strong> {profileData?.role || 'N/A'}</p>
-              <p><strong>Joined:</strong> {new Date(profileData?.createdAt).toLocaleDateString() || 'N/A'}</p>
+            <div className="space-y-2 text-sm text-gray-700">
+              {[
+                { label: "Name",   value: profileData?.name },
+                { label: "Email",  value: profileData?.email },
+                { label: "Phone",  value: profileData?.phoneNumber },
+                { label: "Role",   value: profileData?.role },
+                { label: "Joined", value: profileData?.createdAt
+                    ? new Date(profileData.createdAt).toLocaleDateString("en-IN")
+                    : undefined },
+              ].map(({ label, value }) => value && (
+                <div key={label} className="flex gap-2">
+                  <span className="font-medium text-gray-500 w-14 shrink-0">{label}:</span>
+                  <span className="text-gray-800 break-all">{value}</span>
+                </div>
+              ))}
             </div>
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setIsProfileOpen(false)}
-                className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-              >
-                Close
-              </button>
-            </div>
+            <button
+              onClick={() => setIsProfileOpen(false)}
+              className="mt-5 w-full py-2 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

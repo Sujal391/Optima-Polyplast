@@ -1,394 +1,319 @@
-// import React, { useState, useEffect, useRef } from 'react';
-// import { Link } from 'react-router-dom';
-// import axios from 'axios';
-// import profile from '../../assets/profile.jpg';
-
-// const Navbar = () => {
-//   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-//   const [isProfileOpen, setIsProfileOpen] = useState(false);
-//   const [profileData, setProfileData] = useState(null);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState('');
-//   const dropdownRef = useRef(null);
-//   const profileRef = useRef(null);
-
-//   const api = axios.create({
-//     baseURL: 'https://rewa-project.onrender.com/api',
-//   });
-
-//   api.interceptors.request.use(
-//     (config) => {
-//       const token = localStorage.getItem('token');
-//       if (token) {
-//         config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-//       }
-//       return config;
-//     },
-//     (error) => Promise.reject(error)
-//   );
-
-//   useEffect(() => {
-//     const fetchProfileData = async () => {
-//       setLoading(true);
-//       try {
-//         const token = localStorage.getItem('token');
-//         if (!token) {
-//           setError('No authentication token found. Redirecting to login...');
-//           setTimeout(() => window.location.href = '/login', 2000);
-//           return;
-//         }
-//         const response = await api.get('/auth/profile');
-//         setProfileData(response.data);
-//       } catch (err) {
-//         setError('Error fetching profile. Please try again.');
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-//     fetchProfileData();
-//   }, []);
-
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-//         setIsDropdownOpen(false);
-//       }
-//       if (profileRef.current && !profileRef.current.contains(event.target)) {
-//         setIsProfileOpen(false);
-//       }
-//     };
-//     document.addEventListener("mousedown", handleClickOutside);
-//     return () => {
-//       document.removeEventListener("mousedown", handleClickOutside);
-//     };
-//   }, []);
-
-//   const handleLogout = () => {
-//     localStorage.removeItem("token");
-//     window.location.href = "/";
-//   };
-
-//   const toggleProfileModal = () => {
-//     setIsProfileOpen(!isProfileOpen);
-//   };
-
-//   return (
-//     <header className="bg-blue-600 text-white p-6 flex justify-between items-center shadow-lg">
-//       <Link to="/reception/dashboard" className="text-3xl font-bold">Reception Panel</Link>
-//       <div className="flex space-x-4 items-center">
-//         <Link to="/attandance/reception" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-//           Attendance
-//         </Link>
-//         {/* <div className="flex space-x-4 items-center"> */}
-//         <Link to="/total-users" className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300">
-//           Total User
-//         </Link>
-
-//         <div className="relative" ref={dropdownRef}>
-//           <button
-//             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-//             className="bg-blue-500 px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-300"
-//           >
-//             Total Orders ▾
-//           </button>
-//           {isDropdownOpen && (
-//             <div className="absolute mt-2 bg-white text-black rounded-lg shadow-lg w-48">
-//               <Link to="/total-orders" className="block px-4 py-2 hover:bg-gray-200">Order History</Link>
-//               <Link to="/pending-orders" className="block px-4 py-2 hover:bg-gray-200">Pending Orders</Link>
-//               <Link to="/add-delivery-charges" className="block px-4 py-2 hover:bg-gray-200">Add Delivery Charges</Link>
-//               {/* <Link to="/order-history" className="block px-4 py-2 hover:bg-gray-200">Order History</Link> */}
-//               <Link to="/create-order" className="block px-4 py-2 hover:bg-gray-200">Create Order</Link>
-//             </div>
-//           )}
-//         </div>
-//         <div className="relative flex items-center space-x-3" ref={profileRef}>
-//           <div className="text-right">
-//             <p className="font-semibold">{profileData?.name || 'N/A'}</p>
-//             <p className="text-sm text-gray-200">{profileData?.role || 'N/A'}</p>
-//           </div>
-//           <img
-//             src={profileData?.image || profile}
-//             alt="Profile"
-//             className="w-10 h-10 rounded-full border cursor-pointer"
-//             onClick={toggleProfileModal}
-//           />
-//           {isProfileOpen && profileData && (
-//             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-//               <div className="bg-white text-black rounded-lg p-6 max-w-sm w-full shadow-lg">
-//                 <h2 className="text-xl font-semibold mb-4 text-center">User Profile</h2>
-//                 <div className="flex justify-center mb-4">
-//                   <img
-//                     src={profileData?.image || profile}
-//                     alt="Profile"
-//                     className="w-40 h-40 rounded-full border-2 border-blue-500"
-//                   />
-//                 </div>
-//                 <div className="space-y-2">
-//                   <p><strong>Name:</strong> {profileData?.name || 'N/A'}</p>
-//                   <p><strong>Email:</strong> {profileData?.email || 'N/A'}</p>
-//                   <p><strong>Phone No:</strong> {profileData?.phoneNumber || 'N/A'}</p>
-//                   <p><strong>Role:</strong> {profileData?.role || 'N/A'}</p>
-//                   <p><strong>Joined:</strong> {new Date(profileData?.createdAt).toLocaleDateString() || 'N/A'}</p>
-//                 </div>
-//                 <div className="mt-4 text-center">
-//                   <button
-//                     onClick={toggleProfileModal}
-//                     className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-//                   >
-//                     Close
-//                   </button>
-//                 </div>
-//               </div>
-//             </div>
-//           )}
-//         </div>
-//         <button onClick={handleLogout} className="bg-red-500 px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300">
-//           Logout
-//         </button>
-//       </div>
-
-//     </header>
-
-//   );
-// };
-
-// export default Navbar;
-
-//  {/* <OrderHistory /> */}
-//     {/* <PendingOrder /> */}
-//     {/* <TotalUser />  */}
-//     {/* <DeliveryCharge /> */}
-//     {/* <CheckIn /> */}
-
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import axios from "axios";
+import {
+  Menu, X, ChevronDown, LogOut, Home, Users, ShoppingCart,
+  ClipboardList, CreditCard, History,
+} from "lucide-react";
 import profile from "../../assets/profiles.jpg";
 import img from "../../assets/logo1.png";
-import { Button } from "../ui/button";
-import cookies from 'js-cookie';
+import cookies from "js-cookie";
+
+const api = axios.create({ baseURL: process.env.REACT_APP_API });
+api.interceptors.request.use(
+  (config) => {
+    const token = cookies.get("token");
+    if (token) {
+      config.headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Navigation structure
+const navLinks = [
+  { to: "/reception/dashboard", label: "Home",         icon: Home },
+  { to: "/total-users",         label: "Total Users",  icon: Users },
+  { to: "/create-order",        label: "Create Order", icon: ShoppingCart },
+];
+
+const ordersDropdown = [
+  // { to: "/pending-orders",             label: "Pending Orders",   icon: ClipboardList },
+  { to: "/reception/pending-payments", label: "Pending Payments", icon: CreditCard },
+  { to: "/total-orders",               label: "Order History",    icon: History },
+];
 
 const Navbar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profileData, setProfileData] = useState(null);
-  const dropdownRef = useRef(null);
-  const profileRef = useRef(null);
-  const location = useLocation();
-
-  const api = axios.create({
-    baseURL: process.env.REACT_APP_API,
-  });
-
-  api.interceptors.request.use(
-    (config) => {
-      // const token = localStorage.getItem("token");
-      const token = cookies.get("token");
-      if (token) {
-        config.headers.Authorization = token.startsWith("Bearer ")
-          ? token
-          : `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
+  const [isProfileOpen, setIsProfileOpen]   = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profileData, setProfileData]       = useState(null);
+  const dropdownRef  = useRef(null);
+  const profileRef   = useRef(null);
+  const location     = useLocation();
 
   useEffect(() => {
-    const fetchProfileData = async () => {
+    const fetchProfile = async () => {
       try {
-        // const token = localStorage.getItem("token");
-      const token = cookies.get("token");
-        if (!token) {
-          window.location.href = "/login";
-          return;
-        }
-        const response = await api.get("/auth/profile");
-        setProfileData(response.data);
+        const token = cookies.get("token");
+        if (!token) { window.location.href = "/"; return; }
+        const res = await api.get("/auth/profile");
+        setProfileData(res.data);
       } catch (err) {
         console.error("Error fetching profile:", err);
       }
     };
-    fetchProfileData();
+    fetchProfile();
   }, []);
 
-  // Click outside handler for dropdown and profile modal
+  // Close dropdown / profile on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setIsProfileOpen(false);
-      }
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target)) setIsProfileOpen(false);
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsDropdownOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     cookies.remove("token");
     window.location.href = "/";
   };
 
+  const isActive = (to) => location.pathname === to;
+  const linkBase = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200";
+  const activeLink = "bg-teal-500 text-white";
+  const inactiveLink = "text-teal-100 hover:bg-teal-700/60 hover:text-white";
+
   return (
     <>
-      {/* Navbar */}
-      <header className="bg-cyan-900 text-black p-6 flex justify-between items-center shadow-lg">
-        <Link to="/reception/dashboard" className="w-20 h-12">
-          <img src={img} alt="Reception Panel Logo" />
-        </Link>
+      {/* ─── Top Navbar ─────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-cyan-900 shadow-lg">
+        <div className="max-w-screen-xl mx-auto px-3 sm:px-5">
+          <div className="flex items-center justify-between h-14">
 
-        <div className="flex space-x-4 items-center">
-          <Link
-            to="/reception/dashboard"
-            className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
-          >
-            Home
-          </Link>
-          {/* <Link
-            to="/attandance/reception"
-            className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
-          >
-            Attendance
-          </Link> */}
-          <Link
-            to="/total-users"
-            className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
-          >
-            Total Users
-          </Link>
-          <Link
-            to="/create-order"
-            className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
-          >
-            Create Order
-          </Link>
+            {/* Logo */}
+            <Link to="/reception/dashboard" className="shrink-0 flex items-center">
+              <img src={img} alt="Reception" className="h-9 w-auto object-contain" />
+            </Link>
 
-          {/* Orders Dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="bg-teal-400 px-4 py-2 rounded-lg hover:bg-teal-500 transition duration-300"
-            >
-              Total Orders ▾
-            </button>
-            {isDropdownOpen && (
-              <div className="absolute mt-2 bg-teal-400 text-black rounded-lg shadow-lg w-48">
+            {/* ── Desktop nav (md+) ── */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navLinks.map(({ to, label, icon: Icon }) => (
                 <Link
-                  to="/pending-orders"
-                  className="block px-4 py-2 hover:bg-teal-500"
+                  key={to}
+                  to={to}
+                  className={`${linkBase} ${isActive(to) ? activeLink : inactiveLink}`}
                 >
-                  Pending Orders
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
                 </Link>
-                <Link
-                  to="/reception/pending-payments"
-                  className="block px-4 py-2 hover:bg-teal-500"
+              ))}
+
+              {/* Orders dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsDropdownOpen((v) => !v)}
+                  className={`${linkBase} ${inactiveLink} min-w-max`}
                 >
-                  Pending Payments
-                </Link>
-                <Link
-                  to="/total-orders"
-                  className="block px-4 py-2 hover:bg-teal-500"
-                >
-                  Order History
-                </Link>
+                  <ClipboardList className="h-4 w-4 shrink-0" />
+                  Total Orders
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute top-full mt-1 left-0 w-48 bg-white text-gray-800 rounded-xl
+                                  shadow-xl border border-gray-100 py-1 z-50">
+                    {ordersDropdown.map(({ to, label, icon: Icon }) => (
+                      <Link
+                        key={to}
+                        to={to}
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-teal-50
+                                   hover:text-teal-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                      >
+                        <Icon className="h-4 w-4 text-teal-500 shrink-0" />
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </nav>
 
-          {/* Profile Section */}
-          <div
-            className="relative flex items-center space-x-3"
-            ref={profileRef}
-          >
-            <div className="text-right">
-              <p className="font-semibold">{profileData?.name || "N/A"}</p>
-              <p className="text-sm text-gray-200">
-                {profileData?.role || "N/A"}
-              </p>
+            {/* ── Right: profile + logout (desktop), hamburger (mobile) ── */}
+            <div className="flex items-center gap-2">
+              {/* Profile avatar */}
+              <div className="relative hidden sm:block" ref={profileRef}>
+                <button
+                  onClick={() => setIsProfileOpen((v) => !v)}
+                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-teal-700/50 transition-colors"
+                >
+                  <img
+                    src={profileData?.image || profile}
+                    alt="Profile"
+                    className="w-8 h-8 rounded-full border-2 border-teal-400 object-cover"
+                  />
+                  <div className="hidden lg:block text-left leading-tight">
+                    <p className="text-sm font-semibold text-white line-clamp-1">
+                      {profileData?.name || "User"}
+                    </p>
+                    <p className="text-xs text-teal-300">{profileData?.role || ""}</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Logout — desktop */}
+              <button
+                onClick={handleLogout}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500
+                           text-white text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">Logout</span>
+              </button>
+
+              {/* Mobile hamburger */}
+              <button
+                className="md:hidden p-2 rounded-lg text-teal-200 hover:bg-teal-700/50 hover:text-white transition-colors"
+                onClick={() => setIsMobileMenuOpen((v) => !v)}
+                aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              >
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
             </div>
-            {/* Clickable Profile Image */}
-            <img
-              src={profileData?.image || profile}
-              alt="Profile"
-              className="w-10 h-10 rounded-full border cursor-pointer hover:scale-105 transition-transform"
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-            />
           </div>
-
-          {/* Logout Button */}
-          <Button variant="destructive" onClick={handleLogout}>Logout</Button>
         </div>
+
+        {/* ── Mobile Menu ─────────────────────────────────────────────── */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-teal-700/60 bg-cyan-900 px-4 py-3 space-y-1">
+            {navLinks.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`${linkBase} w-full ${isActive(to) ? activeLink : inactiveLink}`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </Link>
+            ))}
+
+            {/* Orders group */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-teal-400 px-3 pt-2 pb-1">
+                Orders
+              </p>
+              {ordersDropdown.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`${linkBase} w-full ${isActive(to) ? activeLink : inactiveLink}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+
+            {/* Profile + logout row */}
+            <div className="flex items-center justify-between pt-3 border-t border-teal-700/40">
+              <div className="flex items-center gap-2">
+                <img
+                  src={profileData?.image || profile}
+                  alt="Profile"
+                  className="w-8 h-8 rounded-full border-2 border-teal-400 object-cover"
+                />
+                <div className="text-left leading-tight">
+                  <p className="text-sm font-semibold text-white">{profileData?.name || "User"}</p>
+                  <p className="text-xs text-teal-300">{profileData?.role || ""}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500
+                           text-white text-sm font-medium hover:bg-red-600 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Logout
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Welcome Message Centered */}
+      {/* ── Dashboard welcome screen ─────────────────────────────────── */}
       {location.pathname === "/reception/dashboard" && (
         <motion.div
-          className="flex flex-col items-center justify-center h-screen bg-green-100"
+          className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)]
+                     bg-gradient-to-br from-green-50 via-teal-50 to-cyan-50 px-4 text-center"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
+          transition={{ duration: 0.7 }}
         >
-          <h1 className="text-4xl md:text-6xl font-bold text-slate-800 mb-4">
-            Welcome to Reception Dashboard
+          <h1 className="text-3xl sm:text-5xl font-bold text-slate-800 mb-3">
+            Welcome to Reception
           </h1>
-          <p className="text-xl md:text-3xl text-slate-700">
+          <p className="text-base sm:text-2xl text-slate-600 mb-6 max-w-xl">
             Manage your reception operations with ease.
           </p>
           <Link
-            to="/attandance/reception"
-            className="mt-4 px-6 py-2 bg-teal-400 text-black rounded-lg hover:bg-teal-500"
+            to="/total-users"
+            className="px-6 py-2.5 bg-teal-500 text-white rounded-xl font-medium
+                       hover:bg-teal-600 transition-colors shadow-md"
           >
-            Explore Features
+            View Customers →
           </Link>
         </motion.div>
       )}
 
       {/* Profile Modal */}
       {isProfileOpen && profileData && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-green-100 text-black rounded-lg p-6 max-w-sm w-full shadow-lg">
-            <h2 className="text-xl font-semibold mb-4 text-center">
-              User Profile
-            </h2>
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+          onClick={() => setIsProfileOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-gray-700
+                         hover:bg-gray-100 transition-colors"
+              onClick={() => setIsProfileOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h2 className="text-lg font-semibold text-center text-gray-800 mb-4">User Profile</h2>
             <div className="flex justify-center mb-4">
               <img
                 src={profileData?.image || profile}
                 alt="Profile"
-                className="w-40 h-40 rounded-full border-2"
+                className="w-20 h-20 rounded-full border-2 border-teal-400 object-cover"
               />
             </div>
-            <div className="space-y-2">
-              <p>
-                <strong>Name:</strong> {profileData?.name || "N/A"}
-              </p>
-              <p>
-                <strong>Email:</strong> {profileData?.email || "N/A"}
-              </p>
-              <p>
-                <strong>Phone No:</strong> {profileData?.phoneNumber || "N/A"}
-              </p>
-              <p>
-                <strong>Role:</strong> {profileData?.role || "N/A"}
-              </p>
-              <p>
-                <strong>Joined:</strong>{" "}
-                {new Date(profileData?.createdAt).toLocaleDateString("en-IN") || "N/A"}
-              </p>
+            <div className="space-y-2 text-sm text-gray-700">
+              {[
+                { label: "Name",    value: profileData?.name },
+                { label: "Email",   value: profileData?.email },
+                { label: "Phone",   value: profileData?.phoneNumber },
+                { label: "Role",    value: profileData?.role },
+                { label: "Joined",  value: profileData?.createdAt
+                    ? new Date(profileData.createdAt).toLocaleDateString("en-IN")
+                    : undefined },
+              ].map(({ label, value }) => value && (
+                <div key={label} className="flex gap-2">
+                  <span className="font-medium text-gray-500 w-14 shrink-0">{label}:</span>
+                  <span className="text-gray-800 break-all">{value}</span>
+                </div>
+              ))}
             </div>
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setIsProfileOpen(false)}
-                className="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
-              >
-                Close
-              </button>
-            </div>
+            <button
+              onClick={() => setIsProfileOpen(false)}
+              className="mt-5 w-full py-2 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

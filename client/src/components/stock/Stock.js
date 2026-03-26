@@ -1,343 +1,14 @@
-
-
-
-// import { useState, useEffect } from "react";
-// import axios from "axios";
-
-// const api = axios.create({
-//   baseURL: process.env.REACT_APP_API,
-// });
-
-// // Axios Interceptor for Authentication
-// api.interceptors.request.use(
-//   (config) => {
-//     const token = localStorage.getItem("token");
-//     if (token) {
-//       config.headers.Authorization = token.startsWith("Bearer ")
-//         ? token
-//         : `Bearer ${token}`;
-//     }
-//     return config;
-//   },
-//   (error) => Promise.reject(error)
-// );
-
-// export default function StockManagement() {
-//   const [isFormOpen, setIsFormOpen] = useState(false);
-//   const [products, setProducts] = useState([]);
-//   const [loading, setLoading] = useState(true);
-//   const [selectedProduct, setSelectedProduct] = useState("");
-//   const [formData, setFormData] = useState({
-//     quantity: "",
-//     changeType: "addition",
-//     notes: "",
-//   });
-//   const [error, setError] = useState("");
-//   const [history, setHistory] = useState([]);
-//   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-//   const [historyTitle, setHistoryTitle] = useState("Stock History");
-
-//   useEffect(() => {
-//     fetchProducts();
-//   }, []);
-
-//   // Fetch all stock products
-//   const fetchProducts = async () => {
-//     try {
-//       const response = await api.get("/stock/products");
-//       if (response.data && response.data.success) {
-//         setProducts(response.data.data);
-//       } else {
-//         setError("No History Data Available For This Product");
-//       }
-//     } catch (error) {
-//       setError("Error fetching stock data: ");
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   // Fetch stock history for a specific product
-//   const getStockHistory = async (productId, productName) => {
-//     try {
-//       const response = await api.get(`/stock/history/${productId}`);
-//       if (response.data && response.data.success) {
-//         // Map the history entries to include product information
-//         const processedHistory = response.data.data.updateHistory.map(update => ({
-//           ...update,
-//           productId: {
-//             _id: response.data.data.productId._id,
-//             name: response.data.data.productId.name
-//           }
-//         }));
-        
-//         setHistory(processedHistory);
-//         setHistoryTitle(`History of ${productName}`);
-//         setIsHistoryOpen(true);
-//       } else {
-//         setError("No stock history found for this product.");
-//       }
-//     } catch (error) {
-//       setError("Error fetching stock history: " + error.message);
-//     }
-//   };
-
-//   // Fetch all stock history
-//   const getAllStockHistory = async () => {
-//     try {
-//       const response = await api.get("/stock/history");
-//       if (response.data && response.data.success) {
-//         // Ensure we're handling the nested data correctly
-//         const allHistory = response.data.data.flatMap((stock) => 
-//           stock.updateHistory.map(update => ({
-//             ...update,
-//             productId: stock.productId // Preserve the product information
-//           }))
-//         );
-//         setHistory(allHistory);
-//         setHistoryTitle("All Stock History");
-//         setIsHistoryOpen(true);
-//       } else {
-//         setError("No stock history found.");
-//       }
-//     } catch (error) {
-//       setError("Error fetching stock history: " + error.message);
-//     }
-//   };
-
-//   // Handle form input changes
-//   const handleInputChange = (e) => {
-//     setFormData({ ...formData, [e.target.name]: e.target.value });
-//   };
-
-//   // Update stock quantity
-//   const updateStock = async (e) => {
-//     e.preventDefault();
-//     if (!selectedProduct || !formData.quantity) {
-//       setError("Please fill in all required fields.");
-//       return;
-//     }
-//     try {
-//       const userId = localStorage.getItem("userId");
-//       const response = await api.put("/stock/update-quantity", {
-//         productId: selectedProduct,
-//         quantity: formData.quantity,
-//         changeType: formData.changeType,
-//         notes: formData.notes,
-//         updatedBy: userId,
-//       });
-
-//       if (response.data.success) {
-//         alert("Stock updated successfully!");
-//         setIsFormOpen(false);
-//         fetchProducts();
-//       } else {
-//         setError("Failed to update stock: " + response.data.message);
-//       }
-//     } catch (error) {
-//       setError("Error updating stock: " + (error.response?.data?.message || error.message));
-//     }
-//   };
-
-//   return (
-//     <div className="bg-gradient-to-r from-blue-50 to-blue-100 min-h-screen p-6">
-//       <div className="max-w-7xl mx-auto">
-//         <h2 className="text-3xl font-bold text-gray-800">Stock Management</h2>
-
-//         <div className="mt-4 flex justify-end space-x-4">
-//           <button
-//             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-300"
-//             onClick={() => setIsFormOpen(true)}
-//           >
-//             + Update Quantity
-//           </button>
-//           <button
-//             className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300"
-//             onClick={getAllStockHistory}
-//           >
-//             View All History
-//           </button>
-//         </div>
-
-//         {error && (
-//           <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">{error}</div>
-//         )}
-
-//         {loading ? (
-//           <p className="mt-4">Loading products...</p>
-//         ) : (
-//           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-//             {products.map((product) => (
-//               <div key={product._id} className="p-4 bg-white shadow-lg rounded-lg">
-//                 {product.image && (
-//                   <img
-//                     src={product.image}
-//                     alt={product.name}
-//                     className="w-full h-40 object-cover rounded-md"
-//                   />
-//                 )}
-//                 <h3 className="font-semibold text-lg mt-3">{product.name}</h3>
-//                 <p className="text-gray-700 text-sm">{product.description}</p>
-//                 <p className="font-medium text-gray-900 mt-2">Stock: {product.quantity}</p>
-//                 <button
-//                   className="mt-3 text-blue-600 hover:underline"
-//                   onClick={() => getStockHistory(product._id, product.name)}
-//                 >
-//                   View History
-//                 </button>
-//               </div>
-//             ))}
-//           </div>
-//         )}
-
-//         {isFormOpen && (
-//           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-//             <div className="bg-white p-8 rounded-xl shadow-2xl w-96">
-//               <h3 className="text-2xl font-bold mb-6 text-gray-800">Update Stock</h3>
-//               <form className="space-y-6" onSubmit={updateStock}>
-//                 <div>
-//                   <label className="block text-gray-700 font-semibold mb-2">
-//                     Select Product
-//                   </label>
-//                   <select
-//                     className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-//                     onChange={(e) => setSelectedProduct(e.target.value)}
-//                     value={selectedProduct}
-//                   >
-//                     <option value="">Select a product</option>
-//                     {products.map((product) => (
-//                       <option key={product._id} value={product._id}>
-//                         {product.name}
-//                       </option>
-//                     ))}
-//                   </select>
-//                 </div>
-
-//                 <div>
-//                   <label className="block text-gray-700 font-semibold mb-2">Quantity</label>
-//                   <input
-//                     type="number"
-//                     name="quantity"
-//                     className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-//                     value={formData.quantity}
-//                     onChange={handleInputChange}
-//                     placeholder="Enter quantity"
-//                     required
-//                   />
-//                 </div>
-
-//                 <div>
-//                   <label className="block text-gray-700 font-semibold mb-2">Change Type</label>
-//                   <select
-//                     name="changeType"
-//                     className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-//                     value={formData.changeType}
-//                     onChange={handleInputChange}
-//                   >
-//                     <option value="addition">Addition</option>
-//                     <option value="reduction">Reduction</option>
-//                     <option value="adjustment">Adjustment</option>
-//                   </select>
-//                 </div>
-
-//                 <div>
-//                   <label className="block text-gray-700 font-semibold mb-2">Notes</label>
-//                   <textarea
-//                     name="notes"
-//                     className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-//                     value={formData.notes}
-//                     onChange={handleInputChange}
-//                     placeholder="Enter notes"
-//                   />
-//                 </div>
-
-//                 <div className="flex justify-end space-x-4">
-//                   <button
-//                     type="button"
-//                     className="bg-gray-500 text-white px-6 py-2 rounded-lg"
-//                     onClick={() => setIsFormOpen(false)}
-//                   >
-//                     Cancel
-//                   </button>
-//                   <button
-//                     type="submit"
-//                     className="bg-blue-600 text-white px-6 py-2 rounded-lg"
-//                   >
-//                     Submit
-//                   </button>
-//                 </div>
-//               </form>
-//             </div>
-//           </div>
-//         )}
-
-//         {isHistoryOpen && (
-//           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-//             <div className="bg-white p-8 rounded-xl shadow-2xl w-11/12 max-w-4xl">
-//               <h3 className="text-2xl font-bold mb-6 text-gray-800">{historyTitle}</h3>
-//               <div className="max-h-96 overflow-y-auto">
-//                 <table className="w-full text-left">
-//                   <thead>
-//                     <tr className="bg-gray-200">
-//                       <th className="p-2">Product</th>
-//                       <th className="p-2">Updated By</th>
-//                       <th className="p-2">Quantity</th>
-//                       <th className="p-2">Change Type</th>
-//                       <th className="p-2">Notes</th>
-//                       <th className="p-2">Date</th>
-//                     </tr>
-//                   </thead>
-//                   <tbody>
-//                     {history.map((entry, index) => (
-//                       <tr key={index} className="border-b">
-//                         <td className="p-2">
-//                           {entry.productId?.name || 
-//                             (entry.productId && typeof entry.productId === 'string' ? 'N/A' : 'N/A')}
-//                         </td>
-//                         <td className="p-2">{entry.updatedBy?.name || "N/A"}</td>
-//                         <td className="p-2">{entry.quantity}</td>
-//                         <td className="p-2">{entry.changeType}</td>
-//                         <td className="p-2">{entry.notes || "N/A"}</td>
-//                         <td className="p-2">{new Date(entry.updatedAt).toLocaleString()}</td>
-//                       </tr>
-//                     ))}
-//                   </tbody>
-//                 </table>
-//               </div>
-//               <div className="flex justify-end mt-6">
-//                 <button
-//                   className="bg-gray-500 text-white px-6 py-2 rounded-lg"
-//                   onClick={() => setIsHistoryOpen(false)}
-//                 >
-//                   Close
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
 import { useState, useEffect } from "react";
 import axios from "axios";
 import cookies from "js-cookie";
+import { Package, X, RotateCcw, History, ChevronRight, Plus } from "lucide-react";
 
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API,
-});
-
-// ✅ Axios Interceptor for Authentication
+const api = axios.create({ baseURL: process.env.REACT_APP_API });
 api.interceptors.request.use(
   (config) => {
     const token = cookies.get("token");
     if (token) {
-      config.headers.Authorization = token.startsWith("Bearer ")
-        ? token
-        : `Bearer ${token}`;
+      config.headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
     }
     return config;
   },
@@ -345,77 +16,57 @@ api.interceptors.request.use(
 );
 
 export default function StockManagement() {
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isFormOpen, setIsFormOpen]     = useState(false);
+  const [products, setProducts]         = useState([]);
+  const [loading, setLoading]           = useState(true);
   const [selectedProduct, setSelectedProduct] = useState("");
-  const [formData, setFormData] = useState({
-    boxes: "",
-    changeType: "addition",
-    notes: "",
-  });
-  const [error, setError] = useState("");
-  const [history, setHistory] = useState([]);
+  const [formData, setFormData]         = useState({ boxes: "", changeType: "addition", notes: "" });
+  const [error, setError]               = useState("");
+  const [history, setHistory]           = useState([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyTitle, setHistoryTitle] = useState("Stock History");
-  const [expanded, setExpanded] = useState(null); // ✅ For read-more toggle
+  const [expanded, setExpanded]         = useState(null);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  useEffect(() => { fetchProducts(); }, []);
 
-  // ✅ Fetch all stock products
   const fetchProducts = async () => {
+    setLoading(true);
     try {
       const response = await api.get("/stock/products");
-      if (response.data && response.data.success) {
-        setProducts(response.data.data);
-      } else {
-        setError("No product data available");
-      }
-    } catch (error) {
-      setError("Error fetching stock data: " + error.message);
+      if (response.data?.success) setProducts(response.data.data);
+      else setError("No product data available");
+    } catch (err) {
+      setError("Error fetching stock data: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Fetch stock history for a specific product
   const getStockHistory = async (productId, productName) => {
     try {
       const response = await api.get(`/stock/history/${productId}`);
-      if (response.data && response.data.success) {
-        const processedHistory = response.data.data.updateHistory.map(
-          (update) => ({
-            ...update,
-            productId: {
-              _id: response.data.data.productId._id,
-              name: response.data.data.productId.name,
-            },
-          })
-        );
-
+      if (response.data?.success) {
+        const processedHistory = response.data.data.updateHistory.map((update) => ({
+          ...update,
+          productId: { _id: response.data.data.productId._id, name: response.data.data.productId.name },
+        }));
         setHistory(processedHistory);
         setHistoryTitle(`History of ${productName}`);
         setIsHistoryOpen(true);
       } else {
         setError("No stock history found for this product.");
       }
-    } catch (error) {
-      setError("Error fetching stock history: " + error.message);
+    } catch (err) {
+      setError("Error fetching stock history: " + err.message);
     }
   };
 
-  // ✅ Fetch all stock history
   const getAllStockHistory = async () => {
     try {
       const response = await api.get("/stock/history");
-      if (response.data && response.data.success) {
+      if (response.data?.success) {
         const allHistory = response.data.data.flatMap((stock) =>
-          stock.updateHistory.map((update) => ({
-            ...update,
-            productId: stock.productId,
-          }))
+          stock.updateHistory.map((update) => ({ ...update, productId: stock.productId }))
         );
         setHistory(allHistory);
         setHistoryTitle("All Stock History");
@@ -423,290 +74,335 @@ export default function StockManagement() {
       } else {
         setError("No stock history found.");
       }
-    } catch (error) {
-      setError("Error fetching stock history: " + error.message);
+    } catch (err) {
+      setError("Error fetching stock history: " + err.message);
     }
   };
 
-  // ✅ Handle form input changes
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // ✅ Update stock boxes
   const updateStock = async (e) => {
     e.preventDefault();
-    if (!selectedProduct || !formData.boxes) {
-      setError("Please fill in all required fields.");
-      return;
-    }
+    if (!selectedProduct || !formData.boxes) { setError("Please fill in all required fields."); return; }
     try {
-      const userId = cookies.get("userId");
+      const userId   = cookies.get("userId");
       const response = await api.put("/stock/update-quantity", {
-        productId: selectedProduct,
-        boxes: formData.boxes,
-        changeType: formData.changeType,
-        notes: formData.notes,
-        updatedBy: userId,
+        productId: selectedProduct, boxes: formData.boxes,
+        changeType: formData.changeType, notes: formData.notes, updatedBy: userId,
       });
-
       if (response.data.success) {
-        alert("Stock updated successfully!");
         setIsFormOpen(false);
+        setFormData({ boxes: "", changeType: "addition", notes: "" });
+        setSelectedProduct("");
         fetchProducts();
       } else {
         setError("Failed to update stock: " + response.data.message);
       }
-    } catch (error) {
-      setError(
-        "Error updating stock: " +
-          (error.response?.data?.message || error.message)
-      );
+    } catch (err) {
+      setError("Error updating stock: " + (err.response?.data?.message || err.message));
     }
   };
 
-  // ✅ Toggle read more
-  const toggleDescription = (id) => {
-    setExpanded(expanded === id ? null : id);
+  const toggleDescription = (id) => setExpanded(expanded === id ? null : id);
+
+  const changeTypeColor = (type) => {
+    if (type === "addition")   return "text-green-600 bg-green-50 border-green-100";
+    if (type === "reduction")  return "text-red-600 bg-red-50 border-red-100";
+    return "text-amber-600 bg-amber-50 border-amber-100";
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-blue-100 min-h-screen p-6">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-gray-800">Stock Management</h2>
 
-        <div className="mt-4 flex justify-end space-x-4">
-          <button
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-300"
-            onClick={() => setIsFormOpen(true)}
-          >
-            + Update Boxes
-          </button>
-          <button
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300"
-            onClick={getAllStockHistory}
-          >
-            View All History
-          </button>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 rounded-xl">
+              <Package className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">Stock Management</h1>
+              <p className="text-sm text-slate-500 mt-0.5">Manage finished goods inventory</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={getAllStockHistory}
+              className="flex items-center gap-2 px-4 py-2.5 border border-amber-300 bg-white text-amber-700
+                         rounded-xl text-sm font-medium hover:bg-amber-50 transition-colors shadow-sm"
+            >
+              <History className="h-4 w-4" />
+              View All History
+            </button>
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white
+                         rounded-xl text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Update Boxes
+            </button>
+          </div>
         </div>
 
+        {/* Error */}
         {error && (
-          <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-md">
-            {error}
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-start gap-2">
+            <X className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{error}</span>
+            <button onClick={() => setError("")} className="ml-auto"><X className="h-4 w-4" /></button>
           </div>
         )}
 
-        {loading ? (
-          <p className="mt-4">Loading products...</p>
-        ) : (
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin h-8 w-8 border-4 border-amber-200 border-t-amber-500 rounded-full" />
+          </div>
+        )}
+
+        {/* Products Grid */}
+        {!loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
             {products.map((product) => {
-              const isExpanded = expanded === product._id;
-              const shortDescription =
-                product.description?.length > 100
-                  ? product.description.slice(0, 100) + "..."
-                  : product.description;
+              const isExp = expanded === product._id;
+              const short = product.description?.length > 100
+                ? product.description.slice(0, 100) + "..."
+                : product.description;
 
               return (
                 <div
                   key={product._id}
-                  className="p-5 bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300"
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
                 >
                   {product.image && (
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="w-full h-44 object-cover rounded-lg"
+                      className="w-full h-44 object-cover"
                       loading="lazy"
                     />
                   )}
+                  <div className="p-5">
+                    <h3 className="text-base font-semibold text-gray-900">{product.name}</h3>
+                    <div className="flex gap-2 mt-1 mb-3">
+                      {product.type && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full">
+                          {product.type}
+                        </span>
+                      )}
+                      {product.category && (
+                        <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full">
+                          {product.category}
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="mt-4 space-y-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {product.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">{product.type}</p>
-                    <p className="text-sm text-gray-500">{product.category}</p>
-                  </div>
-
-                  <div className="mt-3 text-gray-700 text-sm leading-relaxed">
-                    {isExpanded ? product.description : shortDescription}
-                    {product.description?.length > 100 && (
-                      <button
-                        onClick={() => toggleDescription(product._id)}
-                        className="text-blue-600 font-medium ml-1 hover:underline focus:outline-none"
-                      >
-                        {isExpanded ? "Read Less" : "Read More"}
-                      </button>
+                    {product.description && (
+                      <p className="text-sm text-gray-500 leading-relaxed mb-3">
+                        {isExp ? product.description : short}
+                        {product.description?.length > 100 && (
+                          <button
+                            onClick={() => toggleDescription(product._id)}
+                            className="text-amber-600 font-medium ml-1 hover:underline"
+                          >
+                            {isExp ? "Read Less" : "Read More"}
+                          </button>
+                        )}
+                      </p>
                     )}
-                  </div>
 
-                  <div className="mt-4 text-sm text-gray-800 space-y-1">
-                    <p>
-                      <span className="font-medium">Boxes:</span>{" "}
-                      {product.boxes}
-                    </p>
-                    <p>
-                      <span className="font-medium">Bottles per box:</span>{" "}
-                      {product.bottlesPerBox}
-                    </p>
-                  </div>
+                    <div className="grid grid-cols-2 gap-3 py-3 border-t border-gray-50">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-0.5">Boxes</p>
+                        <p className="text-lg font-bold text-amber-600">{product.boxes ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-0.5">Per Box</p>
+                        <p className="text-base font-semibold text-gray-700">{product.bottlesPerBox ?? "—"}</p>
+                      </div>
+                    </div>
 
-                  <button
-                    className="mt-4 w-full text-center text-blue-600 hover:text-blue-700 font-semibold transition-colors"
-                    onClick={() => getStockHistory(product._id, product.name)}
-                  >
-                    View History →
-                  </button>
+                    <button
+                      onClick={() => getStockHistory(product._id, product.name)}
+                      className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm font-medium
+                                 text-amber-600 hover:text-amber-700 transition-colors"
+                    >
+                      View History <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* ✅ Stock Update Form Modal */}
-        {isFormOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-8 rounded-xl shadow-2xl w-96">
-              <h3 className="text-2xl font-bold mb-6 text-gray-800">
-                Update Stock
-              </h3>
-              <form className="space-y-6" onSubmit={updateStock}>
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Select Product
-                  </label>
-                  <select
-                    className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-                    onChange={(e) => setSelectedProduct(e.target.value)}
-                    value={selectedProduct}
-                  >
-                    <option value="">Select a product</option>
-                    {products.map((product) => (
-                      <option key={product._id} value={product._id}>
-                        {product.name} ({product.category})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Boxes
-                  </label>
-                  <input
-                    type="number"
-                    name="boxes"
-                    className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-                    value={formData.boxes}
-                    onChange={handleInputChange}
-                    placeholder="Enter number of boxes"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Change Type
-                  </label>
-                  <select
-                    name="changeType"
-                    className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-                    value={formData.changeType}
-                    onChange={handleInputChange}
-                  >
-                    <option value="addition">Addition</option>
-                    <option value="reduction">Reduction</option>
-                    <option value="adjustment">Adjustment</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    className="border border-gray-300 w-full px-4 py-2 rounded-lg"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    placeholder="Enter notes"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-4">
-                  <button
-                    type="button"
-                    className="bg-gray-500 text-white px-6 py-2 rounded-lg"
-                    onClick={() => setIsFormOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg"
-                  >
-                    Submit
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* ✅ Stock History Modal */}
-        {isHistoryOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white p-8 rounded-xl shadow-2xl w-11/12 max-w-4xl">
-              <h3 className="text-2xl font-bold mb-6 text-gray-800">
-                {historyTitle}
-              </h3>
-              <div className="max-h-96 overflow-y-auto">
-                <table className="w-full text-left border border-gray-200">
-                  <thead>
-                    <tr className="bg-gray-200">
-                      <th className="p-2">Product</th>
-                      <th className="p-2">Updated By</th>
-                      <th className="p-2">Boxes</th>
-                      <th className="p-2">Change Type</th>
-                      <th className="p-2">Notes</th>
-                      <th className="p-2">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((entry, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="p-2">
-                          {entry.productId?.name ||
-                            (entry.productId &&
-                            typeof entry.productId === "string"
-                              ? "N/A"
-                              : "N/A")}
-                        </td>
-                        <td className="p-2">{entry.updatedBy?.name || "N/A"}</td>
-                        <td className="p-2">{entry.boxes}</td>
-                        <td className="p-2 capitalize">{entry.changeType}</td>
-                        <td className="p-2">{entry.notes || "N/A"}</td>
-                        <td className="p-2">
-                          {new Date(entry.updatedAt).toLocaleString("en-IN")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end mt-6">
-                <button
-                  className="bg-gray-500 text-white px-6 py-2 rounded-lg"
-                  onClick={() => setIsHistoryOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+        {!loading && products.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <Package className="h-14 w-14 mb-4 opacity-30" />
+            <p className="font-medium">No products found.</p>
           </div>
         )}
       </div>
+
+      {/* ── Update Stock Modal ─────────────────────────────────────────── */}
+      {isFormOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+          onClick={() => setIsFormOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative"
+            onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setIsFormOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-6">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <RotateCcw className="h-5 w-5 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800">Update Stock</h3>
+            </div>
+
+            <form className="space-y-4" onSubmit={updateStock}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Select Product <span className="text-red-500">*</span></label>
+                <select
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  onChange={(e) => setSelectedProduct(e.target.value)}
+                  value={selectedProduct}
+                  required
+                >
+                  <option value="">Select a product</option>
+                  {products.map((product) => (
+                    <option key={product._id} value={product._id}>
+                      {product.name} ({product.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Boxes <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  name="boxes"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  value={formData.boxes}
+                  onChange={handleInputChange}
+                  placeholder="Enter number of boxes"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Change Type</label>
+                <select
+                  name="changeType"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  value={formData.changeType}
+                  onChange={handleInputChange}
+                >
+                  <option value="addition">Addition</option>
+                  <option value="reduction">Reduction</option>
+                  <option value="adjustment">Adjustment</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+                <textarea
+                  name="notes"
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  placeholder="Enter notes"
+                />
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFormOpen(false)}
+                  className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  Submit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── History Modal ──────────────────────────────────────────────── */}
+      {isHistoryOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+          onClick={() => setIsHistoryOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-amber-500" />
+                <h3 className="text-lg font-semibold text-gray-800">{historyTitle}</h3>
+              </div>
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-auto flex-1">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    {["Product", "Updated By", "Boxes", "Change Type", "Notes", "Date"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {history.map((entry, index) => (
+                    <tr key={index} className="hover:bg-amber-50/30 transition-colors">
+                      <td className="px-4 py-3 font-medium text-gray-800">{entry.productId?.name || "N/A"}</td>
+                      <td className="px-4 py-3 text-gray-600">{entry.updatedBy?.name || "N/A"}</td>
+                      <td className="px-4 py-3 font-semibold text-amber-600">{entry.boxes}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border capitalize ${changeTypeColor(entry.changeType)}`}>
+                          {entry.changeType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{entry.notes || "—"}</td>
+                      <td className="px-4 py-3 text-gray-500">{new Date(entry.updatedAt).toLocaleString("en-IN")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
