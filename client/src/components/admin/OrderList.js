@@ -20,6 +20,14 @@ import {
   ChevronRight,
   Package,
   CircleDot,
+  User,
+  Building2,
+  Phone,
+  Mail,
+  Hash,
+  MapPin,
+  CreditCard,
+  X,
 } from "lucide-react";
 
 import {
@@ -40,6 +48,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
 import PriceUpdateConfirm from "./PriceUpdateConfirm";
 import Paginator from "../shared/Paginator";
 
@@ -62,6 +77,12 @@ const Order = () => {
     isOpen: false,
     order: null,
     details: [],
+  });
+
+  // details dialog
+  const [detailsModal, setDetailsModal] = useState({
+    isOpen: false,
+    order: null,
   });
 
   // processing confirmation dialog
@@ -118,9 +139,9 @@ const Order = () => {
         customerName: order.user?.name || "N/A",
         customerEmail: order.user?.email || "N/A",
         customerPhone: order.user?.phoneNumber || "N/A",
-        firmName: order.firmName || order.user?.customerDetails?.firmName || "N/A",
-        shippingAddress: order.shippingAddress || "N/A",
-        userCode: order.user?.userCode || order.user?.customerDetails?.userCode || "N/A",
+        firmName: order.firmName || order.user?.firmName || "N/A",
+        shippingAddress: order.shippingAddress || {},
+        userCode: order.user?.userCode || "N/A",
         orderStatus: order.orderStatus || "N/A",
         paymentStatus: order.paymentStatus || "N/A",
         paymentMethod: order.paymentMethod || "N/A",
@@ -481,9 +502,9 @@ const Order = () => {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-slate-400 hover:text-slate-600"
-                                  onClick={() => navigate(`/order/${order._id}`)}
+                                  onClick={() => setDetailsModal({ isOpen: true, order })}
                                 >
-                                  <ChevronRight className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               </td>
                             </motion.tr>
@@ -582,7 +603,7 @@ const Order = () => {
                             <Button
                               variant="outline"
                               className="flex-1 h-9 rounded-lg text-xs border-slate-200"
-                              onClick={() => navigate(`/order/${order._id}`)}
+                              onClick={() => setDetailsModal({ isOpen: true, order })}
                             >
                               View Details
                             </Button>
@@ -704,6 +725,220 @@ const Order = () => {
         description="The order has been moved to processing status successfully."
         showOnlyOk={true}
       />
+
+      {/* 📌 ORDER DETAILS DIALOG */}
+      <Dialog
+        open={detailsModal.isOpen}
+        onOpenChange={(open) =>
+          !open && setDetailsModal({ isOpen: false, order: null })
+        }
+      >
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-slate-50 gap-0">
+          {detailsModal.order && (
+            <>
+              <DialogHeader className="px-6 py-5 bg-white border-b shrink-0">
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
+                    <ShoppingCart className="h-5 w-5 text-blue-600" />
+                    Order Details
+                  </DialogTitle>
+                  <div className="flex gap-2 mr-6">
+                    <Badge
+                      variant="outline"
+                      className={`${getStatusInfo(detailsModal.order.orderStatus).color}`}
+                    >
+                      Status: {getStatusInfo(detailsModal.order.orderStatus).label}
+                    </Badge>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
+                {/* Top Info Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0">
+                      <Hash className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                        Order ID
+                      </p>
+                      <p className="font-mono text-sm font-bold truncate text-slate-900">
+                        #{detailsModal.order.orderId}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                        Created At
+                      </p>
+                      <p className="text-sm font-bold truncate text-slate-900">
+                        {new Date(detailsModal.order.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
+                      <CreditCard className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                        Payment Status
+                      </p>
+                      <p className="text-sm font-bold truncate">
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-100"
+                        >
+                          {detailsModal.order.paymentStatus}
+                        </Badge>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Customer Info */}
+                  <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 font-bold text-xs text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                      <User className="h-4 w-4" /> Customer Information
+                    </div>
+                    <div className="p-4 space-y-3 flex-1">
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-slate-500 font-bold col-span-1">Name:</span>
+                        <span className="text-slate-900 col-span-2 font-bold">{detailsModal.order.customerName}</span>
+                      </div>
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-slate-500 font-bold col-span-1">Firm:</span>
+                        <span className="text-slate-900 col-span-2">{detailsModal.order.firmName}</span>
+                      </div>
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-slate-500 font-bold col-span-1">Code:</span>
+                        <span className="text-slate-900 col-span-2 font-mono uppercase text-xs bg-slate-100 w-fit px-1.5 rounded">{detailsModal.order.userCode}</span>
+                      </div>
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-slate-500 font-bold col-span-1">Contact:</span>
+                        <span className="text-slate-900 col-span-2 flex flex-col gap-1">
+                          <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400" /> {detailsModal.order.customerPhone}</span>
+                          <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-slate-400" /> {detailsModal.order.customerEmail}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shipping Info */}
+                  <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 font-bold text-xs text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                        <MapPin className="h-4 w-4" /> Shipping & Delivery
+                    </div>
+                    <div className="p-4 space-y-4 flex-1">
+                        <div>
+                            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">Method</p>
+                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 uppercase text-[10px] font-bold">
+                                {detailsModal.order.type}
+                            </Badge>
+                        </div>
+                        <div className="text-sm">
+                            <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">Address</p>
+                            <p className="text-slate-800 leading-relaxed italic">
+                                {detailsModal.order.shippingAddress?.address || "N/A"}
+                            </p>
+                            <p className="text-slate-600 text-xs mt-1">
+                                {detailsModal.order.shippingAddress?.city}{detailsModal.order.shippingAddress?.city && ", "}
+                                {detailsModal.order.shippingAddress?.state} {detailsModal.order.shippingAddress?.pinCode}
+                            </p>
+                            {detailsModal.order.gstNumber && detailsModal.order.gstNumber !== "N/A" && (
+                                <p className="mt-2 text-xs font-bold text-slate-500">
+                                    GSTIN: <span className="text-slate-700">{detailsModal.order.gstNumber}</span>
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 font-bold text-xs text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Order Items ({detailsModal.order.products.length})
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                          <th className="px-4 py-3">Product Name</th>
+                          <th className="px-4 py-3 text-center">Qty</th>
+                          <th className="px-4 py-3 text-right">Unit Price</th>
+                          <th className="px-4 py-3 text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {detailsModal.order.products.map((item, idx) => (
+                          <tr key={idx} className="text-sm">
+                            <td className="px-4 py-3 font-bold text-slate-800">{item.name || item.product?.name || "N/A"}</td>
+                            <td className="px-4 py-3 text-center font-bold text-slate-600 font-mono italic">x{item.quantity ?? 1}</td>
+                            <td className="px-4 py-3 text-right font-mono text-slate-500">₹{item.price?.toLocaleString() || "0"}</td>
+                            <td className="px-4 py-3 text-right font-bold text-slate-900">₹{( (item.price || 0) * (item.quantity || 1) ).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Billing Summary */}
+                <div className="flex justify-end">
+                    <div className="w-full md:w-64 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl p-6 shadow-sm">
+                        <div className="space-y-3">
+                            <div className="flex justify-between text-xs text-slate-500 font-medium">
+                                <span>Subtotal</span>
+                                <span>₹{detailsModal.order.totalAmount?.toLocaleString()}</span>
+                            </div>
+                             <div className="flex justify-between text-xs text-slate-500 font-medium">
+                                <span>Shipping</span>
+                                <span>Included</span>
+                            </div>
+                            <Separator className="bg-slate-200" />
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-bold uppercase tracking-widest text-slate-600">Total</span>
+                                <span className="text-xl font-bold text-blue-600">₹{detailsModal.order.totalAmount?.toLocaleString()}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 text-right italic">via {detailsModal.order.paymentMethod}</p>
+                        </div>
+                    </div>
+                </div>
+              </div>
+
+              <DialogFooter className="px-6 py-4 bg-white border-t">
+                <Button 
+                   variant="outline" 
+                   onClick={() => setDetailsModal({ isOpen: false, order: null })}
+                   className="w-full sm:w-auto"
+                >
+                  Close Record
+                </Button>
+                {detailsModal.order.orderStatus === "preview" && (
+                    <Button 
+                        className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                        onClick={() => {
+                            const order = detailsModal.order;
+                            setDetailsModal({ isOpen: false, order: null });
+                            handleChangeOrderStatus(order);
+                        }}
+                    >
+                        Accept Order
+                    </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };
