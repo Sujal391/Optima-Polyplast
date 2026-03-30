@@ -1,65 +1,44 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import cookies from "js-cookie";
-import { useNavigate } from "react-router-dom";
-import { MoreVertical, X } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+import {
+  Search, Download, Eye, Loader2, PackageSearch, X,
+  Clock, AlertCircle, CreditCard, ChevronRight, Hash, User, MapPin, Receipt, CheckCircle2
+} from "lucide-react";
+
 import Paginator from "../common/Paginator";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  Paper,
-  CircularProgress,
-  Alert,
-  TextField,
-  Button,
-  IconButton,
-  Menu,
-  MenuItem,
-  Typography,
-  Box,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Select,
-  FormControl,
-  InputLabel,
-  Grid,
-  Divider,
-  Tab,
-  Tabs,
-} from "@mui/material";
+} from "../ui/table";
 import {
-  PersonOutline,
-  LocationOn,
-  Inventory,
-  History,
-  Payment as PaymentIcon,
-  Receipt as ReceiptIcon,
-  CheckCircle as CheckCircleIcon,
-  Pending as PendingIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 
-import { Download, Eye } from "lucide-react";
-
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API,
-});
-
+const api = axios.create({ baseURL: process.env.REACT_APP_API });
 api.interceptors.request.use(
   (config) => {
     const token = cookies.get("token");
-    if (token) {
-      config.headers.Authorization = token.startsWith("Bearer ")
-        ? token
-        : `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
@@ -76,207 +55,88 @@ api.interceptors.response.use(
   }
 );
 
-const formatCurrency = (amount) =>
-  typeof amount === "number" ? `₹${amount.toFixed(2)}` : "N/A";
-
-const formatDateTime = (dateString) =>
-  dateString ? new Date(dateString).toLocaleString("en-IN") : "N/A";
+// Formatter Helpers
+const formatCurrency = (amount) => typeof amount === "number" ? `₹${amount.toLocaleString("en-IN")}` : "N/A";
+const formatDateTime = (dateString) => dateString ? new Date(dateString).toLocaleString("en-IN") : "N/A";
 
 const getPaymentStatusColor = (status) => {
   const s = status?.toLowerCase();
-  const colors = {
-    pending: "warning",
-    completed: "success",
-    failed: "error",
-    submitted: "info",
-    verified: "success",
-    partial: "secondary",
-    cancelled: "error",
-    refunded: "info",
-  };
-  return colors[s] || "default";
+  if (s === 'completed' || s === 'verified' || s === 'paid') return "bg-green-100 text-green-700 border-green-200";
+  if (s === 'pending' || s === 'submitted') return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  if (s === 'partial') return "bg-orange-100 text-orange-700 border-orange-200";
+  if (s === 'failed' || s === 'cancelled') return "bg-red-100 text-red-700 border-red-200";
+  return "bg-gray-100 text-gray-700 border-gray-200";
 };
 
-const getPaymentStatusIcon = (status) => {
-  const s = status?.toLowerCase();
-  if (s === 'completed' || s === 'verified') return <CheckCircleIcon fontSize="small" />;
-  if (s === 'pending' || s === 'submitted') return <PendingIcon fontSize="small" />;
-  if (s === 'partial') return <WarningIcon fontSize="small" />;
-  return null;
-};
-
-const toast = {
-  success: (msg) => console.log("✓", msg),
-  error: (msg) => console.error("✗", msg),
-  warning: (msg) => console.warn("⚠", msg),
-};
-
-// Dropdown Menu Component
-const DropdownMenu = ({ onViewDetails, onUpdateStatus }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  return (
-    <>
-      <IconButton
-        onClick={handleClick}
-        size="small"
-      >
-        <MoreVertical size={18} />
-      </IconButton>
-      <Menu
-        anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-      >
-        <MenuItem onClick={() => { onViewDetails(); handleClose(); }}>
-          <ReceiptIcon fontSize="small" sx={{ mr: 1 }} />
-          View Details
-        </MenuItem>
-        <MenuItem onClick={() => { onUpdateStatus(); handleClose(); }}>
-          <PaymentIcon fontSize="small" sx={{ mr: 1 }} />
-          Update Status
-        </MenuItem>
-      </Menu>
-    </>
-  );
-};
-
-// Tab Panel Component
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`payment-tabpanel-${index}`}
-      aria-labelledby={`payment-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ py: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
-const PendingPayment = () => {
-  const navigate = useNavigate();
-
-  // PENDING PAYMENTS STATE
+export default function PendingPayment() {
+  // STATE
+  const [activeTab, setActiveTab] = useState("pending"); // "pending" | "partial"
+  
   const [pendingPayments, setPendingPayments] = useState([]);
-  const [pendingCount, setPendingCount] = useState(0);
   const [pendingLoading, setPendingLoading] = useState(true);
-  const [pendingError, setPendingError] = useState("");
+  const [pendingSearch, setPendingSearch] = useState("");
   const [pendingPage, setPendingPage] = useState(1);
   const [pendingPageSize, setPendingPageSize] = useState(10);
-  const [downloadingExcel, setDownloadingExcel] = useState(false);
-  const [pendingSearchTerm, setPendingSearchTerm] = useState("");
 
-  // PARTIAL PAYMENTS STATE
   const [partialPayments, setPartialPayments] = useState([]);
-  const [partialCount, setPartialCount] = useState(0);
   const [partialLoading, setPartialLoading] = useState(false);
-  const [partialError, setPartialError] = useState("");
+  const [partialSearch, setPartialSearch] = useState("");
   const [partialPage, setPartialPage] = useState(1);
   const [partialPageSize, setPartialPageSize] = useState(10);
-  const [partialSearchTerm, setPartialSearchTerm] = useState("");
 
-  // ACTIVE TAB STATE
-  const [activeTab, setActiveTab] = useState(0);
+  const [downloading, setDownloading] = useState(false);
 
-  // VIEW DETAILS MODAL
-  const [detailsModal, setDetailsModal] = useState({
-    isOpen: false,
-    payment: null,
-    loading: false,
-    activeTab: 0, // For payment history vs order details
-  });
-
-  // UPDATE PAYMENT STATUS MODAL
+  // Modals
+  const [detailsModal, setDetailsModal] = useState({ isOpen: false, payment: null, loading: false });
   const [statusModal, setStatusModal] = useState({
-    isOpen: false,
-    paymentId: null,
-    currentStatus: "",
-    remainingAmount: 0,
-    totalAmount: 0,
-    paidAmount: 0,
-    paymentType: "pending", // 'pending' or 'partial'
+    isOpen: false, paymentId: null, currentStatus: "", remainingAmount: 0, totalAmount: 0, paidAmount: 0, type: "pending"
   });
-
-  const [statusForm, setStatusForm] = useState({
-    paymentStatus: "completed",
-    receivedAmount: "",
-    paymentMode: "",
-    remarks: "",
-  });
-
+  const [statusForm, setStatusForm] = useState({ paymentStatus: "completed", receivedAmount: "", paymentMode: "", remarks: "", referenceId: "", bankName: "", screenshot: null });
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // FETCH PENDING PAYMENTS
+  // FETCH DATA
   const fetchPendingPayments = async () => {
     setPendingLoading(true);
-    setPendingError("");
     try {
       const res = await api.get("reception/pending-payments");
-      const data = res.data || {};
-      setPendingPayments(data.pendingPayments || []);
-      setPendingCount(data.count || (data.pendingPayments || []).length || 0);
-    } catch (error) {
-      console.error(error);
-      setPendingError("Error fetching pending payments");
+      setPendingPayments(res.data?.pendingPayments || []);
+    } catch {
       toast.error("Error fetching pending payments");
     } finally {
       setPendingLoading(false);
     }
   };
 
-  // FETCH PARTIAL PAYMENTS
   const fetchPartialPayments = async () => {
     setPartialLoading(true);
-    setPartialError("");
     try {
       const res = await api.get("reception/partial-payments");
-      const data = res.data || {};
-      setPartialPayments(data.partialPayments || []);
-      setPartialCount(data.count || (data.partialPayments || []).length || 0);
-    } catch (error) {
-      console.error(error);
-      setPartialError("Error fetching partial payments");
+      setPartialPayments(res.data?.partialPayments || []);
+    } catch {
       toast.error("Error fetching partial payments");
     } finally {
       setPartialLoading(false);
     }
   };
 
-  // DOWNLOAD PENDING PAYMENTS EXCEL
+  useEffect(() => {
+    fetchPendingPayments();
+    fetchPartialPayments();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "partial") fetchPartialPayments();
+  }, [activeTab]);
+
+  // DOWNLOAD EXCEL
   const handleDownloadExcel = async () => {
-    setDownloadingExcel(true);
+    setDownloading(true);
     try {
-      const endpoint = activeTab === 0 
-        ? "reception/pending-payments/download" 
-        : "reception/partial-payments/download";
+      const endpoint = activeTab === "pending" ? "reception/payments/pending/download" : "reception/payments/pending/download";
+      const filename = activeTab === "pending" ? "pending_payments.xlsx" : "partial_payments.xlsx";
       
-      const res = await api.get(endpoint, {
-        responseType: "blob",
-      });
-
-      const filename = activeTab === 0 
-        ? "pending_payments.xlsx" 
-        : "partial_payments.xlsx";
-
-      const blob = new Blob([res.data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
+      const res = await api.get(endpoint, { responseType: "blob" });
+      const blob = new Blob([res.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -285,57 +145,30 @@ const PendingPayment = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-
-      toast.success(`${activeTab === 0 ? 'Pending' : 'Partial'} payments Excel downloaded`);
-    } catch (error) {
-      console.error(error);
+      toast.success(`${activeTab === "pending" ? 'Pending' : 'Partial'} payments downloaded`);
+    } catch {
       toast.error("Error downloading Excel");
     } finally {
-      setDownloadingExcel(false);
+      setDownloading(false);
     }
   };
 
-  // OPEN DETAILS MODAL
+  // DETAILS MODAL
   const openDetailsModal = async (payment) => {
-    setDetailsModal({
-      isOpen: true,
-      payment: null,
-      loading: true,
-      activeTab: 0,
-    });
-
+    setDetailsModal({ isOpen: true, payment: null, loading: true });
     try {
       const res = await api.get(`reception/payment/${payment.paymentId}`);
-      setDetailsModal({
-        isOpen: true,
-        payment: res.data?.payment || payment,
-        loading: false,
-        activeTab: 0,
-      });
-    } catch (error) {
-      console.error("Error fetching payment details:", error);
-      // Fallback to basic payment data if API fails
-      setDetailsModal({
-        isOpen: true,
-        payment,
-        loading: false,
-        activeTab: 0,
-      });
-      toast.error("Error fetching payment details");
+      setDetailsModal({ isOpen: true, payment: res.data?.payment || payment, loading: false });
+    } catch {
+      setDetailsModal({ isOpen: true, payment, loading: false });
+      toast.error("Error fetching full payment details");
     }
   };
 
-  const closeDetailsModal = () => {
-    setDetailsModal({
-      isOpen: false,
-      payment: null,
-      loading: false,
-      activeTab: 0,
-    });
-  };
+  const closeDetailsModal = () => setDetailsModal({ isOpen: false, payment: null, loading: false });
 
-  // OPEN STATUS MODAL (works for both pending and partial)
-  const openStatusModal = (payment, type = "pending") => {
+  // STATUS MODAL
+  const openStatusModal = (payment, type) => {
     setStatusModal({
       isOpen: true,
       paymentId: payment.paymentId,
@@ -343,1240 +176,720 @@ const PendingPayment = () => {
       remainingAmount: payment.remainingAmount || 0,
       totalAmount: payment.totalAmountWithDelivery || payment.totalAmount || 0,
       paidAmount: payment.paidAmount || 0,
-      paymentType: type,
+      type,
     });
-    
-    // Pre-fill with remaining amount for convenience
     setStatusForm({
       paymentStatus: payment.remainingAmount > 0 ? "partial" : "completed",
       receivedAmount: payment.remainingAmount || "",
       paymentMode: payment.paymentMode || "",
       remarks: "",
+      referenceId: "",
+      bankName: "",
+      screenshot: null
     });
   };
 
   const closeStatusModal = () => {
-    setStatusModal({
-      isOpen: false,
-      paymentId: null,
-      currentStatus: "",
-      remainingAmount: 0,
-      totalAmount: 0,
-      paidAmount: 0,
-      paymentType: "pending",
-    });
-    setStatusForm({
-      paymentStatus: "completed",
-      receivedAmount: "",
-      paymentMode: "",
-      remarks: "",
+    setStatusModal({ isOpen: false, paymentId: null, currentStatus: "", remainingAmount: 0, totalAmount: 0, paidAmount: 0, type: "pending" });
+    setStatusForm({ paymentStatus: "completed", receivedAmount: "", paymentMode: "", remarks: "", referenceId: "", bankName: "", screenshot: null });
+  };
+
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
     });
   };
 
-  // SUBMIT STATUS UPDATE
   const handleUpdatePaymentStatus = async () => {
-    const { paymentStatus, receivedAmount, paymentMode, remarks } = statusForm;
-    const { paymentId, remainingAmount, paymentType } = statusModal;
+    const { paymentStatus, receivedAmount, paymentMode, remarks, referenceId, bankName, screenshot } = statusForm;
+    const { paymentId, remainingAmount } = statusModal;
 
-    if (!paymentStatus) {
-      return toast.warning("Please select a payment status.");
-    }
-
-    if (!paymentMode) {
-      return toast.warning("Please select a payment mode.");
-    }
+    if (!paymentStatus) return toast.warning("Please select a status.");
+    if (!paymentMode) return toast.warning("Please select a mode.");
 
     const parsedAmount = parseFloat(receivedAmount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return toast.warning("Please enter a valid received amount.");
-    }
-
-    if (remainingAmount && parsedAmount > remainingAmount) {
-      return toast.warning(
-        `Received amount (₹${parsedAmount}) cannot exceed remaining amount (₹${remainingAmount}).`
-      );
-    }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return toast.warning("Enter a valid amount.");
+    if (remainingAmount && parsedAmount > remainingAmount) return toast.warning(`Amount cannot exceed ₹${remainingAmount}.`);
 
     setUpdatingStatus(true);
-
     try {
-      const res = await api.patch(`/reception/payments/${paymentId}/status`, {
+      let screenshotBase64 = undefined;
+      if (screenshot) {
+        screenshotBase64 = await convertToBase64(screenshot);
+      }
+
+      const payload = {
         paymentStatus,
         receivedAmount: parsedAmount,
         paymentMode,
         remarks: remarks || undefined,
-      });
+        referenceId: referenceId || undefined,
+        bankName: bankName || undefined,
+        screenshotUrl: screenshotBase64
+      };
 
-      const updated = res.data?.payment;
-      toast.success(res.data?.message || "Payment status updated successfully");
-
-      // Update the appropriate state based on payment type
-      if (paymentType === "pending") {
-        if (updated) {
-          setPendingPayments((prev) =>
-            prev.map((p) =>
-              p.paymentId === paymentId
-                ? {
-                    ...p,
-                    paymentStatus: updated.status,
-                    status: updated.status,
-                    paidAmount: typeof updated.paidAmount === "number" 
-                      ? updated.paidAmount 
-                      : p.paidAmount,
-                    remainingAmount: typeof updated.remainingAmount === "number" 
-                      ? updated.remainingAmount 
-                      : p.remainingAmount,
-                    totalAmount: typeof updated.totalAmount === "number" 
-                      ? updated.totalAmount 
-                      : p.totalAmount,
-                    totalAmountWithDelivery: typeof updated.totalAmountWithDelivery === "number"
-                      ? updated.totalAmountWithDelivery
-                      : p.totalAmountWithDelivery,
-                    paymentMode: updated.paymentMode || paymentMode,
-                    updatedBy: updated.updatedBy,
-                    updatedAt: updated.updatedAt,
-                  }
-                : p
-            )
-          );
-        } else {
-          setPendingPayments((prev) =>
-            prev.map((p) =>
-              p.paymentId === paymentId 
-                ? { 
-                    ...p, 
-                    paymentStatus, 
-                    status: paymentStatus,
-                    paymentMode,
-                    paidAmount: (p.paidAmount || 0) + parsedAmount,
-                    remainingAmount: Math.max(0, (p.remainingAmount || 0) - parsedAmount),
-                  } 
-                : p
-            )
-          );
-        }
-        
-        // If payment becomes partial, refresh partial payments
-        if (paymentStatus === "partial" || (updated?.status === "partial")) {
-          fetchPartialPayments();
-        }
-        
-        // Refresh pending payments
-        fetchPendingPayments();
-        
-      } else {
-        // Update partial payments state
-        if (updated) {
-          setPartialPayments((prev) =>
-            prev.map((p) =>
-              p.paymentId === paymentId
-                ? {
-                    ...p,
-                    paymentStatus: updated.status,
-                    status: updated.status,
-                    paidAmount: typeof updated.paidAmount === "number" 
-                      ? updated.paidAmount 
-                      : p.paidAmount,
-                    remainingAmount: typeof updated.remainingAmount === "number" 
-                      ? updated.remainingAmount 
-                      : p.remainingAmount,
-                    paymentMode: updated.paymentMode || paymentMode,
-                    updatedAt: updated.updatedAt,
-                  }
-                : p
-            )
-          );
-        } else {
-          setPartialPayments((prev) =>
-            prev.map((p) =>
-              p.paymentId === paymentId 
-                ? { 
-                    ...p, 
-                    paymentStatus, 
-                    status: paymentStatus,
-                    paymentMode,
-                    paidAmount: (p.paidAmount || 0) + parsedAmount,
-                    remainingAmount: Math.max(0, (p.remainingAmount || 0) - parsedAmount),
-                  } 
-                : p
-            )
-          );
-        }
-        
-        // If payment becomes completed, remove from partial list or refresh
-        if (paymentStatus === "completed") {
-          // Option 1: Remove from list
-          setPartialPayments((prev) => 
-            prev.filter(p => p.paymentId !== paymentId)
-          );
-          // Option 2: Refresh both lists
-          fetchPartialPayments();
-          fetchPendingPayments();
-        }
-      }
-
+      const res = await api.patch(`/reception/payments/${paymentId}/status`, payload);
+      toast.success(res.data?.message || "Updated successfully");
+      
+      fetchPendingPayments();
+      fetchPartialPayments();
       closeStatusModal();
     } catch (error) {
-      console.error(error);
-      
-      const errorData = error?.response?.data;
-      
-      if (errorData?.details) {
-        const { totalDue, alreadyPaid, attemptingToPay, maxAllowed } = errorData.details;
-        toast.error(
-          `${errorData.error}. Already paid: ₹${alreadyPaid}, ` +
-          `Maximum allowed: ₹${maxAllowed}`
-        );
-      } else {
-        toast.error(
-          errorData?.message ||
-          errorData?.error ||
-          "Error updating payment status"
-        );
-      }
+      toast.error(error.response?.data?.details?.error || error.response?.data?.message || "Error updating payment");
     } finally {
       setUpdatingStatus(false);
     }
   };
 
-  // INITIAL LOAD
-  useEffect(() => {
-    fetchPendingPayments();
-    fetchPartialPayments();
-  }, []);
-
-  // Load partial payments when tab changes
-  useEffect(() => {
-    if (activeTab === 1) {
-      fetchPartialPayments();
-    }
-  }, [activeTab]);
-
-  // FILTER FUNCTION
-  const filterPayments = (payments, searchTerm) => {
-    if (!searchTerm.trim()) return payments;
-    
-    const term = searchTerm.toLowerCase();
-    return payments.filter((payment) => {
-      return (
-        payment.paymentId?.toLowerCase().includes(term) ||
-        payment.orderId?.toLowerCase().includes(term) ||
-        payment.user?.name?.toLowerCase().includes(term) ||
-        payment.user?.firmName?.toLowerCase().includes(term) ||
-        payment.firmName?.toLowerCase().includes(term) ||
-        payment.user?.userCode?.toLowerCase().includes(term) ||
-        payment.user?.phoneNumber?.toLowerCase().includes(term) ||
-        payment.user?.email?.toLowerCase().includes(term) ||
-        payment.paymentStatus?.toLowerCase().includes(term) ||
-        payment.status?.toLowerCase().includes(term) ||
-        payment.orderStatus?.toLowerCase().includes(term)
-      );
-    });
+  // FILTER & PAGINATION
+  const filterPayments = (payments, term) => {
+    if (!term.trim()) return payments;
+    const q = term.toLowerCase();
+    return payments.filter(p => 
+      p.paymentId?.toLowerCase().includes(q) ||
+      p.orderId?.toLowerCase().includes(q) ||
+      p.user?.name?.toLowerCase().includes(q) ||
+      p.firmName?.toLowerCase().includes(q) ||
+      p.user?.userCode?.toLowerCase().includes(q) ||
+      p.user?.phoneNumber?.toLowerCase().includes(q)
+    );
   };
 
-  // APPLY FILTERS AND PAGINATION FOR PENDING
-  const filteredPending = filterPayments(pendingPayments, pendingSearchTerm);
-  const pendingTotal = filteredPending.length;
-  const pendingStartIdx = (pendingPage - 1) * pendingPageSize;
-  const pendingEndIdx = pendingStartIdx + pendingPageSize;
-  const pagedPending = filteredPending.slice(pendingStartIdx, pendingEndIdx);
-
-  // APPLY FILTERS AND PAGINATION FOR PARTIAL
-  const filteredPartial = filterPayments(partialPayments, partialSearchTerm);
-  const partialTotal = filteredPartial.length;
-  const partialStartIdx = (partialPage - 1) * partialPageSize;
-  const partialEndIdx = partialStartIdx + partialPageSize;
-  const pagedPartial = filteredPartial.slice(partialStartIdx, partialEndIdx);
-
-  const formatShippingAddress = (address) =>
-    address ? `${address.address || ''}, ${address.city || ''}, ${address.state || ''} ${address.pinCode || ''}` : 'N/A';
-
-  // Handle tab change
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
-
-  // Render payment table based on active tab
-  const renderPaymentTable = () => {
-    if (activeTab === 0) {
-      // Pending Payments Table
-      return (
-        <>
-          <TableContainer component={Paper} sx={{ boxShadow: 3 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#bdbdbd' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>User Code</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Date & Time</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Firm</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Total Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Delivery Charge</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Total with Delivery</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Remaining</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Paid</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Payment Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Order Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {pendingLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={14} align="center" sx={{ py: 4 }}>
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : pagedPending.length > 0 ? (
-                  pagedPending.map((payment) => (
-                    <TableRow key={payment.paymentId} hover>
-                      <TableCell>{payment.user?.userCode || '(Misc)'}</TableCell>
-                      <TableCell>{formatDateTime(payment.createdAt)}</TableCell>
-                      <TableCell>{payment.user?.name || "N/A"}</TableCell>
-                      <TableCell>{payment.user?.email || "N/A"}</TableCell>
-                      <TableCell>{payment.user?.phoneNumber || "N/A"}</TableCell>
-                      <TableCell>{payment.user?.firmName || payment.firmName || "N/A"}</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.totalAmount)}</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.deliveryCharge)}</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.totalAmountWithDelivery)}</TableCell>
-                      <TableCell sx={{ color: 'error.main', fontWeight: 500 }}>{formatCurrency(payment.remainingAmount)}</TableCell>
-                      <TableCell sx={{ color: 'success.main', fontWeight: 500 }}>{formatCurrency(payment.paidAmount)}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={payment.paymentStatus || payment.status || "N/A"} 
-                          color={getPaymentStatusColor(payment.paymentStatus || payment.status)}
-                          size="small"
-                          icon={getPaymentStatusIcon(payment.paymentStatus || payment.status)}
-                        />
-                      </TableCell>
-                      <TableCell>{payment.orderStatus || "N/A"}</TableCell>
-                      <TableCell>
-                        <DropdownMenu
-                          onViewDetails={() => openDetailsModal(payment)}
-                          onUpdateStatus={() => openStatusModal(payment, "pending")}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={14} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      No pending payments found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Pending Pagination */}
-          <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="body2" color="text.secondary">
-              Showing {Math.min(pendingTotal, pendingStartIdx + 1)}–{Math.min(pendingTotal, pendingEndIdx)} of {pendingTotal}
-            </Typography>
-            <Paginator
-              page={pendingPage}
-              pageSize={pendingPageSize}
-              total={pendingTotal}
-              onPageChange={setPendingPage}
-            />
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <Select
-                value={pendingPageSize}
-                onChange={(e) => {
-                  setPendingPage(1);
-                  setPendingPageSize(parseInt(e.target.value, 10));
-                }}
-              >
-                {[5, 10, 20, 50].map((n) => (
-                  <MenuItem key={n} value={n}>
-                    {n} / page
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </>
-      );
+  const pagedData = () => {
+    if (activeTab === "pending") {
+      const filtered = filterPayments(pendingPayments, pendingSearch);
+      const total = filtered.length;
+      const startIdx = (pendingPage - 1) * pendingPageSize;
+      return { data: filtered.slice(startIdx, startIdx + pendingPageSize), total, startIdx, page: pendingPage, pageSize: pendingPageSize, setPage: setPendingPage, setPageSize: setPendingPageSize };
     } else {
-      // Partial Payments Table
-      return (
-        <>
-          <TableContainer component={Paper} sx={{ boxShadow: 3 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#bdbdbd' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>User Code</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Date & Time</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Firm</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Total Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Paid Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Remaining</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Payment Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Last Payment</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Payment Mode</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {partialLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : pagedPartial.length > 0 ? (
-                  pagedPartial.map((payment) => (
-                    <TableRow key={payment.paymentId} hover>
-                      <TableCell>{payment.user?.userCode || '(Misc)'}</TableCell>
-                      <TableCell>{formatDateTime(payment.createdAt)}</TableCell>
-                      <TableCell>{payment.user?.name || "N/A"}</TableCell>
-                      <TableCell>{payment.user?.phoneNumber || "N/A"}</TableCell>
-                      <TableCell>{payment.user?.firmName || payment.firmName || "N/A"}</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.totalAmountWithDelivery || payment.totalAmount)}</TableCell>
-                      <TableCell sx={{ color: 'success.main', fontWeight: 500 }}>{formatCurrency(payment.paidAmount)}</TableCell>
-                      <TableCell sx={{ color: 'error.main', fontWeight: 500 }}>{formatCurrency(payment.remainingAmount)}</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={payment.paymentStatus || payment.status || "Partial"} 
-                          color="secondary"
-                          size="small"
-                          icon={<WarningIcon fontSize="small" />}
-                        />
-                      </TableCell>
-                      <TableCell>{formatDateTime(payment.updatedAt || payment.createdAt)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={payment.paymentStatus || "N/A"}
-                          size="small"
-                          variant="outlined"
-                          sx={{ textTransform: 'capitalize' }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu
-                          onViewDetails={() => openDetailsModal(payment)}
-                          onUpdateStatus={() => openStatusModal(payment, "partial")}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={12} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      No partial payments found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Partial Pagination */}
-          <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="body2" color="text.secondary">
-              Showing {Math.min(partialTotal, partialStartIdx + 1)}–{Math.min(partialTotal, partialEndIdx)} of {partialTotal}
-            </Typography>
-            <Paginator
-              page={partialPage}
-              pageSize={partialPageSize}
-              total={partialTotal}
-              onPageChange={setPartialPage}
-            />
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <Select
-                value={partialPageSize}
-                onChange={(e) => {
-                  setPartialPage(1);
-                  setPartialPageSize(parseInt(e.target.value, 10));
-                }}
-              >
-                {[5, 10, 20, 50].map((n) => (
-                  <MenuItem key={n} value={n}>
-                    {n} / page
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </>
-      );
+      const filtered = filterPayments(partialPayments, partialSearch);
+      const total = filtered.length;
+      const startIdx = (partialPage - 1) * partialPageSize;
+      return { data: filtered.slice(startIdx, startIdx + partialPageSize), total, startIdx, page: partialPage, pageSize: partialPageSize, setPage: setPartialPage, setPageSize: setPartialPageSize };
     }
   };
+
+  const { data, total, startIdx, page, pageSize, setPage, setPageSize } = pagedData();
+  const isLoading = activeTab === "pending" ? pendingLoading : partialLoading;
 
   return (
-    <Box sx={{ bgcolor: '#e8f5e9', minHeight: '100vh', p: 3 }}>
-      <Box sx={{ maxWidth: '1400px', mx: 'auto' }}>
-        <Typography variant="h4" fontWeight="bold" textAlign="center" mb={3}>
-          Payment Management
-        </Typography>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <ToastContainer position="top-right" autoClose={3000} />
 
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3, bgcolor: 'white', borderRadius: '8px 8px 0 0' }}>
-          <Tabs value={activeTab} onChange={handleTabChange} aria-label="payment tabs">
-            <Tab 
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PendingIcon fontSize="small" />
-                  <span>Pending Payments ({pendingCount})</span>
-                </Box>
-              } 
-            />
-            <Tab 
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <WarningIcon fontSize="small" />
-                  <span>Partial Payments ({partialCount})</span>
-                </Box>
-              } 
-            />
-          </Tabs>
-        </Box>
-
-        {/* Search & Download - Common for both tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
-          <TextField
-            placeholder={`Search by Order ID, Name, Phone...`}
-            size="small"
-            value={activeTab === 0 ? pendingSearchTerm : partialSearchTerm}
-            onChange={(e) => {
-              if (activeTab === 0) {
-                setPendingSearchTerm(e.target.value);
-                setPendingPage(1);
-              } else {
-                setPartialSearchTerm(e.target.value);
-                setPartialPage(1);
-              }
-            }}
-            sx={{ flex: 1, maxWidth: 400, bgcolor: 'white' }}
-          />
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {activeTab === 1 && (
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<Eye size={16} />}
-                onClick={() => setActiveTab(0)}
-              >
-                View Pending Payments
-              </Button>
-            )}
-            <Button
-              variant="contained"
-              startIcon={downloadingExcel ? <CircularProgress size={16} color="inherit" /> : <Download size={16} />}
-              onClick={handleDownloadExcel}
-              disabled={downloadingExcel}
-            >
-              {downloadingExcel ? "Downloading..." : `Download ${activeTab === 0 ? 'Pending' : 'Partial'} Excel`}
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Search Results Count */}
-        {(activeTab === 0 ? pendingSearchTerm : partialSearchTerm) && (
-          <Typography variant="body2" color="text.secondary" mb={2}>
-            Found {activeTab === 0 ? pendingTotal : partialTotal} result{(activeTab === 0 ? pendingTotal : partialTotal) !== 1 ? 's' : ''}
-          </Typography>
-        )}
-
-        {/* Error Alert */}
-        {(activeTab === 0 ? pendingError : partialError) && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {activeTab === 0 ? pendingError : partialError}
-          </Alert>
-        )}
-
-        {/* Payment Table */}
-        {renderPaymentTable()}
-      </Box>
-
-      {/* VIEW DETAILS MODAL */}
-      <Dialog
-        open={detailsModal.isOpen}
-        onClose={closeDetailsModal}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          py: 2.5,
-          px: 3,
-          bgcolor: 'background.paper',
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ 
-              width: 8, 
-              height: 32, 
-              bgcolor: 'primary.main', 
-              borderRadius: 2,
-              boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)'
-            }} />
-            <Typography variant="h5" fontWeight="600" color="text.primary">
-              Payment Details
-            </Typography>
-            {detailsModal.payment?.paymentId && (
-              <Chip 
-                label={`ID: ${detailsModal.payment.paymentId.slice(-8)}`}
-                size="small"
-                variant="outlined"
-                sx={{ ml: 1, borderRadius: 1 }}
-              />
-            )}
-          </Box>
-          <IconButton 
-            onClick={closeDetailsModal} 
-            size="small"
-            sx={{ 
-              bgcolor: 'grey.100',
-              '&:hover': { bgcolor: 'grey.200' }
-            }}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-green-100 text-green-700 rounded-xl">
+                <CreditCard className="h-6 w-6" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Payment Management</h1>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              {pendingPayments.length} Pending • {partialPayments.length} Partial
+            </p>
+          </div>
+          
+          <Button 
+            onClick={handleDownloadExcel} 
+            disabled={downloading}
+            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
           >
-            <X size={20} />
-          </IconButton>
-        </DialogTitle>
+            {downloading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Downloading...</> : <><Download className="h-4 w-4 mr-2" />Download Excel</>}
+          </Button>
+        </div>
 
-        {detailsModal.loading ? (
-          <DialogContent sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            minHeight: 400,
-            flexDirection: 'column',
-            gap: 2
-          }}>
-            <CircularProgress size={48} thickness={4} />
-            <Typography color="text.secondary">Loading payment details...</Typography>
-          </DialogContent>
-        ) : detailsModal.payment ? (
-          <>
-            <DialogContent dividers sx={{ p: 0 }}>
-              {/* Status Banner */}
-              <Box sx={{ 
-                p: 3, 
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.50' : 'grey.900',
-              }}>
-                <Grid container spacing={3} alignItems="center">
-                  <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" gutterBottom>
-                          Payment Status
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                          <Box sx={{ 
-                            width: 10, 
-                            height: 10, 
-                            borderRadius: '50%',
-                            bgcolor: detailsModal.payment.paymentStatus === 'completed' ? 'success.main' : 
-                                     detailsModal.payment.paymentStatus === 'pending' ? 'warning.main' : 
-                                     detailsModal.payment.paymentStatus === 'partial' ? 'secondary.main' :
-                                     'error.main',
-                            boxShadow: `0 0 0 2px ${
-                              detailsModal.payment.paymentStatus === 'completed' ? 'success.light' : 
-                              detailsModal.payment.paymentStatus === 'pending' ? 'warning.light' : 
-                              detailsModal.payment.paymentStatus === 'partial' ? 'secondary.light' :
-                              'error.light'
-                            }`
-                          }} />
-                          <Typography variant="body1" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
-                            {detailsModal.payment.paymentStatus || detailsModal.payment.status || "N/A"}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Box sx={{ display: "flex", flexDirection: "column" }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Order Status
-                        </Typography>
-                        <Chip
-                          label={detailsModal.payment.orderStatus || "Pending"}
-                          size="small"
-                          sx={{ 
-                            mt: 0.5,
-                            width: "fit-content",
-                            bgcolor: 
-                              detailsModal.payment.orderStatus === "delivered"
-                                ? "success.light"
-                                : detailsModal.payment.orderStatus === "processing"
-                                ? "info.light"
-                                : detailsModal.payment.orderStatus === "cancelled"
-                                ? "error.light"
-                                : "warning.light",
-                            color:
-                              detailsModal.payment.orderStatus === "delivered"
-                                ? "success.dark"
-                                : detailsModal.payment.orderStatus === "processing"
-                                ? "info.dark"
-                                : detailsModal.payment.orderStatus === "cancelled"
-                                ? "error.dark"
-                                : "warning.dark",
-                            fontWeight: 500,
-                            borderRadius: 1.5,
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', sm: 'flex-end' }, gap: 3 }}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Created At</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>
-                          {formatDateTime(detailsModal.payment.createdAt)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Last Updated</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>
-                          {formatDateTime(detailsModal.payment.updatedAt || detailsModal.payment.createdAt)}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Box>
+        {/* Tabs & Search */}
+        <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-200 mb-6 flex flex-col sm:flex-row gap-3">
+          <div className="flex p-1 bg-gray-100 rounded-xl w-full sm:w-auto shrink-0">
+            <button
+              onClick={() => setActiveTab("pending")}
+              className={`flex-1 sm:px-6 py-2 text-sm font-semibold rounded-lg transition-all ${
+                activeTab === "pending" ? "bg-white text-green-700 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Pending ({pendingPayments.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("partial")}
+              className={`flex-1 sm:px-6 py-2 text-sm font-semibold rounded-lg transition-all ${
+                activeTab === "partial" ? "bg-white text-orange-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Partial ({partialPayments.length})
+            </button>
+          </div>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by ID, Name, Phone, Firm..."
+              value={activeTab === "pending" ? pendingSearch : partialSearch}
+              onChange={(e) => {
+                if (activeTab === "pending") { setPendingSearch(e.target.value); setPendingPage(1); }
+                else { setPartialSearch(e.target.value); setPartialPage(1); }
+              }}
+              className="w-full pl-9 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 h-full min-h-[40px]"
+            />
+          </div>
+        </div>
 
-              {/* Details Tabs */}
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 3 }}>
-                <Tabs 
-                  value={detailsModal.activeTab} 
-                  onChange={(e, newValue) => setDetailsModal(prev => ({ ...prev, activeTab: newValue }))}
-                >
-                  <Tab label="Overview" />
-                  <Tab label="Payment History" />
-                  <Tab label="Order Details" />
-                </Tabs>
-              </Box>
-
-              {/* Overview Tab */}
-              <TabPanel value={detailsModal.activeTab} index={0}>
-                <Box sx={{ px: 3 }}>
-                  {/* Amount Cards */}
-                  <Box sx={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, 1fr)' }, 
-                    gap: 2,
-                    mb: 4 
-                  }}>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'primary.50', borderRadius: 2 }}>
-                      <Typography variant="caption" color="primary.dark">Total Amount</Typography>
-                      <Typography variant="h6" fontWeight="700" color="primary.dark">
-                        {formatCurrency(detailsModal.payment.totalAmountWithDelivery || detailsModal.payment.totalAmount)}
-                      </Typography>
-                    </Paper>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'success.50', borderRadius: 2 }}>
-                      <Typography variant="caption" color="success.dark">Paid Amount</Typography>
-                      <Typography variant="h6" fontWeight="700" color="success.dark">
-                        {formatCurrency(detailsModal.payment.paidAmount)}
-                      </Typography>
-                    </Paper>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'error.50', borderRadius: 2 }}>
-                      <Typography variant="caption" color="error.dark">Remaining Amount</Typography>
-                      <Typography variant="h6" fontWeight="700" color="error.dark">
-                        {formatCurrency(detailsModal.payment.remainingAmount)}
-                      </Typography>
-                    </Paper>
-                    <Paper elevation={0} sx={{ p: 2, bgcolor: 'info.50', borderRadius: 2 }}>
-                      <Typography variant="caption" color="info.dark">Delivery Charge</Typography>
-                      <Typography variant="h6" fontWeight="700" color="info.dark">
-                        {formatCurrency(detailsModal.payment.deliveryCharge)}
-                      </Typography>
-                    </Paper>
-                  </Box>
-
-                  {/* Customer Information */}
-                  <Box sx={{ mb: 4 }}>
-                    <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PersonOutline fontSize="small" color="primary" />
-                      Customer Information
-                    </Typography>
-                    <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-                      <Grid container spacing={3}>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <Typography variant="caption" color="text.secondary">Customer Name</Typography>
-                          <Typography variant="body1" fontWeight={500}>{detailsModal.payment.user?.name || "N/A"}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <Typography variant="caption" color="text.secondary">Firm Name</Typography>
-                          <Typography variant="body1" fontWeight={500}>
-                            {detailsModal.payment.user?.firmName || detailsModal.payment.firmName || "N/A"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <Typography variant="caption" color="text.secondary">User Code</Typography>
-                          <Typography variant="body1" fontWeight={500}>
-                            {detailsModal.payment.user?.userCode || "N/A"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                          <Typography variant="caption" color="text.secondary">Phone Number</Typography>
-                          <Typography variant="body1" fontWeight={500}>
-                            {detailsModal.payment.user?.phoneNumber || "N/A"}
-                          </Typography>
-                        </Grid>
-                        {detailsModal.payment.user?.email && (
-                          <Grid item xs={12}>
-                            <Typography variant="caption" color="text.secondary">Email Address</Typography>
-                            <Typography variant="body1" fontWeight={500}>{detailsModal.payment.user.email}</Typography>
-                          </Grid>
-                        )}
-                        {detailsModal.payment.gstNumber && (
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="caption" color="text.secondary">GST Number</Typography>
-                            <Typography variant="body1" fontWeight={500}>{detailsModal.payment.gstNumber}</Typography>
-                          </Grid>
-                        )}
-                      </Grid>
-                    </Paper>
-                  </Box>
-
-                  {/* Shipping Address */}
-                  {detailsModal.payment.shippingAddress && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LocationOn fontSize="small" color="primary" />
-                        Shipping Address
-                      </Typography>
-                      <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="body2" sx={{ lineHeight: 1.8 }}>
-                          {formatShippingAddress(detailsModal.payment.shippingAddress)}
-                        </Typography>
-                      </Paper>
-                    </Box>
-                  )}
-
-                  {/* Products Section */}
-                  {detailsModal.payment.products?.length > 0 && (
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Inventory fontSize="small" color="primary" />
-                        Products ({detailsModal.payment.products.length})
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        {detailsModal.payment.products.map((product, idx) => (
-                          <Paper
-                            key={idx}
-                            elevation={0}
-                            sx={{
-                              p: 2,
-                              bgcolor: 'background.paper',
-                              borderRadius: 2,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              transition: 'all 0.2s',
-                              '&:hover': {
-                                borderColor: 'primary.main',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-                              }
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Box>
-                                <Typography variant="subtitle2" fontWeight={600}>{product.productName}</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                  <Chip
-                                    label={`${product.quantity || product.boxes || 0} ${product.unit || 'boxes'}`}
-                                    size="small"
-                                    sx={{ bgcolor: 'grey.100', borderRadius: 1 }}
-                                  />
-                                  <Typography variant="caption" color="text.secondary">
-                                    × {formatCurrency(product.price || product.unitPrice)} per {product.unit || 'box'}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                              {product.totalPrice && (
-                                <Typography variant="h6" fontWeight="700" color="primary.dark">
-                                  {formatCurrency(product.totalPrice)}
-                                </Typography>
-                              )}
-                            </Box>
-                          </Paper>
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-              </TabPanel>
-
-              {/* Payment History Tab */}
-              <TabPanel value={detailsModal.activeTab} index={1}>
-                <Box sx={{ px: 3 }}>
-                  {detailsModal.payment.paymentHistory?.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {detailsModal.payment.paymentHistory.map((history, idx) => (
-                        <Paper
-                          key={idx}
-                          elevation={0}
-                          sx={{
-                            p: 2.5,
-                            bgcolor: 'background.paper',
-                            borderRadius: 2,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            position: 'relative',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          <Box sx={{
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 4,
-                            bgcolor: history.status === 'verified' || history.status === 'completed' ? 'success.main' : 
-                                     history.status === 'pending' ? 'warning.main' : 
-                                     history.status === 'partial' ? 'secondary.main' : 'grey.400'
-                          }} />
-                          
-                          <Box sx={{ pl: 2 }}>
-                            <Grid container spacing={2}>
-                              <Grid item xs={12} sm={6} md={3}>
-                                <Typography variant="caption" color="text.secondary">Reference ID</Typography>
-                                <Typography variant="body2" fontWeight={500} fontFamily="monospace">
-                                  {history.referenceId || history.paymentId || "N/A"}
-                                </Typography>
-                              </Grid>
-                              <Grid item xs={12} sm={6} md={3}>
-                                <Typography variant="caption" color="text.secondary">
-                                  Payment Mode
-                                </Typography>
-                                <Box sx={{ mt: 0.5 }}>
-                                  <Chip
-                                    label={history.paymentMode || "N/A"}
-                                    size="small"
-                                    color={
-                                      history.paymentMode === "cash"
-                                        ? "success"
-                                        : history.paymentMode === "online"
-                                        ? "info"
-                                        : history.paymentMode === "card"
-                                        ? "primary"
-                                        : "default"
-                                    }
-                                    sx={{ borderRadius: 1, textTransform: "capitalize" }}
-                                  />
-                                </Box>
-                              </Grid>
-                              <Grid item xs={12} sm={6} md={3}>
-                                <Typography variant="caption" color="text.secondary">Amount</Typography>
-                                <Typography variant="body2" fontWeight={600} color="success.main">
-                                  {formatCurrency(history.amount || history.submittedAmount || history.verifiedAmount)}
-                                </Typography>
-                              </Grid>
-                              <Grid item xs={12} sm={6} md={3}>
-                                <Typography variant="caption" color="text.secondary">Status</Typography>
-                                <Box sx={{ mt: 0.5 }}>
-                                  <Chip
-                                    label={history.status || "Completed"}
-                                    size="small"
-                                    color={getPaymentStatusColor(history.status)}
-                                    sx={{ borderRadius: 1 }}
-                                  />
-                                </Box>
-                              </Grid>
-                              <Grid item xs={12} sm={6}>
-                                <Typography variant="caption" color="text.secondary">Date</Typography>
-                                <Typography variant="body2" fontWeight={500}>
-                                  {formatDateTime(history.date || history.submissionDate || history.createdAt)}
-                                </Typography>
-                              </Grid>
-                              {history.verifiedBy && (
-                                <Grid item xs={12} sm={6}>
-                                  <Typography variant="caption" color="text.secondary">Verified By</Typography>
-                                  <Typography variant="body2" fontWeight={500}>{history.verifiedBy}</Typography>
-                                </Grid>
-                              )}
-                              {history.remarks && (
-                                <Grid item xs={12}>
-                                  <Typography variant="caption" color="text.secondary">Notes</Typography>
-                                  <Paper variant="outlined" sx={{ p: 1.5, mt: 0.5, bgcolor: 'grey.50', borderRadius: 1 }}>
-                                    <Typography variant="body2">{history.remarks}</Typography>
-                                  </Paper>
-                                </Grid>
-                              )}
-                            </Grid>
-                          </Box>
-                        </Paper>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Box sx={{ 
-                      textAlign: 'center', 
-                      py: 6,
-                      bgcolor: 'background.paper',
-                      borderRadius: 2,
-                      border: '1px dashed',
-                      borderColor: 'divider'
-                    }}>
-                      <History sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                      <Typography color="text.secondary">No payment history available</Typography>
-                    </Box>
-                  )}
-                </Box>
-              </TabPanel>
-
-              {/* Order Details Tab */}
-              <TabPanel value={detailsModal.activeTab} index={2}>
-                <Box sx={{ px: 3 }}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-                      <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" fontWeight="600" gutterBottom>
-                          Order Information
-                        </Typography>
-                        <Box sx={{ mt: 2 }}>
-                          <Grid container spacing={2}>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Order ID</Typography>
-                              <Typography variant="body2">{detailsModal.payment.orderId || "N/A"}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Order Date</Typography>
-                              <Typography variant="body2">{formatDateTime(detailsModal.payment.orderDate || detailsModal.payment.createdAt)}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Order Status</Typography>
-                              <Typography variant="body2">
-                                <Chip 
-                                  label={detailsModal.payment.orderStatus || "N/A"} 
-                                  size="small"
-                                  color={
-                                    detailsModal.payment.orderStatus === "delivered" ? "success" :
-                                    detailsModal.payment.orderStatus === "processing" ? "info" :
-                                    detailsModal.payment.orderStatus === "cancelled" ? "error" : "warning"
-                                  }
-                                />
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Payment Terms</Typography>
-                              <Typography variant="body2">{detailsModal.payment.paymentTerms || "Standard"}</Typography>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      </Paper>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={6}>
-                      <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="subtitle2" fontWeight="600" gutterBottom>
-                          Additional Information
-                        </Typography>
-                        <Box sx={{ mt: 2 }}>
-                          <Grid container spacing={2}>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Invoice Number</Typography>
-                              <Typography variant="body2">{detailsModal.payment.invoiceNumber || "N/A"}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">GST Number</Typography>
-                              <Typography variant="body2">{detailsModal.payment.gstNumber || "N/A"}</Typography>
-                            </Grid>
-                            <Grid item xs={12}>
-                              <Typography variant="caption" color="text.secondary">Notes</Typography>
-                              <Typography variant="body2">{detailsModal.payment.notes || "No additional notes"}</Typography>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      </Paper>
-                    </Grid>
-                  </Grid>
-                </Box>
-              </TabPanel>
-            </DialogContent>
-            
-            <DialogActions sx={{ 
-              p: 2.5, 
-              borderTop: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
-              gap: 1
-            }}>
-              <Button 
-                onClick={() => openStatusModal(detailsModal.payment, 
-                  detailsModal.payment.paymentStatus === 'partial' ? 'partial' : 'pending'
+        {/* Desktop Table / Mobile Cards container */}
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          
+          {/* Desktop view */}
+          <div className="hidden lg:block">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/80 hover:bg-gray-50/80 border-b-gray-200">
+                  <TableHead className="font-semibold text-gray-600">ID / Date</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Customer</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Firm</TableHead>
+                  <TableHead className="font-semibold text-gray-600 text-right">Total</TableHead>
+                  <TableHead className="font-semibold text-gray-600 text-right">Paid</TableHead>
+                  <TableHead className="font-semibold text-gray-600 text-right">Remaining</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-600 text-center w-[120px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-48 text-center">
+                      <div className="inline-flex flex-col items-center justify-center text-gray-400 space-y-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                        <span className="text-sm">Loading payments...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : data.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-48 text-center">
+                      <div className="inline-flex flex-col items-center justify-center text-gray-400 space-y-2">
+                        <PackageSearch className="h-8 w-8" />
+                        <span className="text-sm">No records found</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.map((p) => (
+                    <TableRow key={p.paymentId} className="hover:bg-green-50/40 transition-colors">
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs font-semibold text-gray-700">
+                            {p.user?.userCode || "(Misc)"}
+                          </span>
+                          <span className="text-[11px] text-gray-500 mt-0.5">{formatDateTime(p.createdAt)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{p.user?.name || "N/A"}</span>
+                          <span className="text-xs text-gray-500 font-mono mt-0.5">{p.user?.phoneNumber || "N/A"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600">{p.user?.firmName || p.firmName || "N/A"}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithDelivery || p.totalAmount)}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-semibold text-green-600">{formatCurrency(p.paidAmount)}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-bold text-red-600">{formatCurrency(p.remainingAmount)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getPaymentStatusColor(p.paymentStatus || p.status)}>
+                          {p.paymentStatus || p.status || activeTab}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100">
+                              <span className="font-bold text-lg leading-none p-0 pb-2">...</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onClick={() => openDetailsModal(p)} className="cursor-pointer">
+                              <Eye className="mr-2 h-4 w-4" /> View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openStatusModal(p, activeTab)} className="cursor-pointer text-green-600 focus:text-green-700">
+                              <CreditCard className="mr-2 h-4 w-4" /> Update Status
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
-                variant="outlined"
-                color="primary"
-                startIcon={<PaymentIcon />}
-                sx={{ mr: 'auto' }}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile/Tablet view */}
+          <div className="block lg:hidden divide-y divide-gray-100">
+            {isLoading ? (
+               <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2">
+                 <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                 <span className="text-sm">Loading...</span>
+               </div>
+            ) : data.length === 0 ? (
+               <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2">
+                 <PackageSearch className="h-8 w-8" />
+                 <span className="text-sm">No records found</span>
+               </div>
+            ) : (
+              data.map((p) => (
+                <div key={p.paymentId} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <span className="font-mono text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+                        {p.user?.userCode || "(Misc)"}
+                      </span>
+                      <p className="font-medium text-gray-900 mt-1">{p.user?.name || "N/A"}</p>
+                    </div>
+                    <Badge variant="outline" className={`${getPaymentStatusColor(p.paymentStatus || p.status)} py-0 shrink-0`}>
+                      {p.paymentStatus || p.status || activeTab}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3 bg-gray-50 rounded-lg p-2">
+                    <div>
+                      <span className="text-xs text-gray-500 block">Total</span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithDelivery || p.totalAmount)}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500 block">Remaining</span>
+                      <span className="font-bold text-red-600">{formatCurrency(p.remainingAmount)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <Button variant="outline" size="sm" className="flex-1 border-gray-200" onClick={() => openDetailsModal(p)}>
+                      <Eye className="h-3 w-3 mr-1.5" /> View Details
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 bg-green-50 text-green-700 border-green-200 hover:bg-green-100" onClick={() => openStatusModal(p, activeTab)}>
+                      <CreditCard className="h-3 w-3 mr-1.5" /> Update
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Pagination */}
+          {total > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-sm text-gray-500">
+                Showing <span className="font-medium text-gray-900">{Math.min(total, startIdx + 1)}</span> to <span className="font-medium text-gray-900">{Math.min(total, startIdx + pageSize)}</span> of <span className="font-medium text-gray-900">{total}</span>
+              </span>
+              <div className="flex items-center gap-3">
+                <Paginator page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
+                <select
+                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={pageSize}
+                  onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10)); }}
+                >
+                  {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 📌 PAYMENT DETAILS DIALOG */}
+      {/* 📌 PAYMENT DETAILS DIALOG */}
+<Dialog 
+  open={detailsModal.isOpen} 
+  onOpenChange={(open) => !open && closeDetailsModal()}
+>
+  <DialogContent className="max-w-3xl p-0 overflow-hidden bg-gray-50">
+    <DialogHeader className="px-6 py-4 bg-white border-b shrink-0 flex flex-row items-center justify-between">
+      <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
+         <Receipt className="h-5 w-5 text-green-600" /> Payment Overview
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="px-6 py-5 overflow-y-auto max-h-[70vh]">
+      {detailsModal.loading ? (
+        <div className="flex flex-col items-center justify-center py-10 space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          <span className="text-gray-500 text-sm">Loading details...</span>
+        </div>
+      ) : detailsModal.payment ? (
+        <div className="space-y-6">
+          
+          {/* Financial Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Total Amount</p>
+              <p className="text-lg font-bold text-gray-900">
+                {formatCurrency(detailsModal.payment.totalAmount)}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Delivery Chg</p>
+              <p className="text-lg font-bold text-gray-900">
+                {formatCurrency(detailsModal.payment.deliveryCharge || 0)}
+              </p>
+            </div>
+            <div className="bg-green-50 p-4 rounded-xl border border-green-200 shadow-sm">
+              <p className="text-xs text-green-700 font-medium mb-1 uppercase">Paid Amount</p>
+              <p className="text-lg font-bold text-green-700">
+                {formatCurrency(detailsModal.payment.paidAmount)}
+              </p>
+            </div>
+            <div className="bg-red-50 p-4 rounded-xl border border-red-200 shadow-sm">
+              <p className="text-xs text-red-700 font-medium mb-1 uppercase">Remaining</p>
+              <p className="text-lg font-bold text-red-700">
+                {formatCurrency(detailsModal.payment.remainingAmount)}
+              </p>
+            </div>
+          </div>
+
+          {/* Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Customer Info Card */}
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-2">
+                 <User className="h-4 w-4 text-gray-400" />
+                 <h3 className="font-semibold text-gray-800">Customer Info</h3>
+              </div>
+              <div className="text-sm space-y-2">
+                <div>
+                  <span className="text-gray-500 block text-xs">Name</span>
+                  <span className="font-medium text-gray-900">
+                    {detailsModal.payment.user?.name || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Firm Name</span>
+                  <span className="font-medium text-gray-900">
+                    {detailsModal.payment.user?.customerDetails?.firmName || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">User Code</span>
+                  <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                    {detailsModal.payment.user?.customerDetails?.userCode || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Phone Number</span>
+                  <span className="font-medium text-gray-900">
+                    {detailsModal.payment.user?.phoneNumber || "N/A"}
+                  </span>
+                </div>
+                {detailsModal.payment.user?.email && (
+                  <div>
+                    <span className="text-gray-500 block text-xs">Email</span>
+                    <span className="text-gray-900 text-sm break-all">
+                      {detailsModal.payment.user.email}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Order Context Card */}
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-2">
+                 <MapPin className="h-4 w-4 text-gray-400" />
+                 <h3 className="font-semibold text-gray-800">Order Details</h3>
+              </div>
+              <div className="text-sm space-y-2">
+                <div>
+                  <span className="text-gray-500 block text-xs">Order ID</span>
+                  <span className="font-mono text-xs font-semibold">
+                    {detailsModal.payment.order?.orderId || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Order Status</span>
+                  <Badge variant="outline" className="mt-1">
+                    {detailsModal.payment.order?.orderStatus || "N/A"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Payment Status</span>
+                  <Badge variant="outline" className={`mt-1 ${getPaymentStatusColor(detailsModal.payment.status)}`}>
+                    {detailsModal.payment.status || "N/A"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Payment Type</span>
+                  <span className="text-gray-900 uppercase text-xs font-semibold">
+                    {detailsModal.payment.paymentType || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Created At</span>
+                  <span className="text-gray-900 text-xs">
+                    {formatDateTime(detailsModal.payment.createdAt)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Products Section */}
+          {detailsModal.payment.order?.products?.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <PackageSearch className="h-4 w-4 text-gray-500" /> Products
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-transparent hover:bg-transparent">
+                      <TableHead className="font-semibold text-gray-600">Product Name</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Type</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-right">Quantity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailsModal.payment.order.products.map((product, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium text-gray-900">
+                          {product.name}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {product.type}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {product.boxes} boxes
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {/* Address Section */}
+          {detailsModal.payment.user?.customerDetails?.address && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-gray-500" /> Shipping Address
+              </div>
+              <div className="p-4 text-sm text-gray-600">
+                <p>{detailsModal.payment.user.customerDetails.address.address}</p>
+                <p>
+                  {detailsModal.payment.user.customerDetails.address.city}, 
+                  {detailsModal.payment.user.customerDetails.address.state} - 
+                  {detailsModal.payment.user.customerDetails.address.pinCode}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Payment History List */}
+          {detailsModal.payment.paymentHistory?.length > 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-500" /> Transaction History
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-transparent hover:bg-transparent">
+                      <TableHead className="font-semibold text-gray-600">Date</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Ref ID</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Mode</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Bank</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Screenshot</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailsModal.payment.paymentHistory.map((h, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs">{formatDateTime(h.date || h.submissionDate || h.createdAt)}</TableCell>
+                        <TableCell className="font-mono text-xs">{h.referenceId || h.paymentId || "—"}</TableCell>
+                        <TableCell className="uppercase text-xs font-semibold">{h.paymentMode || "—"}</TableCell>
+                        <TableCell className="uppercase text-xs font-semibold">{h.bankName || "—"}</TableCell>
+                        <TableCell className="text-xs">
+                          {h.screenshotUrl ? (
+                            <a href={h.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> View
+                            </a>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-green-700">
+                          {formatCurrency(h.amount || h.submittedAmount || h.verifiedAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center">
+              <Clock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No payment history available</p>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+
+    <DialogFooter className="px-6 py-4 bg-white border-t shrink-0">
+       <Button variant="outline" onClick={closeDetailsModal}>Close</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+      {/* 📌 UPDATE STATUS DIALOG */}
+      <Dialog open={statusModal.isOpen} onOpenChange={(open) => !open && closeStatusModal()}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-white">
+          <div className="px-6 py-4 border-b border-gray-100 shrink-0">
+            <div className="flex items-center gap-3">
+               <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                  <CreditCard className="h-5 w-5" />
+               </div>
+               <div>
+                 <DialogTitle className="text-lg font-bold text-gray-900">Update Payment</DialogTitle>
+                 <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mt-0.5">
+                    ID: {statusModal.paymentId}
+                 </p>
+               </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 space-y-4 overflow-y-auto max-h-[65vh]">
+            
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                 <span className="block text-xs text-gray-500 font-medium">Remaining Amount</span>
+                 <span className="font-bold text-red-600 text-base">{formatCurrency(statusModal.remainingAmount)}</span>
+              </div>
+              <div className="text-right">
+                 <span className="block text-xs text-gray-500 font-medium">Total Amount</span>
+                 <span className="font-semibold text-gray-900">{formatCurrency(statusModal.totalAmount)}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Status</label>
+              <select
+                value={statusForm.paymentStatus}
+                onChange={(e) => setStatusForm(p => ({ ...p, paymentStatus: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                Update Payment
-              </Button>
-              <Button 
-                onClick={closeDetailsModal} 
-                variant="contained" 
-                color="primary"
-                sx={{ 
-                  px: 4,
-                  py: 1,
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 500
-                }}
-              >
-                Close
-              </Button>
-            </DialogActions>
-          </>
-        ) : null}
-      </Dialog>
+                <option value="completed">Completed</option>
+                <option value="partial">Partial</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
 
-      {/* UPDATE PAYMENT STATUS MODAL */}
-      <Dialog 
-        open={statusModal.isOpen} 
-        onClose={closeStatusModal} 
-        maxWidth="sm" 
-        fullWidth
-        PaperProps={{
-          sx: { borderRadius: 2 }
-        }}
-      >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          pb: 2
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PaymentIcon color="primary" />
-            <Typography variant="h6">
-              Update Payment Status - {statusModal.paymentType === 'pending' ? 'Pending' : 'Partial'} Payment
-            </Typography>
-          </Box>
-          <IconButton onClick={closeStatusModal} size="small">
-            <X size={20} />
-          </IconButton>
-        </DialogTitle>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Received Amt (₹)</label>
+                <input
+                  type="number"
+                  min="0" max={statusModal.remainingAmount}
+                  value={statusForm.receivedAmount}
+                  onChange={(e) => setStatusForm(p => ({ ...p, receivedAmount: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 font-semibold text-green-700"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Mode</label>
+                <select
+                  value={statusForm.paymentMode}
+                  onChange={(e) => setStatusForm(p => ({ ...p, paymentMode: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="" disabled>Select...</option>
+                  <option value="cash">Cash</option>
+                  <option value="online">Online</option>
+                </select>
+              </div>
+            </div>
 
-        <DialogContent sx={{ pt: 3 }}>
-          <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">Current Status</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                  <Chip 
-                    label={statusModal.currentStatus} 
-                    size="small"
-                    color={getPaymentStatusColor(statusModal.currentStatus)}
-                    icon={getPaymentStatusIcon(statusModal.currentStatus)}
-                  />
-                </Box>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">Remaining Amount</Typography>
-                <Typography variant="h6" color="error.main" fontWeight="600">
-                  {formatCurrency(statusModal.remainingAmount)}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">Total Amount</Typography>
-                <Typography variant="body2" fontWeight="500">
-                  {formatCurrency(statusModal.totalAmount)}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">Paid Amount</Typography>
-                <Typography variant="body2" fontWeight="500" color="success.main">
-                  {formatCurrency(statusModal.paidAmount)}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Box>
+            {statusForm.paymentMode === "online" && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Bank Name (Optional)</label>
+                  <select
+                    value={statusForm.bankName}
+                    onChange={(e) => setStatusForm(p => ({ ...p, bankName: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="" disabled>Select Bank...</option>
+                    <option value="IDFC">IDFC</option>
+                    <option value="HDFC">HDFC</option>
+                  </select>
+                </div>
 
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Payment Status</InputLabel>
-            <Select
-              value={statusForm.paymentStatus}
-              label="Payment Status"
-              onChange={(e) =>
-                setStatusForm((prev) => ({ ...prev, paymentStatus: e.target.value }))
-              }
-            >
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="partial">Partial</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
-            </Select>
-          </FormControl>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Reference ID (Optional)</label>
+                    <input
+                      type="text"
+                      value={statusForm.referenceId}
+                      onChange={(e) => setStatusForm(p => ({ ...p, referenceId: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Ref ID"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Upload Screenshot (Optional)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+                          if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+                            toast.error("upload valid image less than 1 mb");
+                            e.target.value = "";
+                            return;
+                          }
+                          setStatusForm(p => ({ ...p, screenshot: file }));
+                        }
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
-          <TextField
-            fullWidth
-            type="number"
-            label="Received Amount"
-            value={statusForm.receivedAmount}
-            onChange={(e) =>
-              setStatusForm((prev) => ({ ...prev, receivedAmount: e.target.value }))
-            }
-            sx={{ mb: 2 }}
-            InputProps={{
-              inputProps: { min: 0, max: statusModal.remainingAmount, step: 0.01 }
-            }}
-            helperText={`Max: ${formatCurrency(statusModal.remainingAmount)}`}
-          />
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Remarks (Optional)</label>
+              <textarea
+                value={statusForm.remarks}
+                onChange={(e) => setStatusForm(p => ({ ...p, remarks: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 min-h-[80px] resize-none"
+                placeholder="Transaction ID, notes..."
+              />
+            </div>
 
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Payment Mode</InputLabel>
-            <Select
-              value={statusForm.paymentMode}
-              label="Payment Mode"
-              onChange={(e) =>
-                setStatusForm((prev) => ({ ...prev, paymentMode: e.target.value }))
-              }
-            >
-              <MenuItem value="cash">Cash</MenuItem>
-              <MenuItem value="online">Online</MenuItem>
-              <MenuItem value="card">Card</MenuItem>
-              <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-              <MenuItem value="cheque">Cheque</MenuItem>
-            </Select>
-          </FormControl>
+          </div>
 
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Remarks"
-            placeholder="Optional notes about this payment..."
-            value={statusForm.remarks}
-            onChange={(e) => setStatusForm((prev) => ({ ...prev, remarks: e.target.value }))}
-          />
+          <div className="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50">
+            <Button variant="outline" onClick={closeStatusModal} disabled={updatingStatus}>Cancel</Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleUpdatePaymentStatus} disabled={updatingStatus}>
+              {updatingStatus ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Updating...</> : "Submit Payment"}
+            </Button>
+          </div>
         </DialogContent>
-
-        <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Button onClick={closeStatusModal} disabled={updatingStatus}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleUpdatePaymentStatus}
-            variant="contained"
-            disabled={updatingStatus || !statusForm.paymentMode || !statusForm.receivedAmount}
-            startIcon={updatingStatus && <CircularProgress size={16} />}
-          >
-            {updatingStatus ? "Updating..." : "Update Payment"}
-          </Button>
-        </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
-};
-
-export default PendingPayment;
+}

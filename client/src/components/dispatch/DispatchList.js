@@ -1,118 +1,94 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import html2pdf from "html2pdf.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { FaDownload, FaPrint, FaTimes, FaCheck, FaSync, FaEllipsisV } from "react-icons/fa";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  CircularProgress,
-  Box,
-  Typography,
-  IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Tooltip,
-  useTheme,
-  useMediaQuery,
-} from "@mui/material";
-import {
-  LocalShipping as ShippedIcon,
-  Cancel as CancelIcon,
-  PictureAsPdf as PdfIcon,
-  Print as PrintIcon,
-  Edit as EditIcon,
-  Warning as WarningIcon,
-} from "@mui/icons-material";
-import logo from "../../assets/logo1.png";
+  Loader2, RefreshCw, MoreVertical, FileText, XCircle,
+  ChevronDown, ChevronUp, PackageSearch, Search, ClipboardList, CheckCircle2
+} from "lucide-react";
 import cookies from "js-cookie";
-import OrderActions from "./OrderActions";
+
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "../ui/table";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import Paginator from '../common/Paginator';
 import ChallanGenerationWizard from "./ChallanGenerationWizard";
-import ChallanListView from "./ChallanListView";
 import RescheduleModal from "./RescheduleModal";
 
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API,
-});
-
+const api = axios.create({ baseURL: process.env.REACT_APP_API });
 api.interceptors.request.use(
   (config) => {
     const token = cookies.get("token");
-    if (token) {
-      config.headers.Authorization = token.startsWith("Bearer ")
-        ? token
-        : `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
 );
 
+const formatDate = (d) => {
+  if (!d) return "N/A";
+  return new Date(d).toLocaleString('en-IN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  });
+};
+
+const formatCurrency = (amt) =>
+  (amt !== undefined && amt !== null) ? `₹${Number(amt).toLocaleString("en-IN")}` : 'N/A';
+
+const getStatusColor = (status) => {
+  const s = status?.toLowerCase() || '';
+  if (s === 'approved_by_sales') return "bg-blue-100 text-blue-700 border-blue-200";
+  if (s === 'processing' || s === 'confirmed') return "bg-teal-100 text-teal-700 border-teal-200";
+  if (s === 'shipped') return "bg-green-100 text-green-700 border-green-200";
+  if (s === 'cancelled') return "bg-red-100 text-red-700 border-red-200";
+  return "bg-gray-100 text-gray-700 border-gray-200";
+};
+
+const getPaymentColor = (status) => {
+  const s = status?.toLowerCase() || '';
+  if (s === 'completed' || s === 'paid') return "bg-green-100 text-green-700 border-green-200";
+  if (s === 'pending') return "bg-amber-100 text-amber-700 border-amber-200";
+  if (s === 'partial') return "bg-orange-100 text-orange-700 border-orange-200";
+  return "bg-yellow-100 text-yellow-700 border-yellow-200";
+};
+
+const statusLabel = (s) => (s ? s.replace(/_/g, ' ') : 'approved by sales');
+
 const DispatchComponent = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  
   const [processingOrders, setProcessingOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [challanData, setChallanData] = useState({
-    userCode: "",
-    vehicleNo: "",
-    driverName: "",
-    mobileNo: "",
-    items: [],
-    receiverName: "",
-    deliveryAddress: {
-      address: "",
-      city: "",
-      state: "",
-      pinCode: "",
-    },
-    deliveryChoice: "homeDelivery",
-  });
-
-  const [isChallanValid, setIsChallanValid] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showChallanModal, setShowChallanModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
-  const [generatedChallan, setGeneratedChallan] = useState(null);
   const [generatedChallans, setGeneratedChallans] = useState([]);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
-  
-  // Menu state for better positioning
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
-  const [menuOrder, setMenuOrder] = useState(null);
+  const [activeMenuId, setActiveMenuId] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const handleMenuOpen = (event, order) => {
-    event.stopPropagation();
-    setMenuAnchorEl(event.currentTarget);
-    setMenuOrder(order);
+  // Fix: use data attributes to detect outside clicks, not a single ref
+  const handleGlobalClick = useCallback((e) => {
+    if (!e.target.closest('[data-menu-container]')) {
+      setActiveMenuId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => document.removeEventListener("mousedown", handleGlobalClick);
+  }, [handleGlobalClick]);
+
+  const handleMenuToggle = (e, orderId) => {
+    e.stopPropagation();
+    setActiveMenuId((prev) => (prev === orderId ? null : orderId));
   };
 
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
-    setMenuOrder(null);
-  };
-
-  const handleRowExpand = (orderId) => {
-    setExpandedRow(expandedRow === orderId ? null : orderId);
-  };
-
-  /** ------------------------------------------------------
-   * FETCH PROCESSING ORDERS
-   * ------------------------------------------------------ */
   const fetchProcessingOrders = async () => {
     setIsLoading(true);
     try {
@@ -121,111 +97,57 @@ const DispatchComponent = () => {
       });
       setProcessingOrders(response.data?.orders || []);
     } catch (error) {
-      toast.error(
-        error.response?.data?.error || "Error fetching processing orders"
-      );
+      toast.error(error.response?.data?.error || "Error fetching processing orders");
     } finally {
       setIsLoading(false);
     }
   };
 
-  /** ------------------------------------------------------
-   * HANDLE STATUS UPDATE
-   * ------------------------------------------------------ */
   const updateOrderStatus = async (orderId, status) => {
+    setActiveMenuId(null);
     try {
       await api.patch(`/dispatch/orders/${orderId}/status`, { status });
-      toast.success(`Order status updated to ${status}`);
-      if (["shipped", "cancelled"].includes(status)) {
-        setProcessingOrders((prev) =>
-          prev.filter((order) => order._id !== orderId)
-        );
-      }
+      toast.success(`Order ${status === 'cancelled' ? 'cancelled' : `updated to ${status}`} successfully`);
       await fetchProcessingOrders();
-      handleMenuClose();
     } catch (error) {
-      toast.error(
-        error.response?.data?.error || "Error updating order status"
-      );
-      await fetchProcessingOrders();
+      toast.error(error.response?.data?.error || "Error updating order status");
     }
   };
 
-  /** ------------------------------------------------------
-   * SINGLE CHALLAN GENERATION (OLD FLOW)
-   * ------------------------------------------------------ */
-  const generateChallan = async () => {
-    try {
-      const subtotal = challanData.items.reduce((acc, item) => acc + item.amount, 0);
-      const gstRate = 0.05;
-      const gstAmount = subtotal * gstRate;
-      const deliveryCharge = selectedOrder.deliveryCharge || 0;
-      const totalAmount = subtotal + gstAmount + deliveryCharge;
-
-      const payload = {
-        ...challanData,
-        deliveryCharge,
-        subtotal,
-        gstAmount,
-        totalAmount,
-        shippingAddress: challanData.deliveryAddress,
-      };
-
-      const response = await api.post("/dispatch/generate-challan", payload);
-      toast.success("Challan generated successfully!");
-
-      setGeneratedChallan({
-        ...response.data.challan,
-        deliveryCharge,
-        subtotal,
-        gstAmount,
-        totalAmount,
-        shippingAddress: challanData.deliveryAddress,
-      });
-      setShowChallanModal(false);
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Error generating challan");
-    }
-  };
-
-  /** ------------------------------------------------------
-   * MULTIPLE CHALLAN GENERATION (WIZARD FLOW)
-   * ------------------------------------------------------ */
   const generateChallansFromWizard = async (wizardData) => {
+    const orderId = selectedOrder._id;
+    const deliveryChoice = selectedOrder.deliveryChoice || "homeDelivery";
+    const shippingAddress = selectedOrder.shippingAddress || {};
+    const receiverFallback = selectedOrder.firmName || selectedOrder.user?.name || "";
+
     try {
       setIsLoading(true);
-
       const payload = {
         splitInfo: {
           numberOfChallans: wizardData.splitInfo.numberOfChallans,
           quantities: wizardData.splitInfo.quantities,
         },
         extraItems: wizardData.extraItems || [],
-        scheduledDates: wizardData.scheduledDates.map((d) =>
-          new Date(d).toISOString()
-        ),
-        deliveryChoice: selectedOrder.deliveryChoice || "homeDelivery",
-        shippingAddress: selectedOrder.shippingAddress || {},
+        scheduledDates: wizardData.scheduledDates.map((d) => new Date(d).toISOString()),
+        deliveryChoice,
+        shippingAddress,
         vehicleDetails: wizardData.vehicleDetails || [],
         deliveryChargePerBox: wizardData.deliveryChargePerBox || [],
-        receiverName:
-          wizardData.receiverName ||
-          selectedOrder.firmName ||
-          selectedOrder.user?.name ||
-          "",
+        receiverName: wizardData.receiverName || receiverFallback,
       };
 
-      const response = await api.post(
-        `/dispatch/orders/${selectedOrder._id}/generate-challan`,
-        payload
-      );
-
-      toast.success(
-        `${response.data.count || response.data.challans?.length || 1} challan(s) generated successfully!`
-      );
+      const response = await api.post(`/dispatch/orders/${orderId}/generate-challan`, payload);
+      toast.success(`${response.data.count || response.data.challans?.length || 1} challan(s) generated!`);
       setGeneratedChallans(response.data.challans || []);
       setShowWizard(false);
       setSelectedOrder(null);
+
+      try {
+        await api.patch(`/dispatch/orders/${orderId}/status`, { status: "shipped" });
+        toast.success("Order marked as shipped!");
+      } catch (statusErr) {
+        toast.error(statusErr.response?.data?.error || "Challan generated but failed to mark as shipped.");
+      }
       await fetchProcessingOrders();
     } catch (error) {
       toast.error(error.response?.data?.error || "Error generating challans");
@@ -234,9 +156,6 @@ const DispatchComponent = () => {
     }
   };
 
-  /** ------------------------------------------------------
-   * FETCH CHALLANS FOR A SPECIFIC ORDER
-   * ------------------------------------------------------ */
   const fetchChallansForOrder = async (orderId) => {
     try {
       const response = await api.get(`/dispatch/orders/${orderId}/challans`);
@@ -246,25 +165,17 @@ const DispatchComponent = () => {
     }
   };
 
-  /** ------------------------------------------------------
-   * RESCHEDULE CHALLAN
-   * ------------------------------------------------------ */
   const rescheduleChallan = async (rescheduleData) => {
     try {
       setRescheduleLoading(true);
-      await api.patch(
-        `/dispatch/challans/${rescheduleData.challanId}/reschedule`,
-        {
-          newDate: rescheduleData.newDate,
-          reason: rescheduleData.reason,
-        }
-      );
+      await api.patch(`/dispatch/challans/${rescheduleData.challanId}/reschedule`, {
+        newDate: rescheduleData.newDate,
+        reason: rescheduleData.reason,
+      });
       toast.success("Challan rescheduled successfully!");
       setShowRescheduleModal(false);
       setSelectedChallan(null);
-      if (selectedOrder) {
-        await fetchChallansForOrder(selectedOrder._id);
-      }
+      if (selectedOrder) await fetchChallansForOrder(selectedOrder._id);
     } catch (error) {
       toast.error(error.response?.data?.error || "Error rescheduling challan");
     } finally {
@@ -272,585 +183,326 @@ const DispatchComponent = () => {
     }
   };
 
-  /** ------------------------------------------------------
-   * ORDER SELECTION
-   * ------------------------------------------------------ */
   const handleOrderSelection = (order) => {
     setSelectedOrder(order);
-    setChallanData({
-      userCode: order.user?.customerDetails?.userCode || "",
-      vehicleNo: "",
-      driverName: "",
-      mobileNo: order.user?.customerDetails?.phone || "",
-      items: order.products.map((item) => ({
-        description: item.product?.name || "N/A",
-        boxes: item.boxes >= 230 ? item.boxes : 230,
-        rate: item.price || 0,
-        amount: (item.boxes >= 230 ? item.boxes : 230) * (item.price || 0),
-      })),
-      receiverName: order.firmName || order.user?.name || "N/A",
-      deliveryAddress: order.shippingAddress || {
-        address: "",
-        city: "",
-        state: "",
-        pinCode: "",
-      },
-      deliveryChoice: order.deliveryChoice || "homeDelivery",
-    });
     setShowWizard(true);
-    handleMenuClose();
+    setActiveMenuId(null);
   };
 
-  /** ------------------------------------------------------
-   * CHALLAN VALIDATION (for Single Flow)
-   * ------------------------------------------------------ */
-  useEffect(() => {
-    const isValid =
-      challanData.userCode &&
-      challanData.vehicleNo &&
-      challanData.driverName &&
-      challanData.mobileNo &&
-      challanData.receiverName &&
-      challanData.deliveryAddress.address &&
-      challanData.deliveryAddress.city &&
-      challanData.deliveryAddress.state &&
-      /^\d{6}$/.test(challanData.deliveryAddress.pinCode) &&
-      challanData.items.length > 0 &&
-      challanData.items.every((item) => item.boxes >= 230);
+  useEffect(() => { fetchProcessingOrders(); }, []);
+  useEffect(() => { setPage(1); }, [search]);
 
-    setIsChallanValid(isValid);
-  }, [challanData]);
+  const filteredOrders = processingOrders.filter((o) => {
+    if (o.orderStatus !== 'approved_by_sales') return false;
+    const q = search.toLowerCase();
+    return (
+      !q ||
+      o._id?.toLowerCase().includes(q) ||
+      o.user?.name?.toLowerCase().includes(q) ||
+      o.user?.phoneNumber?.toLowerCase().includes(q) ||
+      o.firmName?.toLowerCase().includes(q) ||
+      o.user?.customerDetails?.firmName?.toLowerCase().includes(q) ||
+      o.user?.customerDetails?.userCode?.toLowerCase().includes(q)
+    );
+  });
 
-  /** ------------------------------------------------------
-   * DOWNLOAD + PRINT FUNCTIONALITY
-   * ------------------------------------------------------ */
-  const downloadChallan = () => {
-    if (!generatedChallan)
-      return toast.warning("No challan available to download.");
-    const element = document.getElementById("challan-content");
-    html2pdf()
-      .from(element)
-      .set({
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `challan_${generatedChallan.invoiceNo}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-      })
-      .save();
-  };
+  const total = filteredOrders.length;
+  const startIdx = (page - 1) * pageSize;
+  const pagedOrders = filteredOrders.slice(startIdx, startIdx + pageSize);
+  const challanAlreadyExists = (order) => order.challanGenerated || (order.challanCount > 0);
 
-  const printChallan = () => {
-    if (!generatedChallan)
-      return toast.warning("No challan available to print.");
-    const element = document.getElementById("challan-content");
-    html2pdf()
-      .from(element)
-      .set({
-        margin: [0.5, 0.5, 0.5, 0.5],
-        filename: `challan_${generatedChallan.invoiceNo}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-      })
-      .toPdf()
-      .get("pdf")
-      .then((pdf) => {
-        const blobURL = pdf.output("bloburl");
-        const newWindow = window.open(blobURL, "_blank");
-        if (newWindow) {
-          newWindow.onload = () => {
-            newWindow.document.body.style.margin = 0;
-            newWindow.document.documentElement.style.height = "100%";
-            newWindow.document.body.style.overflow = "hidden";
-          };
-        }
-      });
-  };
+  /* ─── Action Dropdown (shared by desktop & mobile) ─── */
+  const ActionDropdown = ({ order }) => (
+    <div data-menu-container className="relative inline-block">
+      <button
+        onClick={(e) => handleMenuToggle(e, order._id)}
+        className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+        title="Order actions"
+      >
+        <MoreVertical className="h-4 w-4 text-gray-500" />
+      </button>
 
-  /** ------------------------------------------------------
-   * HELPER: Get status chip color
-   * ------------------------------------------------------ */
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "processing":
-        return "warning";
-      case "confirmed":
-        return "info";
-      case "shipped":
-        return "success";
-      default:
-        return "default";
-    }
-  };
-
-  const getPaymentColor = (status) => {
-    switch (status) {
-      case "pending":
-        return "error";
-      case "completed":
-        return "success";
-      default:
-        return "warning";
-    }
-  };
-
-  /** ------------------------------------------------------
-   * INITIAL FETCH
-   * ------------------------------------------------------ */
-  useEffect(() => {
-    fetchProcessingOrders();
-  }, []);
-
-  // Mobile card view for orders
-  const renderMobileOrderCard = (order) => (
-    <Paper
-      key={order._id}
-      elevation={2}
-      sx={{
-        mb: 2,
-        p: 2,
-        borderRadius: 2,
-        position: 'relative',
-        '&:hover': { backgroundColor: '#f9fafb' }
-      }}
-    >
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {order.firmName}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {order.user?.name} | {order.user?.phoneNumber}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Code: {order.user?.customerDetails?.userCode || "N/A"}
-          </Typography>
-        </Box>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Chip
-            label={order.orderStatus}
-            color={getStatusColor(order.orderStatus)}
-            size="small"
-          />
-          <IconButton
-            onClick={(e) => handleMenuOpen(e, order)}
-            size="small"
-            sx={{ ml: 1 }}
-          >
-            <FaEllipsisV />
-          </IconButton>
-        </Box>
-      </Box>
-
-      <Box mt={1.5} display="flex" flexWrap="wrap" gap={1}>
-        <Chip
-          label={`Payment: ${order.paymentStatus}`}
-          color={getPaymentColor(order.paymentStatus)}
-          size="small"
-          variant="outlined"
-        />
-        <Chip
-          label={`Delivery: ₹${order.deliveryCharge || 0}`}
-          size="small"
-          variant="outlined"
-        />
-        <Chip
-          label={`Total: ₹${order.totalAmountWithDelivery || order.totalAmount}`}
-          color="primary"
-          size="small"
-        />
-      </Box>
-
-      {expandedRow === order._id && (
-        <Box mt={2}>
-          <Typography variant="body2" fontWeight={500}>Items:</Typography>
-          {order.products.map((item, i) => (
-            <Typography key={i} variant="body2" color="text.secondary">
-              {item.product?.name}: {item.boxes} boxes
-            </Typography>
-          ))}
-          <Typography variant="body2" fontWeight={500} mt={1}>Address:</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {order.shippingAddress
-              ? `${order.shippingAddress.address || ""}, ${
-                  order.shippingAddress.city || ""
-                }, ${order.shippingAddress.state || ""} - ${
-                  order.shippingAddress.pinCode || ""
-                }`
-              : "N/A"}
-          </Typography>
-        </Box>
+      {activeMenuId === order._id && (
+        <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] py-1 overflow-hidden">
+          {challanAlreadyExists(order) ? (
+            <div className="px-4 py-2.5 text-sm text-gray-400 flex items-center gap-2 cursor-not-allowed select-none">
+              <CheckCircle2 className="h-4 w-4 text-green-400" /> Challan Generated
+            </div>
+          ) : (
+            <button
+              onMouseDown={(e) => { e.stopPropagation(); handleOrderSelection(order); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
+            >
+              <FileText className="h-4 w-4 text-blue-500" /> Generate Challan
+            </button>
+          )}
+          <div className="border-t border-gray-100 mt-1">
+            <button
+              onMouseDown={(e) => { e.stopPropagation(); updateOrderStatus(order._id, "cancelled"); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+            >
+              <XCircle className="h-4 w-4 text-red-500" /> Cancel Order
+            </button>
+          </div>
+        </div>
       )}
-
-      <Box display="flex" justifyContent="flex-end" mt={1}>
-        <Tooltip title={expandedRow === order._id ? "Show less" : "Show more"}>
-          <IconButton size="small" onClick={() => handleRowExpand(order._id)}>
-            <Typography variant="body2">
-              {expandedRow === order._id ? "▲" : "▼"}
-            </Typography>
-          </IconButton>
-        </Tooltip>
-      </Box>
-    </Paper>
+    </div>
   );
 
   return (
-    <div className="p-4 md:p-6 bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-gray-100">
       <ToastContainer position="top-right" autoClose={3000} />
 
-      {/* ACTIVE ORDERS TABLE */}
-      <div className="bg-white p-4 md:p-6 rounded-xl shadow-xl border border-gray-100 transform transition-all duration-300 hover:shadow-2xl">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg md:text-xl lg:text-2xl font-semibold text-gray-800 bg-gradient-to-r from-blue-500 to-teal-500 bg-clip-text text-transparent">
-            Active Processing Orders
-          </h2>
-          <Tooltip title="Refresh Orders">
-            <IconButton
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+        {/* ── Page Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl">
+                <ClipboardList className="h-6 w-6" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Approved Orders</h1>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              {isLoading ? "Loading…" : `${total} order${total !== 1 ? "s" : ""} pending dispatch`}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              />
+            </div>
+            <Button
               onClick={fetchProcessingOrders}
-              className="bg-blue-600 text-white hover:bg-blue-700"
-              sx={{ 
-                bgcolor: '#2563eb', 
-                color: 'white',
-                '&:hover': { bgcolor: '#1d4ed8' }
-              }}
+              variant="outline"
+              className="bg-white border-gray-200 hover:bg-gray-50 shadow-sm rounded-xl shrink-0"
+              title="Refresh"
             >
-              <FaSync className={isLoading ? "animate-spin" : ""} />
-            </IconButton>
-          </Tooltip>
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
 
-        {isLoading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" height={200}>
-            <CircularProgress size={48} />
-          </Box>
-        ) : processingOrders.length > 0 ? (
-          <>
-            {/* Mobile View - Cards */}
-            {isMobile && (
-              <Box sx={{ maxHeight: "70vh", overflow: "auto", px: 1 }}>
-                {processingOrders.map(renderMobileOrderCard)}
-              </Box>
-            )}
+        {/* ── Main Content Card ── */}
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
 
-            {/* Tablet/Desktop View - Table with overflow handling */}
-            {!isMobile && (
-              <TableContainer 
-                component={Paper} 
-                sx={{ 
-                  maxHeight: "70vh",
-                  overflow: "auto",
-                  position: 'relative',
-                  '& .MuiTable-root': {
-                    minWidth: isTablet ? 1200 : 1400,
-                  }
-                }}
-              >
-                <Table stickyHeader size={isTablet ? "small" : "medium"}>
-                  <TableHead>
-                    <TableRow>
-                      {[
-                        "Firm Name",
-                        "Type",
-                        "Customer",
-                        "User Code",
-                        "Phone",
-                        "Address",
-                        "Status",
-                        "Payment",
-                        "Method",
-                        "Items",
-                        "Delivery",
-                        "Total",
-                        "Actions",
-                      ].map((header) => (
-                        <TableCell
-                          key={header}
-                          sx={{
-                            fontWeight: 600,
-                            backgroundColor: "#f0f9ff",
-                            color: "#374151",
-                            whiteSpace: 'nowrap',
-                            py: isTablet ? 1 : 1.5,
-                          }}
-                        >
-                          {header}
-                        </TableCell>
-                      ))}
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center h-52 text-gray-400 gap-2">
+              <Loader2 className="h-7 w-7 animate-spin text-blue-500" />
+              <span className="text-sm">Fetching approved orders...</span>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!isLoading && pagedOrders.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-52 text-gray-400 gap-2">
+              <PackageSearch className="h-10 w-10 text-gray-300" />
+              <span className="text-base font-medium text-gray-500">No approved orders found</span>
+              <span className="text-sm">Orders approved by sales will appear here.</span>
+            </div>
+          )}
+
+          {/* ── Desktop Table (lg+) ── */}
+          {!isLoading && pagedOrders.length > 0 && (
+            <>
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                      <TableHead className="font-semibold text-gray-600">Order</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Customer</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Address</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Payment</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Items</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-right">Total</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-center w-[60px]"></TableHead>
                     </TableRow>
-                  </TableHead>
+                  </TableHeader>
                   <TableBody>
-                    {processingOrders.map((order) => (
-                      <TableRow
-                        key={order._id}
-                        sx={{
-                          "&:hover": { backgroundColor: "#f9fafb" },
-                          "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
-                          position: 'relative',
-                        }}
-                      >
-                        <TableCell sx={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
-                          {order.firmName}
+                    {pagedOrders.map((order) => (
+                      <TableRow key={order._id} className="hover:bg-blue-50/30 transition-colors">
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded w-fit">
+                              #{order.orderId || order._id.slice(-8).toUpperCase()}
+                            </span>
+                            <span className="text-[11px] text-gray-400 mt-1">{formatDate(order.createdAt)}</span>
+                          </div>
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.type}</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.user?.name}</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          {order.user?.customerDetails?.userCode || "N/A"}
+                        <TableCell>
+                          <p className="font-semibold text-gray-900 text-sm">{order.firmName || "N/A"}</p>
+                          <p className="text-gray-500 text-xs mt-0.5">{order.user?.name}</p>
+                          <p className="font-mono text-gray-400 text-[10px]">{order.user?.phoneNumber}</p>
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.user?.phoneNumber || "N/A"}</TableCell>
-                        <TableCell sx={{ maxWidth: 200 }}>
-                          <Tooltip title={
+                        <TableCell className="max-w-[180px]">
+                          <p className="text-xs text-gray-500 truncate" title={
                             order.shippingAddress
-                              ? `${order.shippingAddress.address || ""}, ${
-                                  order.shippingAddress.city || ""
-                                }, ${order.shippingAddress.state || ""} - ${
-                                  order.shippingAddress.pinCode || ""
-                                }`
+                              ? `${order.shippingAddress.address || ""}, ${order.shippingAddress.city || ""}, ${order.shippingAddress.state || ""} - ${order.shippingAddress.pinCode || ""}`
                               : "N/A"
                           }>
-                            <Typography variant="body2" noWrap>
-                              {order.shippingAddress
-                                ? `${order.shippingAddress.address || ""}, ${
-                                    order.shippingAddress.city || ""
-                                  }, ${order.shippingAddress.state || ""} - ${
-                                    order.shippingAddress.pinCode || ""
-                                  }`
-                                : "N/A"}
-                            </Typography>
-                          </Tooltip>
+                            {order.shippingAddress
+                              ? `${order.shippingAddress.address || ""}, ${order.shippingAddress.city || ""}`
+                              : "N/A"}
+                          </p>
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={order.orderStatus}
-                            color={getStatusColor(order.orderStatus)}
-                            size="small"
-                          />
+                          <Badge variant="outline" className={`text-xs ${getStatusColor(order.orderStatus)}`}>
+                            {statusLabel(order.orderStatus)}
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={order.paymentStatus}
-                            color={getPaymentColor(order.paymentStatus)}
-                            size="small"
-                          />
+                          <Badge variant="outline" className={`text-xs ${getPaymentColor(order.paymentStatus)}`}>
+                            {order.paymentStatus || "pending"}
+                          </Badge>
+                          <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">{order.paymentMethod || "COD"}</p>
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{order.paymentMethod}</TableCell>
-                        <TableCell>
-                          <Tooltip title={
-                            order.products.map(item => `${item.product?.name}: ${item.boxes}`).join(', ')
-                          }>
-                            <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
-                              {order.products.map((item, i) => (
-                                <span key={i}>
-                                  {item.product?.name}: {item.boxes}
-                                  {i < order.products.length - 1 ? ', ' : ''}
-                                </span>
-                              ))}
-                            </Typography>
-                          </Tooltip>
+                        <TableCell className="max-w-[180px]">
+                          <p className="text-xs text-gray-600 truncate" title={order.products.map((i) => `${i.product?.name}: ${i.boxes}`).join(', ')}>
+                            {order.products.map((item, i) => (
+                              <span key={i}>
+                                <span className="font-medium text-gray-800">{item.product?.name} - {item.product?.category}</span> ({item.boxes})
+                                {i < order.products.length - 1 ? ', ' : ''}
+                              </span>
+                            ))}
+                          </p>
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>₹ {order.deliveryCharge || 0}</TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: "#2563eb", whiteSpace: 'nowrap' }}>
-                          ₹ {order.totalAmountWithDelivery || order.totalAmount}
+                        <TableCell className="text-right font-bold text-gray-900">
+                          {formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}
                         </TableCell>
-                        <TableCell>
-                          <IconButton
-                            onClick={(e) => handleMenuOpen(e, order)}
-                            size="small"
-                            sx={{ 
-                              bgcolor: '#f3f4f6',
-                              '&:hover': { bgcolor: '#e5e7eb' }
-                            }}
-                          >
-                            <FaEllipsisV size={14} />
-                          </IconButton>
+                        <TableCell className="text-center">
+                          <ActionDropdown order={order} />
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </TableContainer>
-            )}
+              </div>
 
-            {/* Action Menu - Fixed positioning to avoid overflow issues */}
-            <Menu
-              anchorEl={menuAnchorEl}
-              open={Boolean(menuAnchorEl)}
-              onClose={handleMenuClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              PaperProps={{
-                elevation: 3,
-                sx: {
-                  minWidth: 200,
-                  maxWidth: 300,
-                  borderRadius: 2,
-                  mt: 1,
-                }
-              }}
-            >
-              {menuOrder && (
-                <>
-                  <MenuItem 
-                    onClick={() => {
-                      handleOrderSelection(menuOrder);
-                      handleMenuClose();
-                    }}
-                    sx={{ py: 1.5 }}
-                  >
-                    <ListItemIcon>
-                      <PdfIcon fontSize="small" color="primary" />
-                    </ListItemIcon>
-                    <ListItemText primary="Generate Challan" />
-                  </MenuItem>
-                  <MenuItem 
-                    onClick={() => {
-                      updateOrderStatus(menuOrder._id, "shipped");
-                    }}
-                    sx={{ py: 1.5 }}
-                  >
-                    <ListItemIcon>
-                      <ShippedIcon fontSize="small" color="success" />
-                    </ListItemIcon>
-                    <ListItemText primary="Mark as Shipped" />
-                  </MenuItem>
-                  <MenuItem 
-                    onClick={() => {
-                      updateOrderStatus(menuOrder._id, "cancelled");
-                    }}
-                    sx={{ py: 1.5 }}
-                  >
-                    <ListItemIcon>
-                      <CancelIcon fontSize="small" color="error" />
-                    </ListItemIcon>
-                    <ListItemText primary="Cancel Order" />
-                  </MenuItem>
-                </>
-              )}
-            </Menu>
-          </>
-        ) : (
-          <Typography
-            variant="body1"
-            color="text.secondary"
-            textAlign="center"
-            py={8}
-          >
-            No active processing orders found.
-          </Typography>
-        )}
+              {/* ── Mobile / Tablet Cards (< lg) ── */}
+              <div className="block lg:hidden divide-y divide-gray-100">
+                {pagedOrders.map((order) => (
+                  <div key={order._id} className="p-4 hover:bg-gray-50/60 transition-colors">
+                    {/* Top row: ID + amount + action menu */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                            #{order.orderId || order._id.slice(-8).toUpperCase()}
+                          </span>
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getStatusColor(order.orderStatus)}`}>
+                            {statusLabel(order.orderStatus)}
+                          </Badge>
+                        </div>
+                        <p className="font-semibold text-gray-900 mt-1 text-sm">{order.firmName || "N/A"}</p>
+                        <p className="text-xs text-gray-500">{order.user?.name} · {order.user?.phoneNumber}</p>
+                      </div>
+                      <div className="flex flex-col items-end shrink-0 gap-1">
+                        <p className="font-bold text-gray-900 text-sm">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</p>
+                        <ActionDropdown order={order} />
+                      </div>
+                    </div>
+
+                    {/* Badge row */}
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPaymentColor(order.paymentStatus)}`}>
+                        {order.paymentStatus || "pending"}
+                      </Badge>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                        {order.paymentMethod || "COD"}
+                      </span>
+                      <span className="text-[10px] text-gray-400">{formatDate(order.createdAt)}</span>
+                    </div>
+
+                    {/* Products + expand */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-500 truncate flex-1 mr-2">
+                        {order.products.map((i) => `${i.product?.name} - ${i.product?.category} (${i.boxes})`).join(', ')}
+                      </p>
+                      <button
+                        onClick={() => setExpandedRow((prev) => (prev === order._id ? null : order._id))}
+                        className="shrink-0 text-xs text-blue-600 flex items-center gap-1 hover:underline"
+                      >
+                        {expandedRow === order._id
+                          ? <><ChevronUp className="h-3 w-3" /> Less</>
+                          : <><ChevronDown className="h-3 w-3" /> Details</>}
+                      </button>
+                    </div>
+
+                    {/* Expanded detail */}
+                    {expandedRow === order._id && (
+                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 mb-1">Products:</p>
+                          <ul className="text-xs text-gray-500 space-y-0.5 list-disc pl-4">
+                            {order.products.map((item, i) => (
+                              <li key={i}>{item.product?.name} - {item.product?.category} : <span className="font-semibold text-gray-700">{item.boxes} boxes</span></li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 mb-1">Shipping Address:</p>
+                          <p className="text-xs text-gray-500">
+                            {order.shippingAddress
+                              ? `${order.shippingAddress.address || ""}, ${order.shippingAddress.city || ""}, ${order.shippingAddress.state || ""} - ${order.shippingAddress.pinCode || ""}`
+                              : "N/A"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Pagination ── */}
+          {total > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-sm text-gray-500">
+                Showing <span className="font-medium text-gray-700">{Math.min(total, startIdx + 1)}</span>–
+                <span className="font-medium text-gray-700">{Math.min(total, startIdx + pageSize)}</span> of{' '}
+                <span className="font-medium text-gray-700">{total}</span>
+              </span>
+              <div className="flex items-center gap-3">
+                <Paginator page={page} total={total} pageSize={pageSize} onPageChange={setPage} />
+                <select
+                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={pageSize}
+                  onChange={(e) => { setPage(1); setPageSize(parseInt(e.target.value, 10)); }}
+                >
+                  {[5, 10, 20, 50].map((n) => <option key={n} value={n}>{n} / page</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* WIZARD (MULTIPLE CHALLAN FLOW) */}
+      {/* ── Wizard ── */}
       {showWizard && selectedOrder && (
         <ChallanGenerationWizard
           order={selectedOrder}
-          onClose={() => {
-            setShowWizard(false);
-            setSelectedOrder(null);
-          }}
+          onClose={() => { setShowWizard(false); setSelectedOrder(null); }}
           onSuccess={generateChallansFromWizard}
         />
       )}
-      
-      {/* RESCHEDULE MODAL */}
+
       {showRescheduleModal && selectedChallan && (
         <RescheduleModal
           challan={selectedChallan}
-          onClose={() => {
-            setShowRescheduleModal(false);
-            setSelectedChallan(null);
-          }}
+          onClose={() => { setShowRescheduleModal(false); setSelectedChallan(null); }}
           onConfirm={rescheduleChallan}
           loading={rescheduleLoading}
         />
-      )}
-
-      {/* SINGLE CHALLAN MODAL */}
-      {showChallanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[1000]">
-          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto transform transition-all duration-300 scale-95 hover:scale-100">
-            <h2 className="text-xl font-semibold mb-6 text-gray-800">
-              Generate Delivery Challan
-            </h2>
-            <form className="space-y-4">
-              {[ 
-                { label: "User Code", value: challanData.userCode, readOnly: true },
-                { label: "Vehicle Number", key: "vehicleNo" },
-                { label: "Driver Name", key: "driverName" },
-                { label: "Mobile Number", key: "mobileNo" },
-                { label: "Receiver Name", key: "receiverName" },
-              ].map((field) => (
-                <div key={field.label}>
-                  <label className="block text-gray-700 mb-1">{field.label}</label>
-                  <input
-                    type="text"
-                    value={field.value || challanData[field.key]}
-                    onChange={(e) =>
-                      !field.readOnly &&
-                      setChallanData({
-                        ...challanData,
-                        [field.key]: e.target.value,
-                      })
-                    }
-                    readOnly={field.readOnly}
-                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-                  />
-                </div>
-              ))}
-
-              {/* ADDRESS FIELDS */}
-              {["address", "city", "state", "pinCode"].map((field) => (
-                <div key={field}>
-                  <label className="block text-gray-700 mb-1">
-                    {field.charAt(0).toUpperCase() + field.slice(1)}
-                  </label>
-                  <input
-                    type="text"
-                    value={challanData.deliveryAddress[field]}
-                    onChange={(e) =>
-                      setChallanData({
-                        ...challanData,
-                        deliveryAddress: {
-                          ...challanData.deliveryAddress,
-                          [field]: e.target.value,
-                        },
-                      })
-                    }
-                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              ))}
-
-              <div className="flex justify-end gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowChallanModal(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 flex items-center gap-2"
-                >
-                  <FaTimes /> Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={generateChallan}
-                  disabled={!isChallanValid}
-                  className={`px-4 py-2 flex items-center gap-2 text-white rounded-md ${
-                    isChallanValid
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-gray-400 cursor-not-allowed"
-                  }`}
-                >
-                  <FaCheck /> Generate
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );

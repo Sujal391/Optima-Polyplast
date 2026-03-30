@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { FaArrowLeft, FaArrowRight, FaCheck, FaTimes, FaExclamationTriangle, FaEdit, FaSave, FaUndo, FaPlus, FaTrash, FaTruck } from "react-icons/fa";
+import { 
+  ArrowLeft, ArrowRight, Check, X, AlertTriangle, 
+  Edit, Save, Undo, Trash2, Loader2, Plus
+} from "lucide-react";
 import { toast } from "react-toastify";
 import axios from "axios";
 import cookies from "js-cookie";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API,
@@ -25,6 +37,15 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState(null);
 
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // --- Order products edit state with price support ---
   const [orderProducts, setOrderProducts] = useState(
     order?.products?.map((p) => ({
@@ -33,8 +54,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       productCategory: p.product?.category || "N/A",
       boxes: p.boxes,
       originalBoxes: p.boxes,
-      pricePerBox: p.pricePerBox || p.product?.price || 0,
-      originalPrice: p.pricePerBox || p.product?.price || 0,
+      pricePerBox: p.price || p.product?.originalPrice || 0,   // ← was p.pricePerBox
+      originalPrice: p.price || p.product?.originalPrice || 0,
       isNew: false,
     })) || []
   );
@@ -51,7 +72,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       numberOfChallans: 1,
       quantities: [totalOrderQty],
     },
-    scheduledDates: [""],
+    scheduledDates: [getTodayDate()], // Auto-set to today's date
     deliveryChoice: "homeDelivery",
     shippingAddress: {
       address: order?.user?.customerDetails?.address || "",
@@ -74,7 +95,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
   const steps = [
     { title: "Edit Order", description: "Modify order products, quantities & prices" },
-    { title: "Challan Generation", description: "Split order & delivery details" },
+    { title: "Challan Setup", description: "Split order & delivery details" },
   ];
 
   // Fetch available products when editing starts
@@ -136,9 +157,6 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     }
   };
 
-  /** -----------------------------------------------------------
-   * SAVE EDITED ORDER PRODUCTS via PATCH /dispatch/orders/:id/edit
-   * ----------------------------------------------------------- */
   const handleSaveOrderEdit = async () => {
     const invalid = orderProducts.some((p) => !p.boxes || p.boxes <= 0);
     if (invalid) {
@@ -156,7 +174,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
             boxes: p.boxes,
           };
           if (p.pricePerBox !== p.originalPrice) {
-            productPayload.pricePerBox = p.pricePerBox;
+            productPayload.price = p.pricePerBox;
           }
           return productPayload;
         }),
@@ -210,9 +228,6 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     });
   };
 
-  /** -----------------------------------------------------------
-   * ADD / REMOVE PRODUCTS
-   * ----------------------------------------------------------- */
   const handleAddProduct = (product) => {
     if (!product || !product._id) {
       toast.error("Invalid product selected");
@@ -240,20 +255,18 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     setOrderProducts((prev) => prev.filter((_, i) => i !== index));
   };
 
-  /** -----------------------------------------------------------
-   * CHALLAN SPLIT LOGIC
-   * ----------------------------------------------------------- */
   const handleNumberOfChallansChange = (num) => {
     const currentQuantities = [...wizardData.splitInfo.quantities];
     const currentDates = [...wizardData.scheduledDates];
     const currentVehicles = [...wizardData.vehicleDetails];
     const currentDeliveryCharges = [...wizardData.deliveryChargePerBox];
+    const todayDate = getTodayDate();
 
     let newQuantities, newDates, newVehicles, newDeliveryCharges;
 
     if (num > currentQuantities.length) {
       newQuantities = [...currentQuantities, ...Array(num - currentQuantities.length).fill(0)];
-      newDates = [...currentDates, ...Array(num - currentDates.length).fill("")];
+      newDates = [...currentDates, ...Array(num - currentDates.length).fill(todayDate)]; // Auto-set to today's date
       newVehicles = [
         ...currentVehicles,
         ...Array(num - currentVehicles.length).fill({
@@ -321,15 +334,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     setWizardData({ ...wizardData, vehicleDetails: newVehicles });
   };
 
-  const handleDateChange = (index, value) => {
-    const newDates = [...wizardData.scheduledDates];
-    newDates[index] = value;
-    setWizardData({ ...wizardData, scheduledDates: newDates });
-  };
+  // Date change handler removed - dates are now auto-set and cannot be changed
 
-  /** -----------------------------------------------------------
-   * STEP VALIDATION
-   * ----------------------------------------------------------- */
   const validateStep = (step) => {
     if (step === 0 && isEditingOrder) {
       toast.error("Please save or cancel your order edits before proceeding.");
@@ -340,10 +346,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
         toast.error("Please ensure total quantity matches order quantity");
         return false;
       }
-      if (wizardData.scheduledDates.some((date) => !date)) {
-        toast.error("Please select delivery date for all challans");
-        return false;
-      }
+      // All dates are automatically set, so no need to validate them
       if (wizardData.vehicleDetails.some((v) => !v.vehicleNo || !v.driverName || !v.mobileNo)) {
         toast.error("Please fill vehicle details for all challans");
         return false;
@@ -382,102 +385,124 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-teal-600 p-6 text-white">
-          <h2 className="text-2xl font-bold mb-2">Challan Generation Wizard</h2>
-          <p className="text-blue-100">Step {currentStep + 1} of {steps.length}</p>
-        </div>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent hideClose className="max-w-4xl p-0 overflow-hidden bg-slate-50 flex flex-col gap-0 max-h-[92vh]">
+        
+        {/* ── Improved Header ── */}
+        <div className="bg-gradient-to-br from-indigo-700 via-indigo-600 to-blue-600 px-6 pt-6 pb-5 text-white shrink-0">
+          <div className="flex justify-between items-start mb-1">
+            <div>
+              <p className="text-xs uppercase tracking-widest font-semibold text-indigo-200 mb-1">Dispatch Module</p>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Challan Generation Wizard</h2>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
+              <X className="h-5 w-5 text-white/80" />
+            </button>
+          </div>
+          
+          {/* Order summary chips */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="bg-white/15 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium border border-white/20">
+              Order #{order?._id?.slice(-8).toUpperCase()}
+            </span>
+            <span className="bg-white/15 backdrop-blur-sm text-white text-xs px-3 py-1 rounded-full font-medium border border-white/20">
+              {order?.firmName || order?.user?.name}
+            </span>
+            <span className="bg-emerald-400/30 text-emerald-100 text-xs px-3 py-1 rounded-full font-bold border border-emerald-300/30">
+              {totalOrderQty} Boxes
+            </span>
+          </div>
 
-        {/* Step Indicator */}
-        <div className="px-6 pt-6">
-          <div className="flex justify-between mb-4">
+          {/* Step Indicator */}
+          <div className="mt-5 flex items-center gap-0 relative">
+            <div className="absolute top-[18px] left-[18px] right-[18px] h-px bg-white/20 z-0" />
+            <div 
+              className="absolute top-[18px] left-[18px] h-px bg-white z-0 transition-all duration-500" 
+              style={{ width: currentStep === 0 ? '0%' : `calc(100% - 36px)` }}
+            />
             {steps.map((step, idx) => (
-              <div key={idx} className="flex flex-col items-center flex-1">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${
-                    idx <= currentStep ? "bg-blue-600 text-white" : "bg-gray-300 text-gray-600"
-                  }`}
-                >
-                  {idx < currentStep ? <FaCheck size={14} /> : idx + 1}
+              <div key={idx} className="relative z-10 flex flex-col items-center flex-1">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-md transition-all duration-300 ${
+                  idx < currentStep 
+                    ? "bg-emerald-400 text-white ring-4 ring-emerald-300/30" 
+                    : idx === currentStep 
+                    ? "bg-white text-indigo-700 ring-4 ring-white/30 shadow-lg" 
+                    : "bg-indigo-500/50 text-indigo-200 border-2 border-white/20"
+                }`}>
+                  {idx < currentStep ? <Check strokeWidth={3} className="h-4 w-4" /> : idx + 1}
                 </div>
-                <p className="text-xs text-center text-gray-600 font-medium">{step.title}</p>
-                <p className="text-xs text-center text-gray-400 hidden md:block">{step.description}</p>
+                <div className="mt-2 text-center">
+                  <p className={`text-[11px] font-semibold ${idx <= currentStep ? "text-white" : "text-indigo-300"}`}>{step.title}</p>
+                  <p className={`text-[10px] hidden sm:block mt-0.5 ${idx <= currentStep ? "text-indigo-200" : "text-indigo-400"}`}>{step.description}</p>
+                </div>
               </div>
             ))}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-            <div
-              className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-              style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-            />
-          </div>
         </div>
 
-        {/* Step Content */}
-        <div className="px-6 py-6 min-h-[400px]">
-
+        {/* ── Scrollable Content ── */}
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+          
           {/* ─── STEP 0: Edit Order Products ─── */}
           {currentStep === 0 && (
-            <div className="space-y-6">
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <div className="space-y-5">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                {/* Card Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-gradient-to-r from-slate-50 to-white px-5 py-4 border-b border-slate-200 gap-3">
                   <div>
-                    <h3 className="text-base font-semibold text-gray-800">Order Products</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Total: <span className="font-medium text-blue-600">{totalOrderQty} boxes</span> |
-                      Value: <span className="font-medium text-green-600">₹{totalOrderValue.toFixed(2)}</span>
-                      {orderEdited && (
-                        <span className="ml-2 text-green-600 font-medium">✓ Saved</span>
-                      )}
-                    </p>
+                    <h3 className="text-base font-bold text-slate-900">Order Items</h3>
+                    <div className="text-sm text-slate-500 mt-0.5 space-y-1">
+                      <p className="flex items-center gap-2">
+                        <span className="font-semibold text-indigo-600">{totalOrderQty} boxes</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-medium">Subtotal: <span className="text-slate-900">₹{totalOrderValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium text-slate-500">GST (5%): <span className="text-slate-900">₹{(totalOrderValue * 0.05).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-bold text-emerald-600 font-bold">Total: ₹{(totalOrderValue * 1.05 + (Number(order.deliveryCharge) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        {orderEdited && (
+                          <span className="ml-2 text-emerald-600 font-medium inline-flex items-center gap-1"><Check className="h-3 w-3"/> Updated</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
                   {!isEditingOrder ? (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setIsEditingOrder(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 text-sm font-medium transition-colors"
+                      className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl"
                     >
-                      <FaEdit size={12} /> Edit Order
-                    </button>
+                      <Edit className="h-4 w-4 mr-2" /> Modify Items
+                    </Button>
                   ) : (
                     <div className="flex gap-2">
-                      <button
-                        onClick={handleCancelOrderEdit}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-200 text-sm transition-colors"
-                      >
-                        <FaUndo size={11} /> Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveOrderEdit}
-                        disabled={isSavingOrder}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-                      >
-                        {isSavingOrder ? (
-                          <>
-                            <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" />
-                            Saving...
-                          </>
-                        ) : (
-                          <><FaSave size={11} /> Save Changes</>
-                        )}
-                      </button>
+                      <Button variant="ghost" size="sm" onClick={handleCancelOrderEdit} className="text-slate-600 hover:bg-slate-100 rounded-xl">
+                        <Undo className="h-4 w-4 mr-1.5" /> Discard
+                      </Button>
+                      <Button size="sm" onClick={handleSaveOrderEdit} disabled={isSavingOrder} className="bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl">
+                        {isSavingOrder ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</> : <><Save className="h-4 w-4 mr-2" /> Save</>}
+                      </Button>
                     </div>
                   )}
                 </div>
 
+                {/* Add products row when editing */}
                 {isEditingOrder && (
-                  <div className="p-4 bg-blue-50 border-b border-blue-100">
-                    <h4 className="text-sm font-medium text-blue-800 mb-2">Add Products</h4>
+                  <div className="p-4 bg-indigo-50/70 border-b border-indigo-100">
+                    <h4 className="text-sm font-semibold text-indigo-800 mb-2 flex items-center gap-2">
+                      <Plus className="h-4 w-4"/> Add Product
+                    </h4>
                     {loadingProducts ? (
-                      <p className="text-sm text-gray-500">Loading products...</p>
+                      <p className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> Loading catalogue...</p>
                     ) : productsError ? (
                       <p className="text-sm text-red-500">{productsError}</p>
                     ) : !Array.isArray(availableProducts) || availableProducts.length === 0 ? (
-                      <p className="text-sm text-gray-500">No products available</p>
+                      <p className="text-sm text-slate-500">No products available.</p>
                     ) : (
                       <select
-                        className="w-full p-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm shadow-sm"
                         onChange={(e) => {
                           const product = availableProducts.find((p) => p._id === e.target.value);
                           if (product) handleAddProduct(product);
@@ -488,7 +513,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                         <option value="">Select a product to add...</option>
                         {availableProducts.map((product) => (
                           <option key={product._id} value={product._id}>
-                            {product.name} - {product.type} - {product.category} (₹{product.price})
+                            {product.name} – {product.category} (₹{product.price})
                           </option>
                         ))}
                       </select>
@@ -496,27 +521,29 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                   </div>
                 )}
 
-                <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                {/* Product list */}
+                <div className="divide-y divide-slate-100">
                   {orderProducts.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-gray-500">No products in order</div>
+                    <div className="px-5 py-10 text-center text-slate-400">No products in this order.</div>
                   ) : (
                     orderProducts.map((product, index) => (
                       <div
                         key={product.productId || index}
-                        className={`flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors ${
-                          product.isNew ? "bg-green-50" : ""
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 transition-colors ${
+                          product.isNew ? "bg-emerald-50/60" : "hover:bg-slate-50/70"
                         }`}
                       >
-                        <div className="flex-1 min-w-0 mr-4">
-                          <p className="font-medium text-gray-800 text-sm truncate">
-                            {product.productName} - {product.productCategory}
+                        <div className="flex-1 min-w-0 mr-4 mb-3 sm:mb-0">
+                          <p className="font-semibold text-slate-900 text-sm flex items-center gap-2">
+                            {product.productName}
                             {product.isNew && (
-                              <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">New</span>
+                              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">New</span>
                             )}
                           </p>
+                          <p className="text-xs text-slate-400 mt-0.5">{product.productCategory}</p>
                           {isEditingOrder && (product.originalBoxes !== product.boxes || product.originalPrice !== product.pricePerBox) && (
-                            <p className="text-xs text-amber-600 mt-0.5">
-                              Original: {product.originalBoxes} boxes @ ₹{product.originalPrice}
+                            <p className="text-xs font-medium text-amber-600 mt-1.5 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> Was: {product.originalBoxes} boxes @ ₹{product.originalPrice}
                             </p>
                           )}
                         </div>
@@ -524,41 +551,37 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                         <div className="flex items-center gap-3 shrink-0">
                           {isEditingOrder ? (
                             <>
-                              <div className="flex flex-col items-end">
-                                <label className="text-xs text-gray-500 mb-1">Boxes</label>
+                              <div className="flex flex-col">
+                                <label className="text-[10px] font-semibold uppercase text-slate-400 mb-1 tracking-wider">Boxes</label>
                                 <input
-                                  type="number"
-                                  min="1"
-                                  value={product.boxes}
+                                  type="number" min="1" value={product.boxes}
                                   onChange={(e) => handleBoxChange(index, e.target.value)}
-                                  className="w-20 p-1.5 text-sm border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+                                  className="w-20 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center bg-white shadow-sm"
                                 />
                               </div>
-                              <div className="flex flex-col items-end">
-                                <label className="text-xs text-gray-500 mb-1">Price/Box (₹)</label>
+                              <div className="flex flex-col">
+                                <label className="text-[10px] font-semibold uppercase text-slate-400 mb-1 tracking-wider">₹/Box</label>
                                 <input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={product.pricePerBox}
+                                  type="number" min="0" step="0.01" value={product.pricePerBox}
                                   onChange={(e) => handlePriceChange(index, e.target.value)}
-                                  className="w-24 p-1.5 text-sm border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+                                  className="w-24 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center bg-white shadow-sm"
                                 />
                               </div>
                               {product.isNew && (
-                                <button
-                                  onClick={() => handleRemoveProduct(index)}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                  title="Remove product"
-                                >
-                                  <FaTrash size={14} />
+                                <button onClick={() => handleRemoveProduct(index)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg mt-5 transition-colors">
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
                               )}
                             </>
                           ) : (
-                            <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
-                              {product.boxes} boxes @ ₹{product.pricePerBox}
-                            </span>
+                            <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-2 border border-slate-100">
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-slate-800">{product.boxes} <span className="font-normal text-slate-400 text-xs">boxes</span></p>
+                                <p className="text-xs text-slate-400">@ ₹{product.pricePerBox}/box</p>
+                              </div>
+                              <div className="h-8 border-l border-slate-200" />
+                              <p className="font-bold text-indigo-600 text-sm">₹{(product.boxes * product.pricePerBox).toLocaleString('en-IN')}</p>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -567,11 +590,10 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                 </div>
 
                 {isEditingOrder && (
-                  <div className="bg-amber-50 border-t border-amber-100 px-4 py-2.5">
-                    <p className="text-xs text-amber-700 flex items-center gap-1.5">
-                      <FaExclamationTriangle size={11} />
-                      Editing order quantities and prices will update the order before generating challans.
-                      New total: <strong>{totalOrderQty} boxes</strong> | New value: <strong>₹{totalOrderValue.toFixed(2)}</strong>
+                  <div className="bg-amber-50 border-t border-amber-100 px-5 py-3">
+                    <p className="text-xs font-medium text-amber-800 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                      Saving will update the original order before challan creation.
                     </p>
                   </div>
                 )}
@@ -579,134 +601,159 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
             </div>
           )}
 
-          {/* ─── STEP 1: Challan Split + Vehicle Details + Delivery Charge Per Challan ─── */}
+          {/* ─── STEP 1: Challan Split + Details ─── */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Challan Generation</h3>
+            <div className="space-y-5">
+              {/* Split Config */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Challan Split</h3>
+                    <p className="text-sm text-slate-400 mt-0.5">Divide this order into one or more shipments</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl">
+                    {totalOrderQty} total boxes
+                  </span>
+                </div>
 
-                <div className="mb-6">
-                  <label className="block text-gray-700 font-medium mb-2">Number of Challans</label>
+                <div className="max-w-xs">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Number of Challans</label>
                   <input
-                    type="number"
-                    min="1"
+                    type="number" min="1"
                     value={wizardData.splitInfo.numberOfChallans}
                     onChange={(e) => handleNumberOfChallansChange(parseInt(e.target.value) || 1)}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm text-slate-800 font-semibold"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Total order quantity: <strong>{totalOrderQty} boxes</strong> |
-                    Total value: <strong>₹{totalOrderValue.toFixed(2)}</strong>
-                    {orderEdited && <span className="ml-1 text-green-600">(updated)</span>}
-                  </p>
                 </div>
 
                 {quantityWarning && (
-                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-md flex items-center gap-2">
-                    <FaExclamationTriangle className="text-yellow-600" />
-                    <span className="text-sm text-yellow-800">{quantityWarning}</span>
+                  <div className="mt-4 p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                    <span className="text-sm font-medium text-amber-800">{quantityWarning}</span>
                   </div>
                 )}
+              </div>
 
-                <div className="space-y-4">
-                  {Array.from({ length: wizardData.splitInfo.numberOfChallans }).map((_, idx) => {
-                    const isLastRow = idx === wizardData.splitInfo.numberOfChallans - 1;
-                    const challanQty = wizardData.splitInfo.quantities[idx] || 0;
-                    const challanCharge = wizardData.deliveryChargePerBox[idx] || 0;
-                    const challanDeliveryTotal = challanQty * challanCharge;
+              {/* Per-Challan Cards */}
+              <div className="space-y-4">
+                {Array.from({ length: wizardData.splitInfo.numberOfChallans }).map((_, idx) => {
+                  const isLastRow = idx === wizardData.splitInfo.numberOfChallans - 1;
+                  const challanQty = wizardData.splitInfo.quantities[idx] || 0;
+                  const challanCharge = wizardData.deliveryChargePerBox[idx] || 0;
 
-                    return (
-                      <div key={idx} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                        <h4 className="font-semibold text-gray-700 mb-3">Challan {idx + 1}</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  return (
+                    <div key={idx} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      {/* Challan card header accent */}
+                      <div className="h-1 bg-gradient-to-r from-indigo-500 to-blue-400" />
+                      <div className="p-5">
+                        <div className="flex items-center gap-3 mb-5">
+                          <span className="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0">{idx + 1}</span>
                           <div>
-                            <label className="block text-sm text-gray-700 mb-1">
-                              Quantity (Boxes) {isLastRow && <span className="text-blue-500">(Auto-calculated)</span>}
-                            </label>
+                            <h4 className="font-bold text-slate-800 text-sm">Challan / Shipment {idx + 1}</h4>
+                            {challanQty > 0 && <p className="text-xs text-slate-400 mt-0.5">{challanQty} boxes · ₹{(challanQty * challanCharge).toLocaleString('en-IN')} delivery est.</p>}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {/* Quantity */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Quantity (Boxes)</label>
                             <input
-                              type="number"
-                              min="0"
+                              type="number" min="0"
                               value={wizardData.splitInfo.quantities[idx] || ""}
                               onChange={(e) => handleQuantityChange(idx, e.target.value)}
                               disabled={isLastRow}
-                              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 ${
-                                isLastRow ? "bg-gray-100 cursor-not-allowed" : ""
+                              className={`w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm transition-colors ${
+                                isLastRow ? "bg-slate-100 border-slate-200 cursor-not-allowed text-slate-400" : "bg-white border-slate-300 text-slate-800"
                               }`}
                             />
+                            {isLastRow && <p className="text-[10px] text-slate-400 mt-1">*Auto-balanced remainder</p>}
                           </div>
+                          
+                          {/* Delivery Charge */}
                           <div>
-                            <label className="block text-sm text-gray-700 mb-1">
-                              Delivery Charge / Box (₹)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={wizardData.deliveryChargePerBox[idx] ?? ""}
-                              onChange={(e) => handleDeliveryChargePerBoxChange(idx, e.target.value)}
-                              placeholder="e.g. 5"
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                            />
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Delivery Charge / Box</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">₹</span>
+                              <input
+                                type="number" min="0" step="0.01"
+                                value={wizardData.deliveryChargePerBox[idx] ?? ""}
+                                onChange={(e) => handleDeliveryChargePerBoxChange(idx, e.target.value)}
+                                className="w-full pl-7 p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+                              />
+                            </div>
                             {challanCharge > 0 && (
-                              <p className="text-xs text-blue-600 mt-1">
-                                Total delivery: ₹{challanDeliveryTotal.toFixed(2)} ({challanQty} boxes × ₹{challanCharge})
+                              <p className="text-[10px] text-indigo-600 mt-1 font-bold">
+                                Total: ₹{(challanQty * challanCharge).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </p>
                             )}
                           </div>
+
+                          {/* Delivery Date (readonly) */}
                           <div>
-                            <label className="block text-sm text-gray-700 mb-1">Delivery Date</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Delivery Date</label>
                             <input
                               type="date"
-                              value={wizardData.scheduledDates[idx] || ""}
-                              onChange={(e) => handleDateChange(idx, e.target.value)}
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              value={wizardData.scheduledDates[idx] || getTodayDate()}
+                              readOnly disabled
+                              className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed text-sm"
                             />
+                            <p className="text-[10px] text-slate-400 mt-1">Auto-set to today</p>
                           </div>
+
+                          {/* Driver Name */}
                           <div>
-                            <label className="block text-sm text-gray-700 mb-1">Driver Name</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Driver Name</label>
                             <input
                               type="text"
                               value={wizardData.vehicleDetails[idx]?.driverName || ""}
                               onChange={(e) => handleVehicleChange(idx, "driverName", e.target.value)}
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g. Ramesh Kumar"
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm placeholder:text-slate-300"
                             />
                           </div>
+
+                          {/* Vehicle Number */}
                           <div>
-                            <label className="block text-sm text-gray-700 mb-1">Vehicle Number</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Vehicle Number</label>
                             <input
                               type="text"
                               value={wizardData.vehicleDetails[idx]?.vehicleNo || ""}
                               onChange={(e) => handleVehicleChange(idx, "vehicleNo", e.target.value)}
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              placeholder="e.g. GJ 01 AB 1234"
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm uppercase placeholder:normal-case placeholder:text-slate-300"
                             />
                           </div>
+
+                          {/* Driver Mobile */}
                           <div>
-                            <label className="block text-sm text-gray-700 mb-1">Mobile Number</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Driver Mobile</label>
                             <input
                               type="tel"
                               value={wizardData.vehicleDetails[idx]?.mobileNo || ""}
                               onChange={(e) => handleVehicleChange(idx, "mobileNo", e.target.value)}
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              placeholder="9876543210"
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm placeholder:text-slate-300"
                             />
                           </div>
                         </div>
-                        {isLastRow && (
-                          <p className="text-xs text-blue-600 mt-2">
-                            ℹ️ This quantity is automatically calculated as the remaining balance
-                          </p>
-                        )}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-                <div className="mt-6">
-                  <label className="block text-sm text-gray-700 font-medium mb-1">Receiver Name</label>
+              {/* Receiver Section */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="text-base font-bold text-slate-900 mb-4">Receiver Details</h3>
+                <div className="max-w-sm">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Receiver Firm / Contact Name</label>
                   <input
                     type="text"
                     value={wizardData.receiverName}
                     onChange={(e) => setWizardData({ ...wizardData, receiverName: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter receiver name or firm"
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm text-sm placeholder:text-slate-300"
                   />
                 </div>
               </div>
@@ -714,44 +761,34 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-2xl">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 flex items-center gap-2 text-sm"
-          >
-            <FaTimes /> Cancel
-          </button>
-
+        {/* ── Footer Actions ── */}
+        <div className="px-5 py-4 bg-white border-t border-slate-200 shrink-0 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+          <Button variant="outline" onClick={onClose} className="text-slate-500 border-slate-200 hover:bg-slate-50 rounded-xl px-5">
+            <X className="h-4 w-4 mr-2" /> Cancel
+          </Button>
           <div className="flex gap-3">
             {currentStep > 0 && (
-              <button
-                onClick={handlePrev}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 flex items-center gap-2 text-sm"
-              >
-                <FaArrowLeft /> Previous
-              </button>
+              <Button variant="outline" onClick={handlePrev} className="rounded-xl border-slate-200 text-slate-600 px-5">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </Button>
             )}
             {currentStep < steps.length - 1 ? (
-              <button
-                onClick={handleNext}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm"
-              >
-                Next <FaArrowRight />
-              </button>
+              <Button onClick={handleNext} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 font-semibold shadow-sm">
+                Continue <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
             ) : (
-              <button
+              <Button
                 onClick={handleSubmit}
                 disabled={!!quantityWarning}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-6 font-semibold shadow-sm disabled:bg-slate-200 disabled:text-slate-400"
               >
-                <FaCheck /> Generate Challans
-              </button>
+                <Check className="h-4 w-4 mr-2" /> Generate Challans
+              </Button>
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

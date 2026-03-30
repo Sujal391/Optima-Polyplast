@@ -4,13 +4,15 @@ import ProductionList from './ProductionList';
 import {
   fetchRawMaterials,
   recordPreformProduction,
-  getPreformProductions
+  getPreformProductions,
+  getPreformTypeList
 } from '../../../services/api/stock';
 import { Trash2 } from 'lucide-react';
 import PreformDetails from './PreformDetails';
 
 export default function PreformProduction() {
   const [materials, setMaterials] = useState([]);
+  const [preformTypes, setPreformTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -38,7 +40,7 @@ export default function PreformProduction() {
   // Form state
   const [formData, setFormData] = useState({
     rawMaterials: [],
-    preformType: '',
+    preformTypeId: '',
     quantityProduced: '',
     wastageType1: '',
     wastageType2: '',
@@ -55,8 +57,19 @@ export default function PreformProduction() {
   // Fetch materials and production data on mount
   useEffect(() => {
     fetchMaterials();
+    fetchPreformTypes();
     fetchAllProductionData();
   }, []);
+
+  const fetchPreformTypes = async () => {
+    try {
+      const res = await getPreformTypeList();
+      const data = res?.data || res || [];
+      setPreformTypes(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching preform types:', err);
+    }
+  };
 
   const fetchMaterials = async () => {
     setLoading(true);
@@ -254,7 +267,8 @@ export default function PreformProduction() {
   // };
 
   const handleSubmit = async () => {
-    if (!formData.preformType || !formData.quantityProduced || formData.rawMaterials.length === 0) {
+    // Send payload according to updated API specifications
+    if (!formData.preformTypeId || !formData.quantityProduced || formData.rawMaterials.length === 0) {
       setError('Preform Type, Quantity Produced, and at least one Raw Material are required');
       return;
     }
@@ -271,21 +285,22 @@ export default function PreformProduction() {
           materialId: m.materialId,
           quantityUsed: m.quantityUsed,
         })),
-        preformType: formData.preformType,
+        preformTypeId: formData.preformTypeId,
         quantityProduced: parseInt(formData.quantityProduced, 10),
         wastageType1: hasWastageType1 ? parseFloat(formData.wastageType1) : 0,
         wastageType2: hasWastageType2 ? parseFloat(formData.wastageType2) : 0,
-        remarks: formData.remarks,
-        productionDate: new Date(formData.productionDate).toISOString(),
+        remarks: formData.remarks || '',
+        productionDate: formData.productionDate || new Date().toISOString().split('T')[0],
       };
 
       await recordPreformProduction(payload);
 
       setSuccess('Production Recorded Successfully!');
 
+      // Reset form
       setFormData({
         rawMaterials: [],
-        preformType: '',
+        preformTypeId: '',
         quantityProduced: '',
         wastageType1: '',
         wastageType2: '',
@@ -468,19 +483,27 @@ export default function PreformProduction() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Preform Type *
             </label>
-            <input
-              type="text"
-              name="preformType"
-              value={formData.preformType}
+            <select
+              name="preformTypeId"
+              value={formData.preformTypeId}
               onChange={handleInputChange}
-              placeholder="Enter Preform Type (e.g., 28mm 500ml)"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">-- Select Preform Type --</option>
+              {preformTypes.map((pt, idx) => {
+                const item = typeof pt === 'string' ? { _id: pt, name: pt } : pt;
+                return (
+                  <option key={item._id || idx} value={item._id}>
+                    {item.name}
+                  </option>
+                );
+              })}
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Quantity Produced *
+              Quantity Produced With Wastage *
             </label>
             <input
               type="number"

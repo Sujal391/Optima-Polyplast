@@ -1,16 +1,37 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Sidebar from "../layout/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import cookies from 'js-cookie';
+import cookies from "js-cookie";
 import { useNavigate } from "react-router-dom";
+import {
+  Users,
+  Package,
+  ShoppingCart,
+  Clock,
+  CheckCircle2,
+  Truck,
+  XCircle,
+  Eye,
+  Loader2,
+  AlertCircle,
+  Settings,
+} from "lucide-react";
 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Separator } from "../ui/separator";
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
 
   const api = axios.create({
@@ -19,7 +40,6 @@ const Dashboard = () => {
 
   api.interceptors.request.use(
     (config) => {
-      // const token = localStorage.getItem("token");
       const token = cookies.get("token");
       if (token) {
         config.headers.Authorization = token.startsWith("Bearer ")
@@ -59,11 +79,21 @@ const Dashboard = () => {
           title: "Total Users",
           value: stats.users.total,
           description: `Active: ${stats.users.active}, Inactive: ${stats.users.inactive}`,
+          icon: Users,
+          color: "bg-blue-500",
+          lightColor: "bg-blue-50",
+          textColor: "text-blue-600",
+          route: "/users",
         },
         {
           title: "Total Products",
           value: stats.products.total,
           description: `Bottles: ${stats.products.bottles}, Raw: ${stats.products.rawMaterials}`,
+          icon: Package,
+          color: "bg-emerald-500",
+          lightColor: "bg-emerald-50",
+          textColor: "text-emerald-600",
+          route: "/product",
         },
         {
           title: "Total Orders",
@@ -75,110 +105,262 @@ const Dashboard = () => {
             stats.orders.preview +
             stats.orders.processing,
           description: `Shipped: ${stats.orders.shipped}, Pending: ${stats.orders.pending}`,
+          icon: ShoppingCart,
+          color: "bg-violet-500",
+          lightColor: "bg-violet-50",
+          textColor: "text-violet-600",
+          route: "/order",
         },
       ]
     : [];
 
   const orderStats = stats
     ? [
-        { status: "Pending", count: stats.orders.pending, border: "border-yellow-500", text: "text-yellow-700" },
-        { status: "Confirmed", count: stats.orders.confirmed, border: "border-blue-500", text: "text-blue-700" },
-        { status: "Shipped", count: stats.orders.shipped, border: "border-indigo-500", text: "text-indigo-700" },
-        { status: "Cancelled", count: stats.orders.cancelled, border: "border-red-500", text: "text-red-700" },
-        { status: "Preview", count: stats.orders.preview, border: "border-gray-500", text: "text-gray-700" },
-        { status: "Processing", count: stats.orders.processing, border: "border-orange-500", text: "text-orange-700" },
+        {
+          status: "Pending",
+          count: stats.orders.pending,
+          icon: Clock,
+          color: "bg-amber-500",
+          lightBg: "bg-amber-50",
+          textColor: "text-amber-700",
+          borderColor: "border-l-amber-500",
+        },
+        {
+          status: "Confirmed",
+          count: stats.orders.confirmed,
+          icon: CheckCircle2,
+          color: "bg-blue-500",
+          lightBg: "bg-blue-50",
+          textColor: "text-blue-700",
+          borderColor: "border-l-blue-500",
+        },
+        {
+          status: "Shipped",
+          count: stats.orders.shipped,
+          icon: Truck,
+          color: "bg-indigo-500",
+          lightBg: "bg-indigo-50",
+          textColor: "text-indigo-700",
+          borderColor: "border-l-indigo-500",
+        },
+        {
+          status: "Cancelled",
+          count: stats.orders.cancelled,
+          icon: XCircle,
+          color: "bg-red-500",
+          lightBg: "bg-red-50",
+          textColor: "text-red-700",
+          borderColor: "border-l-red-500",
+        },
+        {
+          status: "Preview",
+          count: stats.orders.preview,
+          icon: Eye,
+          color: "bg-slate-500",
+          lightBg: "bg-slate-50",
+          textColor: "text-slate-700",
+          borderColor: "border-l-slate-500",
+        },
+        {
+          status: "Processing",
+          count: stats.orders.processing,
+          icon: Settings,
+          color: "bg-orange-500",
+          lightBg: "bg-orange-50",
+          textColor: "text-orange-700",
+          borderColor: "border-l-orange-500",
+        },
       ]
     : [];
 
   return (
-    <div className="flex bg-gray-50 min-h-screen font-sans">
-      <Sidebar isOpen={isSidebarOpen} />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Page Header */}
+        <div className="mb-8">
+          <motion.h1
+            className="text-2xl font-bold text-slate-800"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            Dashboard Overview
+          </motion.h1>
+          <motion.p
+            className="text-slate-500 mt-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            Welcome back! Here's what's happening with your business today.
+          </motion.p>
+        </div>
 
-      <motion.div
-        className={`flex-1 p-4 transition-all duration-300 ${
-          isSidebarOpen ? "ml-64" : "ml-0"
-        }`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        {/* Dashboard Cards */}
-        <AnimatePresence>
+        {/* Dashboard Content */}
+        <AnimatePresence mode="wait">
           {loading ? (
             <motion.div
-              className="text-center text-xl text-gray-600 mt-8"
+              className="flex flex-col items-center justify-center h-64"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              Loading...
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-slate-500">Loading dashboard data...</p>
             </motion.div>
           ) : error ? (
             <motion.div
-              className="text-center text-red-500 font-semibold mt-8"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {error}
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="flex items-center gap-3 py-6">
+                  <AlertCircle className="h-6 w-6 text-red-500" />
+                  <p className="text-red-700 font-medium">{error}</p>
+                </CardContent>
+              </Card>
             </motion.div>
           ) : (
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6"
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ staggerChildren: 0.1 }}
             >
-              {cards.map((card, index) => (
-                <motion.div
-                  key={index}
-                  className="p-5 rounded-lg border border-gray-200 bg-white shadow-sm hover:shadow transition"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <h3 className="text-sm font-medium text-gray-500">{card.title}</h3>
-                  <div className="mt-1 text-3xl font-bold text-gray-900">
-                    {card.value.toLocaleString()}
-                  </div>
-                  <p className="mt-2 text-sm text-gray-500">{card.description}</p>
-                </motion.div>
-              ))}
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {cards.map((card, index) => {
+                  const Icon = card.icon;
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card
+                        className="cursor-pointer group hover:shadow-lg transition-all duration-300 border-0 shadow-sm overflow-hidden"
+                        onClick={() => navigate(card.route)}
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardDescription className="text-sm font-medium text-slate-500">
+                              {card.title}
+                            </CardDescription>
+                            <div
+                              className={`p-2.5 rounded-xl ${card.lightColor} group-hover:scale-110 transition-transform duration-300`}
+                            >
+                              <Icon className={`h-5 w-5 ${card.textColor}`} />
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-end justify-between">
+                            <div>
+                              <CardTitle className="text-3xl font-bold text-slate-800">
+                                {card.value.toLocaleString()}
+                              </CardTitle>
+                              <p className="text-sm text-slate-400 mt-1">
+                                {card.description}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="secondary"
+                              className={`${card.lightColor} ${card.textColor} border-0`}
+                            >
+                              View →
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Order Breakdown Section */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg font-semibold text-slate-800">
+                          Order Breakdown
+                        </CardTitle>
+                        <CardDescription className="text-slate-500 mt-1">
+                          View orders by their current status
+                        </CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate("/order")}
+                        className="text-sm"
+                      >
+                        View All Orders
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {orderStats.map((order, index) => {
+                        const Icon = order.icon;
+                        return (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 + index * 0.05 }}
+                          >
+                            <Card
+                              className={`cursor-pointer group hover:shadow-md transition-all duration-300 border-l-4 ${order.borderColor} bg-white`}
+                              onClick={() => navigate("/order")}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div
+                                      className={`p-2 rounded-lg ${order.lightBg} group-hover:scale-110 transition-transform duration-200`}
+                                    >
+                                      <Icon
+                                        className={`h-4 w-4 ${order.textColor}`}
+                                      />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                                        {order.status}
+                                      </p>
+                                      <p className="text-sm text-slate-400 mt-0.5">
+                                        Orders
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`text-2xl font-bold ${order.textColor}`}
+                                  >
+                                    {order.count.toLocaleString()}
+                                  </span>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Order Breakdown */}
-        {stats && (
-          <motion.div
-            className="mt-8 p-6 rounded-xl border border-gray-200 bg-white shadow-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Order Breakdown</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {orderStats.map((order, index) => (
-                <motion.div
-                  key={index}
-                  onClick={() => navigate(`/orders`)}
-                  className={`cursor-pointer p-5 rounded-lg border border-gray-200 bg-white hover:shadow-sm transition border-l-4 ${order.border}`}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <div className="flex items-baseline justify-between">
-                    <h3 className={`text-sm font-medium tracking-wide uppercase text-gray-600`}>{order.status}</h3>
-                    <span className="text-2xl font-semibold text-gray-900">
-                      {order.count.toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">{`Orders in ${order.status.toLowerCase()} status`}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </motion.div>
-    </div>
+    </motion.div>
   );
 };
 

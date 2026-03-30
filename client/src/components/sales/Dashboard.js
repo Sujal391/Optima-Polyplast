@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import axios from "axios";
 import {
-  Menu, X, LogOut, Home, ClipboardList, History, FileText
+  Menu, X, LogOut, Home, ShoppingCart
 } from "lucide-react";
 import profile from "../../assets/profiles.jpg";
 import img from "../../assets/logo1.png";
@@ -23,10 +23,8 @@ api.interceptors.request.use(
 
 // Navigation structure
 const navLinks = [
-  { to: "/dispatch/dashboard", label: "Home", icon: Home },
-  { to: "/dispatch/processing-orders", label: "Processing Orders", icon: ClipboardList },
-  { to: "/dispatch/dispatch-history", label: "Dispatch History", icon: History },
-  { to: "/dispatch/challan-history", label: "Challan History", icon: FileText },
+  { to: "/sales/dashboard", label: "Home",   icon: Home },
+  { to: "/sales/orders",    label: "Sales Orders", icon: ShoppingCart },
 ];
 
 const Navbar = () => {
@@ -71,20 +69,23 @@ const Navbar = () => {
 
   const isActive = (to) => location.pathname === to;
   const linkBase = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200";
-  const activeLink = "bg-blue-600 text-white";
-  const inactiveLink = "text-blue-100 hover:bg-blue-700/60 hover:text-white";
+  const activeLink = "bg-blue-600 text-white shadow-sm";
+  const inactiveLink = "text-blue-100 hover:bg-blue-800 hover:text-white";
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-blue-800 shadow-lg">
+      {/* ─── Top Navbar ─────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-blue-900 shadow-md">
         <div className="max-w-screen-xl mx-auto px-3 sm:px-5">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14">
 
-            <Link to="/dispatch/dashboard" className="shrink-0 flex items-center bg-white p-1 rounded">
-              <img src={img} alt="Dispatch" className="h-8 w-auto object-contain" />
+            {/* Logo */}
+            <Link to="/sales/dashboard" className="shrink-0 flex items-center">
+              <img src={img} alt="Sales" className="h-9 w-auto object-contain" />
             </Link>
 
-            <nav className="hidden md:flex items-center gap-2 ml-6">
+            {/* ── Desktop nav (md+) ── */}
+            <nav className="hidden md:flex items-center gap-1">
               {navLinks.map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
@@ -97,13 +98,13 @@ const Navbar = () => {
               ))}
             </nav>
 
-            <div className="flex-1" />
-
-            <div className="flex items-center gap-3">
+            {/* ── Right: profile + logout (desktop), hamburger (mobile) ── */}
+            <div className="flex items-center gap-2">
+              {/* Profile avatar */}
               <div className="relative hidden sm:block" ref={profileRef}>
                 <button
                   onClick={() => setIsProfileOpen((v) => !v)}
-                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-blue-700/50 transition-colors"
+                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-blue-800 transition-colors"
                 >
                   <img
                     src={profileData?.image || profile}
@@ -119,28 +120,31 @@ const Navbar = () => {
                 </button>
               </div>
 
+              {/* Logout — desktop */}
               <button
                 onClick={handleLogout}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500
-                           text-white text-sm font-medium hover:bg-red-600 transition-colors"
+                           text-white text-sm font-medium hover:bg-red-600 transition-colors shadow-sm"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden lg:inline">Logout</span>
               </button>
 
+              {/* Mobile hamburger */}
               <button
-                className="md:hidden p-2 rounded-lg text-blue-200 hover:bg-blue-700/50 hover:text-white transition-colors"
+                className="md:hidden p-2 rounded-lg text-blue-200 hover:bg-blue-800 hover:text-white transition-colors"
                 onClick={() => setIsMobileMenuOpen((v) => !v)}
                 aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
               >
-                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
             </div>
           </div>
         </div>
 
+        {/* ── Mobile Menu ─────────────────────────────────────────────── */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-blue-700/60 bg-blue-800 px-4 py-3 space-y-2">
+          <div className="md:hidden border-t border-blue-800 bg-blue-900 px-4 py-3 space-y-1">
             {navLinks.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
@@ -152,24 +156,25 @@ const Navbar = () => {
               </Link>
             ))}
 
-            <div className="flex items-center justify-between pt-4 border-t border-blue-700/40">
-              <div className="flex items-center gap-3">
+            {/* Profile + logout row */}
+            <div className="flex items-center justify-between pt-3 mt-2 border-t border-blue-800">
+              <div className="flex items-center gap-2">
                 <img
                   src={profileData?.image || profile}
                   alt="Profile"
-                  className="w-10 h-10 rounded-full border-2 border-blue-400 object-cover"
+                  className="w-8 h-8 rounded-full border-2 border-blue-400 object-cover"
                 />
                 <div className="text-left leading-tight">
-                  <p className="text-base font-semibold text-white">{profileData?.name || "User"}</p>
-                  <p className="text-sm text-blue-300">{profileData?.role || ""}</p>
+                  <p className="text-sm font-semibold text-white">{profileData?.name || "User"}</p>
+                  <p className="text-xs text-blue-300">{profileData?.role || ""}</p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500
-                           text-white text-sm font-medium hover:bg-red-600 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500
+                           text-white text-sm font-medium hover:bg-red-600 transition-colors shadow-sm"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
                 Logout
               </button>
             </div>
@@ -177,33 +182,32 @@ const Navbar = () => {
         )}
       </header>
 
-      {location.pathname === "/dispatch/dashboard" && (
+      {/* ── Dashboard welcome screen ─────────────────────────────────── */}
+      {location.pathname === "/sales/dashboard" && (
         <motion.div
-          className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]
-                     bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 px-4 text-center"
+          className="flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)]
+                     bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 px-4 text-center"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
         >
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-blue-900 mb-6 drop-shadow-sm">
-            Welcome to Dispatch Dashboard
+          <h1 className="text-3xl sm:text-5xl font-bold text-slate-800 mb-3">
+            Welcome to Sales Panel
           </h1>
-          <p className="text-lg md:text-2xl text-slate-600 mb-8 max-w-2xl">
-            Streamline your processing and logistics efficiently.
+          <p className="text-base sm:text-2xl text-slate-600 mb-6 max-w-xl">
+            Review and oversee all orders awaiting sales approval.
           </p>
           <Link
-            to="/dispatch/processing-orders"
-            className="px-8 py-3.5 bg-blue-600 text-white rounded-xl font-bold text-lg
-                       hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+            to="/sales/orders"
+            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium
+                       hover:bg-blue-700 transition-colors shadow-md"
           >
-            Explore Features
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
+            Review Orders →
           </Link>
         </motion.div>
       )}
 
+      {/* Profile Modal */}
       {isProfileOpen && profileData && (
         <div
           className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
@@ -225,10 +229,10 @@ const Navbar = () => {
               <img
                 src={profileData?.image || profile}
                 alt="Profile"
-                className="w-24 h-24 rounded-full border-2 border-blue-400 object-cover"
+                className="w-20 h-20 rounded-full border-2 border-blue-400 object-cover"
               />
             </div>
-            <div className="space-y-3 text-sm text-gray-700">
+            <div className="space-y-2 text-sm text-gray-700">
               {[
                 { label: "Name",    value: profileData?.name },
                 { label: "Email",   value: profileData?.email },
@@ -239,14 +243,14 @@ const Navbar = () => {
                     : undefined },
               ].map(({ label, value }) => value && (
                 <div key={label} className="flex gap-2">
-                  <span className="font-medium text-gray-500 w-16 shrink-0">{label}:</span>
+                  <span className="font-medium text-gray-500 w-14 shrink-0">{label}:</span>
                   <span className="text-gray-800 break-all">{value}</span>
                 </div>
               ))}
             </div>
             <button
               onClick={() => setIsProfileOpen(false)}
-              className="mt-6 w-full py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              className="mt-5 w-full py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
             >
               Close
             </button>

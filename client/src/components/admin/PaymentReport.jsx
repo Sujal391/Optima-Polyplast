@@ -1,10 +1,48 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Sidebar from "../layout/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import cookies from 'js-cookie';
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
+import {
+  CreditCard,
+  Download,
+  Filter,
+  Calendar,
+  Search,
+  ArrowUpRight,
+  ArrowDownRight,
+  Wallet,
+  Globe,
+  Loader2,
+  AlertCircle,
+  ChevronRight,
+  FileText,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  History,
+  TrendingUp,
+} from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Input } from "../ui/input";
+import { Separator } from "../ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 const PaymentHistory = () => {
   const [payments, setPayments] = useState([]);
@@ -13,7 +51,6 @@ const PaymentHistory = () => {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   // Filter states
   const [fromDate, setFromDate] = useState("2026-03-11");
@@ -45,11 +82,12 @@ const PaymentHistory = () => {
         `/admin/payments/history?fromDate=${fromDate}&toDate=${toDate}${modeParam}`
       );
       
-      setPayments(response.data.payments);
+      setPayments(response.data.payments || []);
       setSummary(response.data.summary);
       setTotalRecords(response.data.totalRecords);
       setLoading(false);
     } catch (err) {
+      console.error("Fetch Error:", err);
       setError(
         err.response?.status === 401
           ? "Session expired. Please login again."
@@ -67,20 +105,11 @@ const PaymentHistory = () => {
     fetchPayments();
   }, [fromDate, toDate, paymentMode]);
 
-  const handleFilterSubmit = (e) => {
-    e.preventDefault();
-    fetchPayments();
-  };
-
   const handleDownloadExcel = () => {
-    if (payments.length === 0) {
-      alert("No data to download");
-      return;
-    }
+    if (payments.length === 0) return;
 
     setDownloading(true);
 
-    // Prepare data for Excel - only selected columns
     const excelData = payments.map(payment => ({
       'Payment ID': payment.paymentId,
       'Order ID': payment.orderId,
@@ -90,328 +119,341 @@ const PaymentHistory = () => {
       'Phone Number': payment.phoneNumber,
       'Payment Mode': payment.paymentMode,
       'Submitted Amount (₹)': payment.submittedAmount,
+      'Paid Amount (₹)': payment.paidAmount,
       'Payment Date': format(new Date(payment.paymentDate), 'dd-MM-yyyy HH:mm:ss'),
       'Order Status': payment.orderStatus
     }));
 
-    // Create worksheet
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(excelData, { skipHeader: false });
+    const ws = XLSX.utils.json_to_sheet(excelData);
     
-    // Set column widths
     const colWidths = [
-      { wch: 25 }, // Payment ID
-      { wch: 25 }, // Order ID
-      { wch: 20 }, // Firm Name
-      { wch: 15 }, // User Code
-      { wch: 20 }, // Customer Name
-      { wch: 15 }, // Phone Number
-      { wch: 15 }, // Payment Mode
-      { wch: 20 }, // Submitted Amount
-      { wch: 20 }, // Payment Date
-      { wch: 15 }, // Order Status
+      { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 },
+      { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 12 }
     ];
     ws['!cols'] = colWidths;
 
     XLSX.utils.book_append_sheet(wb, ws, 'Payment History');
-    
-    // Generate filename with date range
-    const fileName = `payment_history_${fromDate}_to_${toDate}.xlsx`;
-    
-    // Save file
-    XLSX.writeFile(wb, fileName);
+    XLSX.writeFile(wb, `Payment_Report_${fromDate}_to_${toDate}.xlsx`);
     setDownloading(false);
   };
 
-  const formatDate = (dateString) => {
-    return format(new Date(dateString), "dd MMM yyyy, hh:mm a");
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
+  const getStatusBadge = (status) => {
+    switch (status?.toLowerCase()) {
       case "verified":
-        return "bg-green-100 text-green-800 border-green-200";
+        return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100"><CheckCircle2 className="h-3 w-3 mr-1" /> Verified</Badge>;
       case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return <Badge className="bg-amber-50 text-amber-700 border-amber-100"><Clock className="h-3 w-3 mr-1" /> Pending</Badge>;
       case "failed":
-        return "bg-red-100 text-red-800 border-red-200";
+        return <Badge className="bg-red-50 text-red-700 border-red-100"><AlertTriangle className="h-3 w-3 mr-1" /> Failed</Badge>;
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getPaymentModeColor = (mode) => {
-    return mode === "online" 
-      ? "bg-blue-100 text-blue-800 border-blue-200"
-      : "bg-purple-100 text-purple-800 border-purple-200";
-  };
-
   return (
-    <div className="flex bg-gray-50 min-h-screen font-sans">
-      <Sidebar isOpen={isSidebarOpen} />
-
-      <motion.div
-        className={`flex-1 p-6 transition-all duration-300 ${
-          isSidebarOpen ? "ml-64" : "ml-0"
-        }`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        {/* Header */}
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Payment History</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              View and manage all payment transactions
-            </p>
-          </div>
-          
-          {/* Download Button */}
-          {payments.length > 0 && (
-            <motion.button
-              onClick={handleDownloadExcel}
-              disabled={downloading}
-              className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2 ${
-                downloading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {downloading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Downloading...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>Download Excel</span>
-                </>
-              )}
-            </motion.button>
-          )}
-        </div>
-
-        {/* Filters Section */}
-        <motion.div
-          className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6"
-          initial={{ y: 10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-        >
-          <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                From Date
-              </label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Payment Mode
-              </label>
-              <select
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All</option>
-                <option value="online">Online</option>
-                <option value="cash">Cash</option>
-              </select>
-            </div>
-            
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Apply Filters
-            </button>
-          </form>
-        </motion.div>
-
-        {/* Summary Cards */}
-        {summary && !loading && (
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ staggerChildren: 0.1 }}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="pb-12"
+    >
+      {/* Page Header */}
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <motion.h1
+            className="text-2xl font-bold text-slate-800"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-            <motion.div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Total Records</p>
-              <p className="text-2xl font-bold text-gray-800">{totalRecords}</p>
-            </motion.div>
-            
-            <motion.div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Total Submitted</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                ₹{summary.totalSubmittedAmount.toLocaleString()}
-              </p>
-            </motion.div>
-            
-            <motion.div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Cash Payments</p>
-              <p className="text-2xl font-bold text-purple-600">
-                ₹{summary.totalCash.toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">Total cash transactions</p>
-            </motion.div>
-            
-            <motion.div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-sm text-gray-500">Online Payments</p>
-              <p className="text-2xl font-bold text-blue-600">
-                ₹{summary.totalOnline.toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">Total online transactions</p>
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* Payments Table */}
-        <AnimatePresence>
-          {loading ? (
-            <motion.div
-              className="text-center text-xl text-gray-600 mt-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              Loading payment history...
-            </motion.div>
-          ) : error ? (
-            <motion.div
-              className="text-center text-red-500 font-semibold mt-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {error}
-            </motion.div>
+            Payment Reports
+          </motion.h1>
+          <motion.p
+            className="text-slate-500 mt-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            Track and analyze financial transactions and order payments
+          </motion.p>
+        </div>
+        <Button
+          onClick={handleDownloadExcel}
+          disabled={downloading || payments.length === 0}
+          className="bg-emerald-600 hover:bg-emerald-700 shadow-sm"
+        >
+          {downloading ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
           ) : (
-            <motion.div
-              className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              {payments.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No payments found for the selected filters</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Payment ID
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Customer Details
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Firm
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Payment Mode
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Order Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {payments.map((payment) => (
-                        <motion.tr
-                          key={payment._id}
-                          className="hover:bg-gray-50 transition-colors"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {payment.paymentId.slice(-8)}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Order: {payment.orderId.slice(-8)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {payment.customerName}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {payment.userCode} | {payment.phoneNumber}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{payment.firmName}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              ₹{payment.paidAmount.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Total: ₹{payment.totalAmount.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-orange-500">
-                              Remaining: ₹{payment.remainingAmount.toLocaleString()}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full border ${getPaymentModeColor(payment.paymentMode)}`}>
-                              {payment.paymentMode}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(payment.paymentDate)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-200">
-                              {payment.orderStatus}
-                            </span>
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </motion.div>
+            <Download className="h-4 w-4 mr-2" />
           )}
-        </AnimatePresence>
-      </motion.div>
-    </div>
+          Export to Excel
+        </Button>
+      </div>
+
+      {/* Filters Section */}
+      <Card className="mb-8 border-0 shadow-sm overflow-hidden bg-white">
+        <CardHeader className="py-4 px-6 bg-slate-50/50 border-b border-slate-100">
+          <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+            <Filter className="h-4 w-4" /> Filter Records
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-600">From Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="pl-9 h-10 border-slate-200"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-600">To Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="pl-9 h-10 border-slate-200"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-600">Payment Channel</label>
+              <Select value={paymentMode} onValueChange={setPaymentMode}>
+                <SelectTrigger className="h-10 border-slate-200">
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Channels</SelectItem>
+                  <SelectItem value="online">Online Banking</SelectItem>
+                  <SelectItem value="cash">Cash Collection</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 h-10"
+              onClick={fetchPayments}
+            >
+              Update View
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: "Total Transactions", val: totalRecords, icon: History, color: "blue" },
+          { label: "Total Volume", val: `₹${summary?.totalSubmittedAmount.toLocaleString() || 0}`, icon: TrendingUp, color: "emerald" },
+          { label: "Cash Collections", val: `₹${summary?.totalCash.toLocaleString() || 0}`, icon: Wallet, color: "purple" },
+          { label: "Online Payments", val: `₹${summary?.totalOnline.toLocaleString() || 0}`, icon: Globe, color: "blue" }
+        ].map((item, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+          >
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{item.label}</p>
+                    <h3 className="text-xl font-bold mt-2 text-slate-800">{item.val}</h3>
+                  </div>
+                  <div className={`p-2.5 rounded-lg bg-${item.color}-50 text-${item.color}-600`}>
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Payments Table */}
+      <Card className="border-0 shadow-sm overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            Transaction Logs
+          </CardTitle>
+        </CardHeader>
+        <Separator />
+        <CardContent className="p-0">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100 text-left">
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-widest">Transaction ID</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-widest">Customer Details</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-widest text-right">Amounts (₹)</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-widest text-center">Status & Mode</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-widest text-right">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                      <p className="text-sm text-slate-500 italic">Compiling payment reports...</p>
+                    </td>
+                  </tr>
+                ) : payments.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center text-slate-400 italic">
+                      No matching records found for the selected period.
+                    </td>
+                  </tr>
+                ) : (
+                  payments.map((payment, index) => (
+                    <motion.tr
+                      key={payment._id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="hover:bg-slate-50/50 transition-colors group"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                            #{payment.paymentId.slice(-8).toUpperCase()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5 font-mono">
+                            ORD: {payment.orderId.slice(-8).toUpperCase()}
+                            <ChevronRight className="h-2 w-2" />
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-slate-800">{payment.customerName}</span>
+                          <span className="text-xs text-slate-500 mt-0.5">{payment.firmName}</span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">{payment.userCode} | {payment.phoneNumber}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-bold text-slate-900">
+                            ₹{payment.paidAmount.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-slate-500 mt-1">
+                            of ₹{payment.totalAmount.toLocaleString()} total
+                          </span>
+                          {payment.remainingAmount > 0 && (
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded mt-1">
+                              ₹{payment.remainingAmount.toLocaleString()} Pending
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-center gap-2">
+                          {getStatusBadge(payment.orderStatus)}
+                          <Badge variant="outline" className={`capitalize text-[10px] ${
+                            payment.paymentMode === 'online' ? 'bg-blue-50/50 text-blue-600 border-blue-100' : 'bg-purple-50/50 text-purple-600 border-purple-100'
+                          }`}>
+                            {payment.paymentMode}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm text-slate-700 font-medium">
+                            {format(new Date(payment.paymentDate), "dd MMM yyyy")}
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-1">
+                            {format(new Date(payment.paymentDate), "hh:mm a")}
+                          </span>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {loading ? (
+              <div className="px-6 py-12 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                <p className="text-sm text-slate-500 italic">Compiling payment reports...</p>
+              </div>
+            ) : payments.length === 0 ? (
+              <div className="px-6 py-12 text-center text-slate-400 italic">
+                No matching records found for the selected period.
+              </div>
+            ) : (
+              payments.map((payment, index) => (
+                <motion.div
+                  key={payment._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="p-4 space-y-4"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Transaction ID</span>
+                      <span className="text-sm font-bold text-slate-900 font-mono">
+                        #{payment.paymentId.slice(-8).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      {getStatusBadge(payment.orderStatus)}
+                      <Badge variant="outline" className={`capitalize text-[10px] font-bold ${
+                        payment.paymentMode === 'online' ? 'bg-blue-50/50 text-blue-600 border-blue-100' : 'bg-purple-50/50 text-purple-600 border-purple-100'
+                      }`}>
+                        {payment.paymentMode}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Customer</span>
+                      <span className="text-sm font-bold text-slate-800 leading-tight">{payment.customerName}</span>
+                      <span className="text-[10px] text-slate-500 mt-0.5">{payment.firmName}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Paid Amount</span>
+                      <span className="text-sm font-bold text-slate-900">₹{payment.paidAmount.toLocaleString()}</span>
+                      <span className="text-[10px] text-slate-500 mt-0.5">of ₹{payment.totalAmount.toLocaleString()} total</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px]">
+                    <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+                      <Clock className="h-3 w-3" />
+                      {format(new Date(payment.paymentDate), "dd MMM yyyy, hh:mm a")}
+                    </div>
+                    {payment.remainingAmount > 0 && (
+                      <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                        ₹{payment.remainingAmount.toLocaleString()} Balance
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 

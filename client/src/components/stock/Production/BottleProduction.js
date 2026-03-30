@@ -1,22 +1,37 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '../../ui/button';
 import ProductionList from './ProductionList';
+import { Trash2 } from 'lucide-react';
 
 // 👉 API imports
 import {
-  recordBottleProduction,
-  getAvailablePreformTypes,
-  getCaps,
+  getBottleProductionCategories,
   getLabels,
+  getCaps,
   checkMaterialAvailability,
-  getBottleProductions,
   recordWastage,
-  getBottleProductionCategories
+  recordBottleProduction,
+  getBottleProductions
 } from '../../../services/api/stock';
 
 // Debounce hook
 function useDebounce(callback, delay) {
+  const callbackRef = useRef(callback);
   const timeoutRef = useRef();
+
+  // Update the ref whenever the callback changes
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const debouncedCallback = useCallback((...args) => {
     if (timeoutRef.current) {
@@ -24,9 +39,9 @@ function useDebounce(callback, delay) {
     }
     
     timeoutRef.current = setTimeout(() => {
-      callback(...args);
+      callbackRef.current(...args);
     }, delay);
-  }, [callback, delay]);
+  }, [delay]);
 
   return debouncedCallback;
 }
@@ -66,15 +81,17 @@ export default function BottleProduction() {
 
   const [formData, setFormData] = useState({
     preformTypeId: '',
-    preformType: '',
-    boxesProduced: '',
-    bottlesPerBox: '',
-    bottleCategoryId: '',
-    bottleCategoryName: '',
-    labelId: '',
-    capId: '',
+    bottles: [],
     remarks: '',
     productionDate: new Date().toISOString().split('T')[0],
+  });
+
+  const [bottleInput, setBottleInput] = useState({
+    bottleCategoryId: '',
+    boxesProduced: '',
+    bottlesPerBox: '',
+    labelId: '',
+    capId: ''
   });
 
   // Wastage form state
@@ -90,18 +107,27 @@ export default function BottleProduction() {
     await checkAvailability();
   }, 800); // 800ms delay
 
-  // 🔹 Load Preform Types, Caps, Labels on Mount
+  // 🔹 Load Caps and Labels on Mount
   useEffect(() => {
     async function loadDropdowns() {
       try {
-        const pf = await getAvailablePreformTypes();
-        setPreformTypes(pf?.data || []);
-
         const capsRes = await getCaps();
-        setCaps(capsRes?.data || []);
+        if (Array.isArray(capsRes?.data)) {
+          setCaps(capsRes.data);
+        } else if (Array.isArray(capsRes)) {
+          setCaps(capsRes);
+        } else {
+          setCaps([]);
+        }
 
         const labelsRes = await getLabels();
-        setLabels(labelsRes?.data || []);
+        if (Array.isArray(labelsRes?.data)) {
+          setLabels(labelsRes.data);
+        } else if (Array.isArray(labelsRes)) {
+          setLabels(labelsRes);
+        } else {
+          setLabels([]);
+        }
 
       } catch (err) {
         console.error('Dropdown load failed', err);
@@ -114,22 +140,31 @@ export default function BottleProduction() {
   // 🔹 Load Bottle Categories
   useEffect(() => {
     const loadBottleCategories = async () => {
-      setLoadingCategories(true);
-      try {
-        const categoriesRes = await getBottleProductionCategories();
-        
-        if (categoriesRes?.status && categoriesRes?.data) {
-          setCategories(categoriesRes.data || []);
-        } else {
-          console.warn('No categories data received');
-        }
-      } catch (error) {
-        console.error('Failed to load bottle categories:', error);
-        setError('Failed to load bottle categories. Please refresh the page.');
-      } finally {
-        setLoadingCategories(false);
+  setLoadingCategories(true);
+  try {
+    const categoriesRes = await getBottleProductionCategories();
+
+    console.log("API Response:", categoriesRes);
+
+    if (categoriesRes?.status && categoriesRes.data) {
+      if (Array.isArray(categoriesRes.data.bottleCategories)) {
+        setCategories(categoriesRes.data.bottleCategories);
       }
-    };
+      if (Array.isArray(categoriesRes.data.preformTypes)) {
+        setPreformTypes(categoriesRes.data.preformTypes);
+      }
+    } else {
+      console.warn('Invalid categories format:', categoriesRes);
+      setCategories([]);
+    }
+
+  } catch (error) {
+    console.error('Failed to load bottle categories:', error);
+    setError('Failed to load bottle categories. Please refresh the page.');
+  } finally {
+    setLoadingCategories(false);
+  }
+};
 
     loadBottleCategories();
   }, []);
@@ -229,27 +264,22 @@ export default function BottleProduction() {
 
   // 🔹 Check availability with debounce
   useEffect(() => {
-    const requiredFields = [
-      formData.preformTypeId,
-      formData.boxesProduced,
-      formData.bottlesPerBox,
-      formData.bottleCategoryId,
-      formData.labelId,
-      formData.capId
-    ];
+    const { preformTypeId } = formData;
+    const { bottleCategoryId, labelId, capId, boxesProduced, bottlesPerBox } = bottleInput;
 
-    if (requiredFields.every(field => field)) {
+    if (preformTypeId && bottleCategoryId && labelId && capId && boxesProduced > 0 && bottlesPerBox > 0) {
       debouncedCheckAvailability();
     } else {
       setAvailability(null);
     }
   }, [
-    formData.preformTypeId, 
-    formData.boxesProduced, 
-    formData.bottlesPerBox, 
-    formData.bottleCategoryId, 
-    formData.labelId, 
-    formData.capId
+    formData.preformTypeId,
+    bottleInput.bottleCategoryId,
+    bottleInput.labelId,
+    bottleInput.capId,
+    bottleInput.boxesProduced,
+    bottleInput.bottlesPerBox,
+    debouncedCheckAvailability
   ]);
 
   // 🔹 Check availability function
@@ -260,11 +290,11 @@ export default function BottleProduction() {
 
       const params = {
         preformTypeId: formData.preformTypeId,
-        boxes: Number(formData.boxesProduced),
-        bottlesPerBox: Number(formData.bottlesPerBox),
-        bottleCategoryId: formData.bottleCategoryId,
-        labelId: formData.labelId,
-        capId: formData.capId
+        boxes: Number(bottleInput.boxesProduced),
+        bottlesPerBox: Number(bottleInput.bottlesPerBox),
+        bottleCategoryId: bottleInput.bottleCategoryId,
+        labelId: bottleInput.labelId,
+        capId: bottleInput.capId
       };
 
       console.log('📤 Sending availability check with params:', params);
@@ -311,31 +341,68 @@ export default function BottleProduction() {
   // 🔹 Input Handler
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleBottleInputChange = (e) => {
+    const { name, value } = e.target;
     
-    if (name === 'preformTypeId') {
-      const selectedPreform = preformTypes.find(p => p.preformTypeId === value);
-      
-      setFormData(prev => ({
-        ...prev,
-        preformTypeId: value,
-        preformType: selectedPreform?.type || ''
-      }));
-    } else if (name === 'bottleCategoryId') {
-      const selectedCat = categories.find(cat => cat._id === value);
-      
-      setFormData(prev => ({
-        ...prev,
-        bottleCategoryId: value,
-        bottleCategoryName: selectedCat?.name || ''
-      }));
-      
-      setSelectedCategory(value);
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+    // Auto-fill bottlesPerBox when category is selected
+    if (name === 'bottleCategoryId' && value) {
+      const selectedCat = categories.find(c => c._id === value);
+      if (selectedCat && selectedCat.bottlesPerBox) {
+        setBottleInput(prev => ({ 
+          ...prev, 
+          [name]: value,
+          bottlesPerBox: selectedCat.bottlesPerBox.toString()
+        }));
+        return;
+      }
     }
+    
+    setBottleInput(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddBottle = () => {
+    if (!bottleInput.bottleCategoryId || !bottleInput.boxesProduced || !bottleInput.bottlesPerBox || !bottleInput.labelId || !bottleInput.capId) {
+      setError("All bottle fields are required to add a bottle configuration");
+      return;
+    }
+
+    if (availability && !availability.canProduce) {
+      setError("Cannot add this configuration: Insufficient materials.");
+      return;
+    }
+    const cat = categories.find(c => c._id === bottleInput.bottleCategoryId);
+    const lab = labels.find(l => l._id === bottleInput.labelId);
+    const cap = caps.find(c => c._id === bottleInput.capId);
+
+    setFormData(prev => ({
+      ...prev,
+      bottles: [...prev.bottles, {
+        bottleCategoryId: bottleInput.bottleCategoryId,
+        categoryName: cat?.name || 'Unknown',
+        categorySize: cat?.category || '',
+        boxesProduced: parseInt(bottleInput.boxesProduced, 10),
+        bottlesPerBox: parseInt(bottleInput.bottlesPerBox, 10),
+        labelId: bottleInput.labelId,
+        labelName: lab?.bottleName || 'Unknown',
+        capId: bottleInput.capId,
+        capName: cap ? `${cap.neckType} - ${cap.color}` : 'Unknown'
+      }]
+    }));
+    setBottleInput({ bottleCategoryId: '', boxesProduced: '', bottlesPerBox: '', labelId: '', capId: '' });
+    setError('');
+  };
+
+  const handleRemoveBottle = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      bottles: prev.bottles.filter((_, i) => i !== index)
+    }));
   };
 
   // Wastage input handler
@@ -352,19 +419,8 @@ export default function BottleProduction() {
     setError('');
     setSuccess('');
 
-    // Validate required fields
-    if (!formData.preformTypeId || 
-        !formData.boxesProduced || 
-        !formData.bottlesPerBox || 
-        !formData.bottleCategoryId ||
-        !formData.labelId ||
-        !formData.capId) {
-      setError("All fields marked with * are required");
-      return;
-    }
-
-    if (availability && availability.canProduce === false) {
-      setError("Insufficient material stock. Cannot produce. Please check the availability details below.");
+    if (!formData.preformTypeId || formData.bottles.length === 0) {
+      setError("Preform Type and at least one bottle configuration are required");
       return;
     }
 
@@ -372,13 +428,15 @@ export default function BottleProduction() {
       setLoading(true);
 
       const payload = {
-        preformType: formData.preformType,
-        bottleCategoryId: formData.bottleCategoryId,
-        boxesProduced: Number(formData.boxesProduced),
-        bottlesPerBox: Number(formData.bottlesPerBox),
-        labelId: formData.labelId,
-        capId: formData.capId,
-        remarks: formData.remarks,
+        preformTypeId: formData.preformTypeId,
+        bottles: formData.bottles.map(b => ({
+          bottleCategoryId: b.bottleCategoryId,
+          boxesProduced: b.boxesProduced,
+          bottlesPerBox: b.bottlesPerBox,
+          labelId: b.labelId,
+          capId: b.capId
+        })),
+        remarks: formData.remarks || '',
         productionDate: formData.productionDate,
       };
 
@@ -401,16 +459,11 @@ export default function BottleProduction() {
       // Reset forms
       setFormData({
         preformTypeId: '',
-        preformType: '',
-        boxesProduced: '',
-        bottlesPerBox: '',
-        bottleCategoryId: '',
-        bottleCategoryName: '',
-        labelId: '',
-        capId: '',
+        bottles: [],
         remarks: '',
         productionDate: new Date().toISOString().split('T')[0],
       });
+      setBottleInput({ bottleCategoryId: '', boxesProduced: '', bottlesPerBox: '', labelId: '', capId: '' });
 
       setWastageData({
         source: 'Bottle',
@@ -449,7 +502,7 @@ export default function BottleProduction() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           {/* Preform Dropdown */}
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Preform Type *
             </label>
@@ -461,123 +514,126 @@ export default function BottleProduction() {
             >
               <option value="">Select Preform</option>
               {preformTypes.map((p) => (
-                <option key={p.preformTypeId} value={p.preformTypeId}>
-                  {p.type} (Available: {p.totalAvailable})
+                <option key={p._id || p.preformTypeId} value={p._id || p.preformTypeId}>
+                  {p.name || p.type} {p.totalAvailable !== undefined ? `(Available: ${p.totalAvailable})` : ''}
                 </option>
               ))}
             </select>
           </div>
+        </div>
 
-          {/* Bottle Category Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bottle Category *
-              {loadingCategories && (
-                <span className="ml-2 text-xs text-gray-500">(Loading...)</span>
-              )}
-            </label>
-            <select
-              name="bottleCategoryId"
-              value={formData.bottleCategoryId}
-              onChange={handleInputChange}
-              disabled={loadingCategories}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select Bottle Category</option>
-              {categories.length > 0 ? (
-                categories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name} - {category.category}
-                  </option>
-                ))
-              ) : (
-                !loadingCategories && <option value="" disabled>No categories available</option>
-              )}
-            </select>
-            {formData.bottleCategoryName && (
-              <div className="mt-1 text-xs text-gray-600">
-                Selected: {formData.bottleCategoryName}
+        {/* Add Bottles Section */}
+        <div className="mb-6 pb-6 border-b border-gray-200">
+          <h4 className="text-lg font-semibold text-gray-800 mb-3">Add Bottle Configuration</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+            {/* Bottle Category */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bottle Category *</label>
+              <select
+                name="bottleCategoryId"
+                value={bottleInput.bottleCategoryId}
+                onChange={handleBottleInputChange}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Select Bottle Category</option>
+                {categories.map(cat => (
+                  <option key={cat._id} value={cat._id}>{cat.name} - {cat.category}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Label Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Label *</label>
+              <select
+                name="labelId"
+                value={bottleInput.labelId}
+                onChange={handleBottleInputChange}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Select Label</option>
+                {labels.map(label => (
+                  <option key={label._id} value={label._id}>{label.bottleName} - {label.bottleCategory}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Cap Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cap *</label>
+              <select
+                name="capId"
+                value={bottleInput.capId}
+                onChange={handleBottleInputChange}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Select Cap</option>
+                {caps.map(cap => (
+                  <option key={cap._id} value={cap._id}>{cap.displayName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Boxes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Boxes Produced *</label>
+              <input
+                type="number"
+                name="boxesProduced"
+                value={bottleInput.boxesProduced}
+                onChange={handleBottleInputChange}
+                placeholder="0"
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+
+            {/* Bottles per box */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bottles Per Box *</label>
+              <input
+                type="number"
+                name="bottlesPerBox"
+                value={bottleInput.bottlesPerBox}
+                onChange={handleBottleInputChange}
+                placeholder="0"
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+
+             <div className="flex items-end">
+              <Button 
+                onClick={handleAddBottle} 
+                disabled={checking || (availability && !availability.canProduce)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Add Bottle Setting
+              </Button>
+            </div>
+          </div>
+
+          {formData.bottles.length > 0 && (
+            <div className="bg-blue-50 rounded-lg p-4 mt-4">
+              <h5 className="font-semibold text-gray-700 mb-2">Added Bottles:</h5>
+              <div className="space-y-2">
+                {formData.bottles.map((bottle, index) => (
+                  <div key={index} className="flex justify-between items-center bg-white p-3 rounded border border-blue-200">
+                    <span className="text-sm text-gray-800">
+                      <strong>{bottle.categoryName} {bottle.categorySize ? `- ${bottle.categorySize}` : ''}</strong> | {bottle.boxesProduced} Boxes x {bottle.bottlesPerBox} 
+                      | Label: {bottle.labelName} | Cap: {bottle.capName}
+                    </span>
+                    <button onClick={() => handleRemoveBottle(index)} className="text-red-500 hover:text-red-700">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          {/* Label Selector */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Label *
-            </label>
-            <select
-              name="labelId"
-              value={formData.labelId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Label</option>
-              {labels.map((label) => (
-                <option key={label._id} value={label._id}>
-                  {label.bottleName} - {label.bottleCategory}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Cap Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cap *
-            </label>
-            <select
-              name="capId"
-              value={formData.capId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Cap</option>
-              {caps.map((cap) => (
-                <option key={cap._id} value={cap._id}>
-                  {cap.neckType} - {cap.size} - {cap.color}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Boxes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Boxes Produced *
-            </label>
-            <input
-              type="number"
-              name="boxesProduced"
-              value={formData.boxesProduced}
-              onChange={handleInputChange}
-              placeholder="100"
-              min="1"
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Bottles Per Box */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bottles Per Box *
-            </label>
-            <input
-              type="number"
-              name="bottlesPerBox"
-              value={formData.bottlesPerBox}
-              onChange={handleInputChange}
-              placeholder="12"
-              min="1"
-              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Production Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Production Date
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Production Date</label>
             <input
               type="date"
               name="productionDate"
@@ -586,18 +642,13 @@ export default function BottleProduction() {
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-
-          {/* Remarks */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Remarks
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
             <input
               type="text"
               name="remarks"
               value={formData.remarks}
               onChange={handleInputChange}
-              placeholder="Optional production notes"
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -675,7 +726,7 @@ export default function BottleProduction() {
                   {/* Preforms */}
                   {availability.availability.preforms && (
                     <MaterialCard
-                      title="Preforms"
+                      title={`Preforms (${availability.availability.preforms.type || 'N/A'})`}
                       icon="🔹"
                       data={availability.availability.preforms}
                       required={availability.requirements?.preforms}
@@ -712,7 +763,7 @@ export default function BottleProduction() {
                   {/* Labels */}
                   {availability.availability.labels && (
                     <MaterialCard
-                      title="Labels"
+                      title={`Labels (${availability.availability.labels.name} - ${availability.availability.labels.category})`}
                       icon="🏷️"
                       data={{
                         available: availability.availability.labels.available,

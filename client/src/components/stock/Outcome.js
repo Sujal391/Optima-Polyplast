@@ -336,11 +336,11 @@ export default function Outcome() {
   const paginatedOutcomes = productionOutcomes.slice(startIdx, endIdx);
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-blue-100 min-h-screen p-6">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header with Title and Buttons */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-gray-800">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">
             Outcome Management
           </h2>
           <div className="flex gap-3">
@@ -352,7 +352,7 @@ export default function Outcome() {
             </Button>
             <Button
               onClick={() => setIsAddModalOpen(true)}
-              className="bg-blue-600 text-white hover:bg-blue-700"
+              className="bg-amber-600 text-white hover:bg-amber-700"
             >
               Add Outcome
             </Button>
@@ -368,7 +368,7 @@ export default function Outcome() {
           )}
 
           {/* List Section */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="bg-white/80 backdrop-blur-sm shadow-xl border border-white/20 rounded-2xl p-6">
             <h3 className="text-xl font-semibold text-gray-800 mb-4">
               Outcome Items
             </h3>
@@ -425,7 +425,7 @@ export default function Outcome() {
                         <td className="px-4 py-3 border-b text-center">
                           <button
                             onClick={() => handleOpenRecordModal(item)}
-                            className="inline-flex items-center justify-center p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
+                            className="inline-flex items-center justify-center p-2 bg-amber-100 text-amber-600 rounded-lg hover:bg-amber-200 transition"
                             title="Record Production"
                           >
                             <Package size={18} />
@@ -475,7 +475,7 @@ export default function Outcome() {
                     value={formData.itemName}
                     onChange={handleInputChange}
                     placeholder="Preform 500ml"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
@@ -489,7 +489,7 @@ export default function Outcome() {
                     value={formData.itemCode}
                     onChange={handleInputChange}
                     placeholder="PREFORM_500"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
@@ -501,7 +501,7 @@ export default function Outcome() {
                     name="type"
                     value={formData.type}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="">Select Type</option>
                     <option value="preform">Preform</option>
@@ -520,7 +520,7 @@ export default function Outcome() {
                     value={formData.subcategory}
                     onChange={handleInputChange}
                     placeholder="500ml"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
@@ -534,7 +534,7 @@ export default function Outcome() {
                     onChange={handleInputChange}
                     rows="3"
                     placeholder="Optional remarks"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
               </div>
@@ -550,7 +550,7 @@ export default function Outcome() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="bg-amber-600 text-white hover:bg-amber-700"
                 disabled={loading}
               >
                 {loading ? "Adding..." : "Add Outcome Item"}
@@ -568,7 +568,7 @@ export default function Outcome() {
               <h3 className="text-2xl font-semibold text-gray-800">
                 Record Production Outcome
                 {selectedOutcomeItem && (
-                  <span className="text-lg text-blue-600 ml-2">
+                  <span className="text-lg text-amber-600 ml-2">
                     - {selectedOutcomeItem.itemName}
                   </span>
                 )}
@@ -603,7 +603,7 @@ export default function Outcome() {
                       name="materialId"
                       value={rawMaterialForm.materialId}
                       onChange={handleRawMaterialInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                     >
                       <option value="">-- Select Material --</option>
                       {materials.map((material) => (
@@ -626,14 +626,14 @@ export default function Outcome() {
                       placeholder="0.00"
                       step="0.01"
                       min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
                   <div className="flex items-end">
                     <Button
                       onClick={handleAddRawMaterial}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                     >
                       <Plus size={16} className="mr-1" /> Add Material
                     </Button>
@@ -641,12 +641,12 @@ export default function Outcome() {
                 </div>
 
                 {productionFormData.rawMaterials.length > 0 && (
-                  <div className="bg-blue-50 rounded-lg p-3">
+                  <div className="bg-amber-50 rounded-lg p-3">
                     <div className="flex justify-between items-center mb-2">
                       <h5 className="font-semibold text-gray-700">
                         Added Raw Materials:
                       </h5>
-                      <span className="text-sm font-medium text-blue-600">
+                      <span className="text-sm font-medium text-amber-600">
                         Total: {totalRawMaterialsKg.toFixed(2)} Kg
                       </span>
                     </div>
@@ -654,7 +654,7 @@ export default function Outcome() {
                       {productionFormData.rawMaterials.map((material, index) => (
                         <div
                           key={index}
-                          className="flex justify-between items-center bg-white p-2 rounded border border-blue-200"
+                          className="flex justify-between items-center bg-white p-2 rounded border border-amber-200"
                         >
                           <span className="text-sm text-gray-700">
                             {material.materialName} ({material.materialCode}) -{" "}
@@ -687,7 +687,7 @@ export default function Outcome() {
                     placeholder="0.00"
                     step="0.01"
                     min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
@@ -700,7 +700,7 @@ export default function Outcome() {
                     name="productionDate"
                     value={productionFormData.productionDate}
                     onChange={handleProductionInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
@@ -714,7 +714,7 @@ export default function Outcome() {
                     value={productionFormData.remarks}
                     onChange={handleProductionInputChange}
                     placeholder="Optional remarks"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
               </div>
@@ -734,7 +734,7 @@ export default function Outcome() {
                       name="outcomeItemId"
                       value={outcomeForm.outcomeItemId}
                       onChange={handleOutcomeInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                     >
                       <option value="">-- Select Item --</option>
                       {items.map((item) => (
@@ -757,7 +757,7 @@ export default function Outcome() {
                       placeholder="0.00"
                       step="0.01"
                       min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
@@ -810,7 +810,7 @@ export default function Outcome() {
               </Button>
               <Button
                 onClick={handleRecordProduction}
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="bg-amber-600 text-white hover:bg-amber-700"
                 disabled={loading}
               >
                 {loading ? "Recording..." : "Record Production"}
@@ -846,7 +846,7 @@ export default function Outcome() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full border border-gray-300 rounded-lg">
-                    <thead className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                    <thead className="bg-gradient-to-r from-amber-500 to-amber-600 text-white">
                       <tr>
                         <th className="px-6 py-3 text-left font-semibold">
                           Raw Materials

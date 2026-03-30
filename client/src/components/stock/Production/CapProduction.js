@@ -51,18 +51,21 @@ export default function CapProduction() {
     sortOrder: 'desc'
   });
 
-  // Form state - CHANGED: capType is now capId
   const [formData, setFormData] = useState({
     rawMaterials: [],
-    capId: '',  // Changed from capType to capId
-    capColor: '',
-    quantityProduced: '',
+    caps: [],
     boxesUsed: '',
     bagsUsed: '',
     wastageType1: '',
     wastageType2: '',
     remarks: '',
     productionDate: new Date().toISOString().split('T')[0],
+  });
+
+  const [capInput, setCapInput] = useState({
+    capId: '',
+    capColor: '',
+    quantityProduced: '',
   });
 
   // Raw material input state
@@ -198,32 +201,55 @@ export default function CapProduction() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    // ✅ Auto-select cap color when cap type changes
-    if (name === 'capId') {
-      const selectedCap = caps.find(cap => cap._id === value);
-
-      setFormData(prev => ({
-        ...prev,
-        capId: value,
-        capColor: selectedCap ? selectedCap.color : ''
-      }));
-
-      return;
-    }
-
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
+  const handleCapInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'capId') {
+      const selectedCap = caps.find(cap => cap._id === value);
+      setCapInput(prev => ({
+        ...prev,
+        capId: value,
+        capColor: selectedCap ? selectedCap.color : ''
+      }));
+      return;
+    }
+    setCapInput(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleColorSelect = (colorName) => {
+    setCapInput(prev => ({ ...prev, capColor: colorName }));
+    setError('');
+  };
+
+  const handleAddCap = () => {
+    if (!capInput.capId || !capInput.quantityProduced) {
+      setError('Cap Type and Quantity are required');
+      return;
+    }
+    const selectedCap = caps.find(c => c._id === capInput.capId);
     setFormData(prev => ({
       ...prev,
-      capColor: colorName
+      caps: [...prev.caps, {
+        capId: capInput.capId,
+        capTypeDisplay: selectedCap ? `${selectedCap.size || ''} (${selectedCap.neckType || ''})` : 'Unknown',
+        capColor: capInput.capColor || (selectedCap ? selectedCap.color : ''),
+        quantityProduced: parseInt(capInput.quantityProduced, 10),
+      }]
     }));
+    setCapInput({ capId: '', capColor: '', quantityProduced: '' });
     setError('');
+  };
+
+  const handleRemoveCap = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      caps: prev.caps.filter((_, i) => i !== index)
+    }));
   };
 
   const handleMaterialInputChange = (e) => {
@@ -266,9 +292,8 @@ export default function CapProduction() {
   };
 
   const handleSubmit = async () => {
-    // CHANGED: Validation now checks for capId instead of capType
-    if (!formData.capId || !formData.capColor || !formData.quantityProduced || formData.rawMaterials.length === 0) {
-      setError('Cap Type, Cap Color, Quantity Produced, and at least one Raw Material are required');
+    if (formData.caps.length === 0 || formData.rawMaterials.length === 0) {
+      setError('At least one Cap and one Raw Material are required');
       return;
     }
 
@@ -279,19 +304,19 @@ export default function CapProduction() {
       setLoading(true);
       setError('');
 
-      // CHANGED: Updated payload structure according to API
       const payload = {
         rawMaterials: formData.rawMaterials.map(m => ({
           materialId: m.materialId,
           quantityUsed: m.quantityUsed,
         })),
-        capId: formData.capId,  // Changed from capType to capId
-        capColor: formData.capColor,
-        quantityProduced: parseInt(formData.quantityProduced, 10),
+        caps: formData.caps.map(c => ({
+          capId: c.capId,
+          quantityProduced: parseInt(c.quantityProduced, 10)
+        })),
         boxesUsed: formData.boxesUsed ? parseInt(formData.boxesUsed, 10) : 0,
         bagsUsed: formData.bagsUsed ? parseInt(formData.bagsUsed, 10) : 0,
         remarks: formData.remarks || '',
-        productionDate: new Date(formData.productionDate).toISOString(),
+        productionDate: formData.productionDate || new Date().toISOString().split('T')[0],
       };
 
       if (hasWastageType1) {
@@ -308,9 +333,7 @@ export default function CapProduction() {
       // Reset form
       setFormData({
         rawMaterials: [],
-        capId: '',  // Changed from capType to capId
-        capColor: '',
-        quantityProduced: '',
+        caps: [],
         boxesUsed: '',
         bagsUsed: '',
         wastageType1: '',
@@ -318,6 +341,7 @@ export default function CapProduction() {
         remarks: '',
         productionDate: new Date().toISOString().split('T')[0],
       });
+      setCapInput({ capId: '', capColor: '', quantityProduced: '' });
 
       fetchAllProductionData();
 
@@ -445,105 +469,92 @@ export default function CapProduction() {
         </div>
 
         {/* Production Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {/* UPDATED: Cap Type Selector - now uses capId */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cap Type *
-            </label>
-            <select
-              name="capId"
-              value={formData.capId}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="">-- Select Cap Type --</option>
-
-              {caps.map((cap) => (
-                <option key={cap._id} value={cap._id}>
-                  {cap.size} ({cap.neckType}) - {cap.color}
-                </option>
-              ))}
-            </select>
-            {formData.capId && (
-              <p className="mt-1 text-sm text-gray-600">
-                Selected: <span className="font-semibold">{getSelectedCapDisplay()}</span>
-              </p>
-            )}
-          </div>
-
-          {/* Cap Color Selector */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pb-6 border-b border-gray-200">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cap Color *
-            </label>
-            <div
-              className={`flex flex-wrap gap-3 ${
-                formData.capId ? 'pointer-events-none opacity-70' : ''
-              }`}
-            >
-              {CAP_COLORS.map((color) => (
-                <button
-                  key={color.name}
-                  type="button"
-                  onClick={() => handleColorSelect(color.name)}
-                  className={`relative group transition-all ${
-                    formData.capColor === color.name
-                      ? 'ring-4 ring-blue-500 ring-offset-2'
-                      : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
-                  }`}
-                  style={{
-                    width: '56px',
-                    height: '56px',
-                    borderRadius: '50%',
-                    backgroundColor: color.hex,
-                    border: color.name === 'White' ? '2px solid #D1D5DB' : '2px solid transparent',
-                    cursor: 'pointer'
-                  }}
+            <h4 className="text-lg font-semibold text-gray-800 mb-3">Add Cap Type</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cap Type *</label>
+                <select
+                  name="capId"
+                  value={capInput.capId}
+                  onChange={handleCapInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
-                  {formData.capColor === color.name && (
-                    <svg
-                      className="absolute inset-0 m-auto"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={color.name === 'White' || color.name === 'Yellow' ? '#000' : '#FFF'}
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                  
-                  <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
-                    {color.name}
-                  </span>
-                </button>
-              ))}
+                  <option value="">-- Select Cap Type --</option>
+                  {caps.map((cap) => (
+                    <option key={cap._id} value={cap._id}>
+                      {cap.size} ({cap.neckType}) - {cap.color}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity Produced *</label>
+                <input
+                  type="number"
+                  name="quantityProduced"
+                  value={capInput.quantityProduced}
+                  onChange={handleCapInputChange}
+                  placeholder="0"
+                  min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <Button onClick={handleAddCap} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                  Add Cap
+                </Button>
+              </div>
             </div>
-            {formData.capColor && (
-              <p className="mt-3 text-sm text-gray-600">
-                Selected: <span className="font-semibold text-gray-800">{formData.capColor}</span>
-              </p>
+
+            {/* Cap Color Selector */}
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Cap Color (Auto-selected or override) *</label>
+              <div className={`flex flex-wrap gap-3 ${capInput.capId ? 'opacity-90' : ''}`}>
+                {CAP_COLORS.map((color) => (
+                  <button
+                    key={color.name}
+                    type="button"
+                    onClick={() => handleColorSelect(color.name)}
+                    className={`relative group transition-all ${
+                      capInput.capColor === color.name ? 'ring-4 ring-blue-500 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
+                    }`}
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: color.hex, border: color.name === 'White' ? '2px solid #D1D5DB' : '2px solid transparent', cursor: 'pointer' }}
+                  >
+                    {capInput.capColor === color.name && (
+                      <svg className="absolute inset-0 m-auto" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color.name === 'White' || color.name === 'Yellow' ? '#000' : '#FFF'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {formData.caps.length > 0 && (
+              <div className="bg-blue-50 rounded-lg p-3 mt-4">
+                <h5 className="font-semibold text-gray-700 mb-2">Added Caps:</h5>
+                <div className="space-y-2">
+                  {formData.caps.map((cap, index) => (
+                    <div key={index} className="flex justify-between items-center bg-white p-2 rounded border border-blue-200">
+                      <span className="text-sm text-gray-700">
+                        {cap.capTypeDisplay} ({cap.capColor}) - {cap.quantityProduced} units
+                      </span>
+                      <button onClick={() => handleRemoveCap(index)} className="text-red-500 hover:text-red-700">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Quantity Produced *
-            </label>
-            <input
-              type="number"
-              name="quantityProduced"
-              value={formData.quantityProduced}
-              onChange={handleInputChange}
-              placeholder="0"
-              min="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

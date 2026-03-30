@@ -410,7 +410,18 @@ const Attendance = () => {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setCheckInImage(e.target.files[0])}
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+                    if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+                      setErrorCheckIn("upload valid image less than 1 mb");
+                      e.target.value = "";
+                      return;
+                    }
+                    setCheckInImage(file);
+                  }
+                }}
                 className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
                 required
               />

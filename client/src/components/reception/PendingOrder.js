@@ -1,5 +1,33 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import cookies from "js-cookie";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import {
+  Search, Eye, Loader2, PackageSearch, RefreshCw,
+  Clock, CheckCircle2, X, MoreVertical,
+  User, Building2, Phone, Mail, Hash,
+  ShoppingCart, CreditCard, MapPin, Download, AlertCircle, Receipt, ChevronRight
+} from "lucide-react";
+
+import Paginator from "../common/Paginator";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,20 +44,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "../ui/dialog";
-import { MoreVertical, X } from "lucide-react";
-import cookies from "js-cookie";
-import Paginator from "../common/Paginator";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API,
 });
+
 api.interceptors.request.use((config) => {
   const token = cookies.get("token");
   if (token) {
@@ -40,11 +61,35 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Toast utility
-const toast = {
-  success: (msg) => console.log("✓", msg),
-  error: (msg) => console.error("✗", msg),
-  warning: (msg) => console.warn("⚠", msg),
+// Formatter Helpers
+const formatDate = (d) => {
+  if (!d) return "N/A";
+  return new Date(d).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const formatCurrency = (amount) =>
+  typeof amount === "number" ? `₹${amount.toLocaleString("en-IN")}` : "N/A";
+
+const getStatusColor = (status) => {
+  const s = status?.toLowerCase() || "pending";
+  if (s === "delivered") return "bg-green-100 text-green-700 border-green-200";
+  if (s === "processing" || s === "sales_pending") return "bg-blue-100 text-blue-700 border-blue-200";
+  if (s === "cancelled") return "bg-red-100 text-red-700 border-red-200";
+  return "bg-yellow-100 text-yellow-700 border-yellow-200";
+};
+
+const getPaymentStatusColor = (status) => {
+  const s = status?.toLowerCase() || "";
+  if (s === "paid" || s === "completed") return "bg-green-100 text-green-700 border-green-200";
+  if (s === "partial") return "bg-orange-100 text-orange-700 border-orange-200";
+  return "bg-yellow-100 text-yellow-700 border-yellow-200";
 };
 
 const PendingOrders = () => {
@@ -52,6 +97,7 @@ const PendingOrders = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
   // modals
   const [priceUpdateModal, setPriceUpdateModal] = useState({
@@ -72,46 +118,94 @@ const PendingOrders = () => {
     isOpen: false,
     order: null,
   });
+  const [imagePreview, setImagePreview] = useState(null);
+
+  // Management modals
+  const [statusModal, setStatusModal] = useState({
+    isOpen: false,
+    paymentId: null,
+    currentStatus: "",
+    remainingAmount: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    orderId: null
+  });
+  const [statusForm, setStatusForm] = useState({
+    paymentStatus: "completed",
+    receivedAmount: "",
+    paymentMode: "",
+    remarks: "",
+    referenceId: "",
+    bankName: "",
+    screenshot: null
+  });
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   // pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // fetch orders
+  // fetch all pending orders from app
   const fetchPendingOrders = async () => {
     setLoading(true);
+    setError("");
     try {
-      const response = await api.get("/reception/orders/pending");
-      const pendingOrders = Array.isArray(response.data) ? response.data : (response.data.orders || []);
-      setPendingOrders(pendingOrders);
-    } catch {
-      setError("Error fetching pending orders");
+      const response = await api.get("/reception/orders/all");
+      const orders = response.data?.orders || [];
+      // Filter to show only pending orders (orders created from app)
+      const pending = orders.filter((o) => o.orderStatus === "pending");
+      setPendingOrders(pending);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Error fetching orders";
+      setError(msg);
+      toast.error(msg);
+      setPendingOrders([]);
     } finally {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchPendingOrders();
   }, []);
 
-  // update order
+  // update order status to sales_pending
   const updateOrderStatus = async (orderId) => {
+    setUpdatingOrderId(orderId);
     try {
       const response = await api.patch(`/reception/orders/${orderId}/status`, {
-        status: "processing",
+        status: "sales_pending",
       });
       setPendingOrders((prev) => prev.filter((o) => o._id !== orderId));
 
-      if (response.data.priceUpdated && response.data.priceUpdateDetails) {
+      if (response.data.priceUpdated) {
         setPriceUpdateModal({
           isOpen: true,
-          details: response.data.priceUpdateDetails,
+          details: response.data.priceUpdateDetails || [],
           orderId,
         });
-      } else setSuccessDialog({ isOpen: true, message: response.data.message });
-    } catch {
-      setError("Error updating order status");
+      } else {
+        setSuccessDialog({
+          isOpen: true,
+          message:
+            response.data.message || "Order marked as processing successfully",
+        });
+      }
+      toast.success(
+        response.data.message || "Order status updated successfully"
+      );
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Error updating order status";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -123,22 +217,108 @@ const PendingOrders = () => {
         priceUpdates: order.priceUpdateHistory,
       });
     } else {
-      updateOrderStatus(order._id);
+      updateOrderStatus(order.orderId || order._id);
     }
   };
 
   const filteredOrders = pendingOrders.filter((order) => {
     const s = search.toLowerCase();
+    const customer = order.customer || order.user?.customerDetails || {};
+    const user = order.user || {};
+    
     return (
-      order._id.toLowerCase().includes(s) ||
-      order.orderId?.toLowerCase().includes(s) ||
-      order.user?.name?.toLowerCase().includes(s) ||
-      order.user?.email?.toLowerCase().includes(s) ||
-      order.user?.phoneNumber?.toLowerCase().includes(s) ||
-      order.user?.customerDetails?.firmName?.toLowerCase().includes(s) ||
-      order.user?.customerDetails?.userCode?.toLowerCase().includes(s)
+      order._id?.toLowerCase()?.includes(s) ||
+      order.orderId?.toLowerCase()?.includes(s) ||
+      user.name?.toLowerCase()?.includes(s) ||
+      customer.name?.toLowerCase()?.includes(s) ||
+      user.email?.toLowerCase()?.includes(s) ||
+      customer.firmName?.toLowerCase()?.includes(s) ||
+      order.firmName?.toLowerCase()?.includes(s) ||
+      customer.userCode?.toLowerCase()?.includes(s)
     );
   });
+
+  const openStatusModal = (order) => {
+    const payment = order.payment || {};
+    // Extract ID with priority
+    const extractedPaymentId = payment.paymentId || payment._id || payment.id || order.paymentId || order.id || order.orderId || order._id;
+    
+    setStatusModal({
+      isOpen: true,
+      paymentId: extractedPaymentId,
+      currentStatus: payment.status || order.paymentStatus || "pending",
+      remainingAmount: payment.remainingAmount ?? order.totalAmount ?? 0,
+      totalAmount: payment.totalAmount ?? order.totalAmountWithDelivery ?? order.totalAmount ?? 0,
+      paidAmount: payment.paidAmount ?? 0,
+      orderId: order.orderId || order._id,
+    });
+    const lastPayment = payment.lastPayment || {};
+    setStatusForm({
+      paymentStatus: (payment.remainingAmount || 0) > 0 ? "partial" : "completed",
+      receivedAmount: (payment.remainingAmount || 0) || "",
+      paymentMode: payment.paymentMode || lastPayment.paymentMode || "",
+      remarks: lastPayment.remarks || "",
+      referenceId: lastPayment.referenceId || "",
+      bankName: lastPayment.bankName || "",
+      screenshot: null
+    });
+  };
+
+  const closeStatusModal = () => {
+    setStatusModal({ isOpen: false, paymentId: null, currentStatus: "", remainingAmount: 0, totalAmount: 0, paidAmount: 0, orderId: null });
+    setStatusForm({ paymentStatus: "completed", receivedAmount: "", paymentMode: "", remarks: "", referenceId: "", bankName: "", screenshot: null });
+  };
+
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleUpdatePaymentStatus = async () => {
+    const { paymentStatus, receivedAmount, paymentMode, remarks, referenceId, bankName, screenshot } = statusForm;
+    const { paymentId, remainingAmount, orderId } = statusModal;
+
+    if (!paymentStatus) return toast.warning("Please select a status.");
+    if (!paymentMode) return toast.warning("Please select a mode.");
+
+    const parsedAmount = parseFloat(receivedAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return toast.warning("Enter a valid amount.");
+    if (remainingAmount && parsedAmount > remainingAmount) return toast.warning(`Amount cannot exceed ₹${remainingAmount}.`);
+
+    setUpdatingStatus(true);
+    try {
+      let screenshotBase64 = undefined;
+      if (screenshot) {
+        screenshotBase64 = await convertToBase64(screenshot);
+      }
+
+      const payload = {
+        paymentStatus,
+        receivedAmount: parsedAmount,
+        paymentMode,
+        remarks: remarks || undefined,
+        referenceId: referenceId || undefined,
+        bankName: bankName || undefined,
+        screenshotUrl: screenshotBase64
+      };
+
+      const endpoint = `/reception/payments/${paymentId}/status`;
+
+      await api.patch(endpoint, payload);
+      toast.success("Payment updated successfully");
+      
+      fetchPendingOrders();
+      closeStatusModal();
+    } catch (error) {
+      toast.error(error.response?.data?.details?.error || error.response?.data?.message || "Error updating payment");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   // pagination logic
   const total = filteredOrders.length;
@@ -146,285 +326,674 @@ const PendingOrders = () => {
   const endIdx = startIdx + pageSize;
   const pagedOrders = filteredOrders.slice(startIdx, endIdx);
 
-  const getPaymentStatusColor = (status) => {
-    const colors = {
-      paid: "text-green-600",
-      pending: "text-yellow-600",
-      failed: "text-red-600",
-      partial: "text-orange-600",
-    };
-    return colors[status?.toLowerCase()] || "text-gray-600";
-  };
-
   const formatShippingAddress = (a) => {
     if (!a) return "N/A";
-    return `${a.address || ""}, ${a.city || ""}, ${a.state || ""} ${a.pinCode || ""}`;
-  };
-
-  const formatDate = (d) => {
-    if (!d) return "N/A";
-    return new Date(d).toLocaleString("en-IN");
-  };
-
-  const formatCurrency = (amount) => {
-    return typeof amount === "number" ? `₹${amount.toFixed(2)}` : "N/A";
+    return `${a.address || ""}, ${a.city || ""}, ${a.state || ""} ${
+      a.pinCode || ""
+    }`;
   };
 
   return (
-    <div className="bg-green-100 min-h-screen p-4">
-      <div className="container mx-auto">
-        <h1 className="text-2xl font-bold text-center mb-6">Pending Orders</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-gray-100">
+      <ToastContainer position="top-right" autoClose={3000} />
 
-        {/* Search */}
-        <div className="mb-4 flex justify-end">
-          <input
-            type="text"
-            placeholder="Search orders..."
-            className="px-3 py-2 border rounded w-full sm:w-72 shadow-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-green-100 text-green-600 rounded-xl">
+                <Clock className="h-6 w-6" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                Pending App Orders
+              </h1>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Process orders created by users from the mobile application
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Filter orders..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 shadow-sm"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 px-4 border-gray-200"
+              onClick={fetchPendingOrders}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        {/* TABLE */}
-        <div className="overflow-y-auto shadow-xl rounded-xl bg-white">
-          <table className="min-w-full text-sm table-auto">
-            <thead className="bg-gray-300 text-gray-700">
-              <tr>
-                <th className="px-4 py-2">Order ID</th>
-                <th className="px-4 py-2">User Code</th>
-                <th className="px-4 py-2">Date & Time</th>
-                <th className="px-4 py-2">Customer</th>
-                <th className="px-4 py-2">Phone</th>
-                <th className="px-4 py-2">Firm Name</th>
-                <th className="px-4 py-2">Payment Status</th>
-                <th className="px-4 py-2">Total</th>
-                <th className="px-4 py-2 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="10" className="text-center py-8">
-                    <div className="flex justify-center items-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : pagedOrders.length ? (
-                pagedOrders.map((order) => (
-                  <tr key={order._id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2 font-mono text-xs">
-                      {order.orderId || order._id.slice(-8)}
-                    </td>
-                    <td className="px-4 py-2">
-                      {order.user?.customerDetails?.userCode || "(Misc)"}
-                    </td>
-                    <td className="px-4 py-2">{formatDate(order.createdAt)}</td>
-                    <td className="px-4 py-2">{order.user?.name || "N/A"}</td>
-                    <td className="px-4 py-2">
-                      {order.user?.phoneNumber || "N/A"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {order.user?.customerDetails?.firmName || "N/A"}
-                    </td>
-                    <td className={`px-4 py-2 font-semibold ${getPaymentStatusColor(order.paymentStatus)}`}>
-                      {order.paymentStatus || "pending"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {formatCurrency(order.totalAmount)}
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="p-2 rounded hover:bg-gray-200">
-                          <MoreVertical size={18} />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setDetailsModal({ isOpen: true, order })
-                            }
-                          >
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleMarkAsProcessing(order)}
-                          >
-                            Mark as Processing
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="10" className="text-center py-8 text-gray-500">
-                    No pending orders found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        {/* Orders Table container */}
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          {/* Desktop Table */}
+          <div className="hidden lg:block">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/80 hover:bg-gray-50/80 border-b-gray-200">
+                  <TableHead className="font-semibold text-gray-600">
+                    Order ID / Date
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-600">
+                    Customer
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-600">
+                    Products
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-600">
+                    Total
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-600">
+                    Status
+                  </TableHead>
+                  <TableHead className="font-semibold text-gray-600 text-center w-[150px]">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="inline-flex flex-col items-center justify-center text-gray-400 space-y-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                        <span className="text-sm">Loading orders...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : pagedOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="inline-flex flex-col items-center justify-center text-gray-400 space-y-2">
+                        <PackageSearch className="h-8 w-8" />
+                        <span className="text-sm">
+                          No pending orders found
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pagedOrders.map((order) => (
+                    <TableRow
+                      key={order._id}
+                      className="hover:bg-green-50/40 transition-colors"
+                    >
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs font-semibold text-gray-700">
+                            {order.orderId || order._id.slice(-8).toUpperCase()}
+                          </span>
+                          <span className="text-[11px] text-gray-500 mt-0.5">
+                            {formatDate(order.createdAt)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">
+                            {order.customer?.name || order.user?.name || "N/A"}
+                          </span>
+                          <span className="text-xs text-gray-500 font-mono mt-0.5">
+                            {order.customer?.userCode || order.user?.customerDetails?.userCode || "(Misc)"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="max-w-xs space-y-0.5">
+                          {order.products?.slice(0, 2).map((p, i) => (
+                            <div key={i} className="text-xs text-gray-600">
+                              {p.name || p.product?.name || "Product"} x {p.boxes}
+                            </div>
+                          ))}
+                          {order.products?.length > 2 && (
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              +{order.products.length - 2} more items
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(order.totalAmountWithGST || order.payment?.totalAmount || order.totalAmount)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={getStatusColor(order.orderStatus)}
+                        >
+                          {order.orderStatus || "pending"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 rounded-full">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                               <DropdownMenuItem onClick={() => setDetailsModal({ isOpen: true, order })} className="cursor-pointer">
+                                  <Eye className="mr-2 h-4 w-4" /> View Details
+                               </DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleMarkAsProcessing(order)} className="cursor-pointer text-blue-600">
+                                  <RefreshCw className="mr-2 h-4 w-4" /> Process Order
+                               </DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => openStatusModal(order)} className="cursor-pointer text-green-600">
+                                  <CreditCard className="mr-2 h-4 w-4" /> Update Payment
+                               </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-        {/* PAGINATION */}
-        <div className="mt-4 flex items-center justify-between flex-wrap">
-          <span className="text-sm">
-            Showing {Math.min(total, startIdx + 1)}–{Math.min(total, endIdx)} of{" "}
-            {total}
-          </span>
-          <Paginator
-            page={page}
-            total={total}
-            pageSize={pageSize}
-            onPageChange={setPage}
-          />
-          <select
-            className="border rounded px-2 py-1"
-            value={pageSize}
-            onChange={(e) => {
-              setPage(1);
-              setPageSize(parseInt(e.target.value));
-            }}
-          >
-            {[5, 10, 20, 50].map((n) => (
-              <option key={n} value={n}>
-                {n} / page
-              </option>
-            ))}
-          </select>
+          {/* Mobile view */}
+          <div className="block lg:hidden divide-y divide-gray-100">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2">
+                <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                <span className="text-sm">Loading orders...</span>
+              </div>
+            ) : pagedOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2">
+                <PackageSearch className="h-8 w-8" />
+                <span className="text-sm">No orders found</span>
+              </div>
+            ) : (
+              pagedOrders.map((order) => (
+                <div key={order._id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <span className="font-mono text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+                        {order.orderId || order._id.slice(-8).toUpperCase()}
+                      </span>
+                      <p className="font-medium text-gray-900 mt-1">
+                        {order.user?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-gray-900">
+                        {formatCurrency(order.totalAmountWithGST || order.totalAmount)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <p className="text-xs text-gray-500 font-mono">
+                      {order.user?.customerDetails?.userCode || "(Misc)"}
+                    </p>
+                    <p className="text-xs text-gray-500 text-right">
+                      {formatDate(order.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ${getStatusColor(
+                          order.orderStatus
+                        )}`}
+                      >
+                        {order.orderStatus || "pending"}
+                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 rounded-full">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                               <DropdownMenuItem onClick={() => setDetailsModal({ isOpen: true, order })} className="cursor-pointer">
+                                  <Eye className="mr-2 h-4 w-4" /> View Details
+                               </DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleMarkAsProcessing(order)} className="cursor-pointer text-blue-600">
+                                  <RefreshCw className="mr-2 h-4 w-4" /> Process
+                               </DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => openStatusModal(order)} className="cursor-pointer text-green-600">
+                                  <CreditCard className="mr-2 h-4 w-4" /> Update Payment
+                               </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                      </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Pagination */}
+          {total > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+              <span className="text-sm text-gray-500">
+                Showing{" "}
+                <span className="font-medium text-gray-900">
+                  {Math.min(total, startIdx + 1)}
+                </span>{" "}
+                to{" "}
+                <span className="font-medium text-gray-900">
+                  {Math.min(total, startIdx + pageSize)}
+                </span>{" "}
+                of <span className="font-medium text-gray-900">{total}</span>
+              </span>
+              <div className="flex items-center gap-3">
+                <Paginator
+                  page={page}
+                  total={total}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                />
+                <select
+                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(parseInt(e.target.value, 10));
+                  }}
+                >
+                  {[5, 10, 20, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n} / page
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* VIEW DETAILS MODAL */}
-      {detailsModal.isOpen && detailsModal.order && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white max-w-4xl w-full mx-4 rounded-lg p-6 shadow-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">
-                Order Details – {detailsModal.order.orderId || detailsModal.order._id}
-              </h2>
-              <button
-                onClick={() => setDetailsModal({ isOpen: false, order: null })}
-                className="p-1 hover:bg-gray-100 rounded"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Status Badges */}
-            <div className="flex gap-4 mb-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                detailsModal.order.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                detailsModal.order.paymentStatus === 'partial' ? 'bg-orange-100 text-orange-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}>
-                Payment: {detailsModal.order.paymentStatus || 'pending'}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                detailsModal.order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                detailsModal.order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                detailsModal.order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                'bg-yellow-100 text-yellow-800'
-              }`}>
-                Status: {detailsModal.order.status || 'pending'}
-              </span>
-            </div>
-
-            {/* Customer Information */}
-            <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded">
-              <div>
-                <p className="text-sm text-gray-600">Customer Name</p>
-                <p className="font-medium">{detailsModal.order.user?.name || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Firm Name</p>
-                <p className="font-medium">{detailsModal.order.user?.customerDetails?.firmName || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Email</p>
-                <p className="font-medium">{detailsModal.order.user?.email || "N/A"}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Phone</p>
-                <p className="font-medium">{detailsModal.order.user?.phoneNumber || "N/A"}</p>
-              </div>
-            </div>
-
-            {/* Shipping Address */}
-            <div className="mb-4 p-4 bg-gray-50 rounded">
-              <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
-              <p className="font-medium">{formatShippingAddress(detailsModal.order.shippingAddress)}</p>
-            </div>
-
-            {/* Products */}
-            <h3 className="font-semibold mb-2">Products:</h3>
-            <table className="min-w-full text-sm mb-4">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="px-3 py-2 text-left">Product</th>
-                  <th className="px-3 py-2 text-center">Boxes</th>
-                  <th className="px-3 py-2 text-right">Price/Box</th>
-                  <th className="px-3 py-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detailsModal.order.products?.map((p, i) => (
-                  <tr key={i} className="border-b">
-                    <td className="px-3 py-2">
-                      {p.product?.name} - {p.product?.category}
-                    </td>
-                    <td className="px-3 py-2 text-center">{p.boxes}</td>
-                    <td className="px-3 py-2 text-right">₹{p.price}</td>
-                    <td className="px-3 py-2 text-right">₹{p.boxes * p.price}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-100">
-                <tr>
-                  <td colSpan="3" className="px-3 py-2 text-right font-bold">Total:</td>
-                  <td className="px-3 py-2 text-right font-bold">₹{detailsModal.order.totalAmount}</td>
-                </tr>
-              </tfoot>
-            </table>
-
-            {/* Payment History */}
-            {detailsModal.order.paymentStatusHistory?.length > 0 && (
-              <>
-                <h3 className="font-semibold mb-2">Payment History:</h3>
-                <div className="space-y-2">
-                  {detailsModal.order.paymentStatusHistory.map((h, idx) => (
-                    <div key={idx} className="text-sm p-2 bg-gray-50 rounded">
-                      <span className="font-medium">{h.status}</span> - {formatDate(h.updatedAt)}
-                    </div>
-                  ))}
+      {/* 📌 ORDER DETAILS DIALOG */}
+      <Dialog
+        open={detailsModal.isOpen}
+        onOpenChange={(open) =>
+          !open && setDetailsModal({ isOpen: false, order: null })
+        }
+      >
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-gray-50 gap-0">
+          {detailsModal.order && (
+            <>
+              <DialogHeader className="px-6 py-5 bg-white border-b shrink-0">
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
+                    <ShoppingCart className="h-5 w-5 text-green-600" />
+                    Order Details
+                  </DialogTitle>
+                  <div className="flex gap-2">
+                    <Badge
+                      variant="outline"
+                      className={getStatusColor(detailsModal.order.orderStatus)}
+                    >
+                      Status: {detailsModal.order.orderStatus || "pending"}
+                    </Badge>
+                  </div>
                 </div>
-              </>
-            )}
+              </DialogHeader>
 
-            {/* Close Button */}
-            <div className="mt-6 text-right">
-              <button
-                onClick={() => setDetailsModal({ isOpen: false, order: null })}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
+                {/* Top Info Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-green-50 text-green-600 rounded-lg shrink-0">
+                      <Hash className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 font-medium">
+                        Order ID
+                      </p>
+                      <p className="font-mono text-sm font-semibold truncate text-gray-900">
+                        {detailsModal.order.orderId || detailsModal.order._id}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg shrink-0">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 font-medium">
+                        Created At
+                      </p>
+                      <p className="text-sm font-semibold truncate text-gray-900">
+                        {formatDate(detailsModal.order.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg shrink-0">
+                      <CreditCard className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 font-medium">
+                        Payment Status
+                      </p>
+                      <p className="text-sm font-semibold truncate">
+                        <Badge
+                          variant="outline"
+                          className={getPaymentStatusColor(
+                            detailsModal.order.payment?.status || detailsModal.order.paymentStatus
+                          )}
+                        >
+                          {detailsModal.order.payment?.status || detailsModal.order.paymentStatus || "pending"}
+                        </Badge>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Customer Info */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="bg-gray-50/80 px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700 flex items-center gap-2">
+                      <User className="h-4 w-4" /> Customer Information
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-gray-500 font-medium col-span-1">
+                          Name:
+                        </span>
+                        <span className="text-gray-900 col-span-2 font-medium">
+                          {detailsModal.order.customer?.name || detailsModal.order.user?.name || "N/A"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-gray-500 font-medium col-span-1">
+                          Firm:
+                        </span>
+                        <span className="text-gray-900 col-span-2">
+                          {detailsModal.order.customer?.firmName || detailsModal.order.user?.customerDetails?.firmName || "N/A"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 text-sm">
+                        <span className="text-gray-500 font-medium col-span-1">
+                          Phone:
+                        </span>
+                        <span className="text-gray-900 col-span-2 flex items-center gap-1.5">
+                          <Phone className="h-3.5 w-3.5 text-gray-400" />{" "}
+                          {detailsModal.order.customer?.phoneNumber || detailsModal.order.user?.phoneNumber || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shipping & Delivery */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="bg-gray-50/80 px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" /> Shipping & Delivery
+                    </div>
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium mb-1">Delivery Choice</p>
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
+                          {detailsModal.order.deliveryChoice === "homeDelivery" ? "Home Delivery" : "Self Pickup"}
+                        </Badge>
+                      </div>
+                      
+                      { (detailsModal.order.customer?.shippingAddress || detailsModal.order.shippingAddress) ? (
+                        <div className="text-sm text-gray-700 space-y-1">
+                          <p className="text-xs text-gray-500 font-medium mb-1">Address</p>
+                          <p className="font-medium text-gray-900 whitespace-pre-wrap leading-relaxed">
+                            {(detailsModal.order.customer?.shippingAddress || detailsModal.order.shippingAddress).address}
+                          </p>
+                          <p>
+                            {(detailsModal.order.customer?.shippingAddress || detailsModal.order.shippingAddress).city},{" "}
+                            {(detailsModal.order.customer?.shippingAddress || detailsModal.order.shippingAddress).state}
+                          </p>
+                          <p className="font-semibold pt-1">
+                            PIN: {(detailsModal.order.customer?.shippingAddress || detailsModal.order.shippingAddress).pinCode}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No shipping address provided.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Breakdown & screenshot */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Payment Details */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="bg-gray-50/80 px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" /> Payment Summary
+                    </div>
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium">Payment Status</p>
+                          <Badge variant="outline" className={getPaymentStatusColor(detailsModal.order.payment?.status || detailsModal.order.paymentStatus)}>
+                            {detailsModal.order.payment?.status || detailsModal.order.paymentStatus || "pending"}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-gray-50">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Subtotal</span>
+                          <span className="font-medium text-gray-900">{formatCurrency(detailsModal.order.amount || detailsModal.order.totalAmount)}</span>
+                        </div>
+                        {detailsModal.order.gst !== undefined && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">GST</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(detailsModal.order.gst)}</span>
+                          </div>
+                        )}
+                        {detailsModal.order.deliveryCharge > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Delivery Charge</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(detailsModal.order.deliveryCharge)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm font-bold pt-1 border-t border-gray-50">
+                          <span className="text-gray-900">Total Payable</span>
+                          <span className="text-green-600">{formatCurrency(detailsModal.order.totalAmountWithGST || detailsModal.order.payment?.totalAmount || detailsModal.order.totalAmountWithDelivery || detailsModal.order.totalAmount)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Paid Amount</span>
+                          <span className="font-medium text-blue-600">{formatCurrency(detailsModal.order.payment?.paidAmount || detailsModal.order.paidAmount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Remaining</span>
+                          <span className="font-medium text-red-600">{formatCurrency(detailsModal.order.payment?.remainingAmount || (detailsModal.order.totalAmountWithGST || detailsModal.order.totalAmount) - (detailsModal.order.payment?.paidAmount || detailsModal.order.paidAmount || 0))}</span>
+                        </div>
+                      </div>
+
+                      {detailsModal.order.payment?.lastPayment && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
+                          <p className="text-xs font-bold text-gray-700 border-b border-gray-200 pb-1 mb-2">Last Payment Attempt</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <p className="text-gray-500">Ref ID</p>
+                              <p className="font-mono font-medium truncate" title={detailsModal.order.payment.lastPayment.referenceId}>
+                                {detailsModal.order.payment.lastPayment.referenceId || "N/A"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Mode</p>
+                              <p className="font-medium capitalize">{detailsModal.order.payment.lastPayment.paymentMode}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Amount</p>
+                                <p className="font-bold text-gray-900">{formatCurrency(detailsModal.order.payment.lastPayment.submittedAmount)}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500">Date</p>
+                                <p className="font-medium">{formatDate(detailsModal.order.payment.lastPayment.submissionDate)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Screenshot section */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="bg-gray-50/80 px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700 flex items-center gap-2">
+                      <Eye className="h-4 w-4" /> Payment Screenshot
+                    </div>
+                    <div className="p-4 flex-1 flex items-center justify-center bg-gray-50/30">
+                      {detailsModal.order.payment?.lastPayment?.screenshotUrl ? (
+                         <div 
+                           className="relative group cursor-zoom-in overflow-hidden rounded-lg shadow-md border border-gray-200"
+                           onClick={() => setImagePreview(detailsModal.order.payment.lastPayment.screenshotUrl)}
+                         >
+                            <img 
+                              src={detailsModal.order.payment.lastPayment.screenshotUrl} 
+                              alt="Payment Proof" 
+                              className="max-h-[300px] w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                               <p className="text-white opacity-0 group-hover:opacity-100 transition-opacity font-medium text-xs bg-black/60 px-4 py-2 rounded-full backdrop-blur-sm">
+                                   Click for full preview
+                               </p>
+                            </div>
+                         </div>
+                      ) : (
+                        <div className="text-center py-12">
+                            <div className="bg-gray-100 p-3 rounded-full inline-block mb-3">
+                                <PackageSearch className="h-6 w-6 text-gray-400" />
+                            </div>
+                            <p className="text-sm text-gray-500 italic">No screenshot available for this payment.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product List */}
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="bg-gray-50/80 px-4 py-3 border-b border-gray-100 font-semibold text-sm text-gray-700 flex items-center gap-2">
+                    <PackageSearch className="h-4 w-4" /> Ordered Products
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-transparent hover:bg-transparent">
+                          <TableHead className="font-semibold text-gray-600">
+                            Item
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-600 text-right">
+                            Boxes
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-600 text-right">
+                            Rate
+                          </TableHead>
+                          <TableHead className="font-semibold text-gray-600 text-right">
+                            Total
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailsModal.order.products?.map((p, i) => (
+                          <TableRow key={i}>
+                            <TableCell>
+                              <p className="font-medium text-gray-900">
+                                {p.name || p.product?.name || "Product"}
+                              </p>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {p.boxes}
+                            </TableCell>
+                            <TableCell className="text-right text-gray-600">
+                              {formatCurrency(p.price || p.product?.price || (p.total / p.boxes))}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-gray-900">
+                              {formatCurrency(
+                                p.total || (p.price || p.product?.price || 0) * p.boxes
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="bg-gray-50/80 p-4 border-t border-gray-100 flex flex-col items-end gap-2 text-sm text-gray-600">
+                    <div className="flex justify-between w-full sm:w-64">
+                      <span>Subtotal:</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(detailsModal.order.amount || detailsModal.order.totalAmount)}</span>
+                    </div>
+                    {detailsModal.order.gst !== undefined && (
+                      <div className="flex justify-between w-full sm:w-64">
+                        <span>GST:</span>
+                        <span className="font-medium text-gray-900">{formatCurrency(detailsModal.order.gst)}</span>
+                      </div>
+                    )}
+                    {detailsModal.order.deliveryCharge > 0 && (
+                      <div className="flex justify-between w-full sm:w-64">
+                        <span>Delivery Charge:</span>
+                        <span className="font-medium text-red-600">+{formatCurrency(detailsModal.order.deliveryCharge)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between w-full sm:w-64 text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                      <span>Grand Total:</span>
+                      <span className="text-green-700">
+                        {formatCurrency(detailsModal.order.totalAmountWithGST || detailsModal.order.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="px-6 py-4 bg-white border-t shrink-0 flex items-center justify-end gap-2">
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                  onClick={() => openStatusModal(detailsModal.order)}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Update Payment
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setDetailsModal({ isOpen: false, order: null })}
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* CONFIRM PRICE UPDATE MODAL */}
-      <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => !open && setConfirmDialog({ isOpen: false, order: null, priceUpdates: [] })}>
+      <AlertDialog
+        open={confirmDialog.isOpen}
+        onOpenChange={(open) =>
+          !open && setConfirmDialog({ isOpen: false, order: null, priceUpdates: [] })
+        }
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Price Updated</AlertDialogTitle>
@@ -435,22 +1004,32 @@ const PendingOrders = () => {
                     (item) => item.product?._id === p.product
                   );
                   return (
-                    <div key={i} className="p-2 bg-yellow-50 rounded">
-                      <span className="font-medium">{product?.product?.name || "Product"}</span>
+                    <div key={i} className="p-2 bg-yellow-50 rounded border border-yellow-100">
+                      <span className="font-medium text-gray-900">
+                        {product?.product?.name || "Product"}
+                      </span>
                       <br />
                       <span className="text-sm">
-                        Price changed from <span className="line-through">₹{p.oldPrice}</span> → <span className="font-bold">₹{p.newPrice}</span>
+                        Price changed from{" "}
+                        <span className="line-through text-gray-400">
+                          {formatCurrency(p.oldPrice)}
+                        </span>{" "}
+                        →{" "}
+                        <span className="font-bold text-green-600">
+                          {formatCurrency(p.newPrice)}
+                        </span>
                       </span>
                     </div>
                   );
                 })}
-                <p className="mt-4 text-sm">
-                  Are you sure you want to mark this order as processing with the updated prices?
+                <p className="mt-4 text-sm text-gray-600">
+                  Are you sure you want to mark this order as processing with the
+                  updated prices?
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-              
+
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() =>
@@ -464,7 +1043,7 @@ const PendingOrders = () => {
                 updateOrderStatus(confirmDialog.order?._id);
                 setConfirmDialog({ isOpen: false, order: null, priceUpdates: [] });
               }}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               Confirm
             </AlertDialogAction>
@@ -472,22 +1051,284 @@ const PendingOrders = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* SUCCESS DIALOG */}
-      <AlertDialog open={successDialog.isOpen} onOpenChange={(open) => !open && setSuccessDialog({ isOpen: false, message: "" })}>
+      {/* PRICE UPDATE INFO DIALOG */}
+      <AlertDialog
+        open={priceUpdateModal.isOpen}
+        onOpenChange={(open) =>
+          !open && setPriceUpdateModal({ isOpen: false, details: [], orderId: null })
+        }
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Success</AlertDialogTitle>
+            <AlertDialogTitle>Price Updated Notice</AlertDialogTitle>
             <AlertDialogDescription>
-              {successDialog.message}
+              <div className="space-y-2">
+                <p className="text-sm mb-2">
+                  The following product prices were updated:
+                </p>
+                {priceUpdateModal.details?.map((p, i) => (
+                  <div key={i} className="p-2 bg-yellow-50 rounded border border-yellow-100">
+                    <span className="font-medium text-gray-900">
+                      {p.productName || "Product"}
+                    </span>
+                    <br />
+                    <span className="text-sm">
+                      Price:{" "}
+                      <span className="line-through text-gray-400">
+                        {formatCurrency(p.oldPrice)}
+                      </span>{" "}
+                      →{" "}
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(p.newPrice)}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                <p className="mt-4 text-sm text-green-600 font-medium">
+                  Order has been marked as processing and sent to sales panel.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setSuccessDialog({ isOpen: false, message: "" })}>
+            <AlertDialogAction
+              onClick={() =>
+                setPriceUpdateModal({ isOpen: false, details: [], orderId: null })
+              }
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
               OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* SUCCESS DIALOG */}
+      <AlertDialog
+        open={successDialog.isOpen}
+        onOpenChange={(open) =>
+          !open && setSuccessDialog({ isOpen: false, message: "" })
+        }
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-4">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            </div>
+            <AlertDialogTitle className="text-center">Success</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              {successDialog.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction
+              onClick={() => setSuccessDialog({ isOpen: false, message: "" })}
+              className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 📌 UPDATE STATUS DIALOG */}
+      <Dialog open={statusModal.isOpen} onOpenChange={(open) => !open && closeStatusModal()}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-white">
+          <div className="px-6 py-4 border-b border-gray-100 shrink-0">
+            <div className="flex items-center gap-3">
+               <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                  <CreditCard className="h-5 w-5" />
+               </div>
+               <div>
+                 <DialogTitle className="text-lg font-bold text-gray-900">Update Payment</DialogTitle>
+                 <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mt-0.5">
+                    Order: {statusModal.orderId}
+                 </p>
+               </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-4 space-y-4 overflow-y-auto max-h-[65vh]">
+            
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                 <span className="block text-xs text-gray-500 font-medium">Remaining Amount</span>
+                 <span className="font-bold text-red-600 text-base">{formatCurrency(statusModal.remainingAmount)}</span>
+              </div>
+              <div className="text-right">
+                 <span className="block text-xs text-gray-500 font-medium">Total Amount</span>
+                 <span className="font-semibold text-gray-900">{formatCurrency(statusModal.totalAmount)}</span>
+              </div>
+            </div>
+
+            <div>
+              <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Status</Label>
+              <select
+                disabled
+                value={statusForm.paymentStatus}
+                onChange={(e) => setStatusForm(p => ({ ...p, paymentStatus: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 cursor-not-allowed"
+              >
+                <option value="completed">Completed</option>
+                <option value="partial">Partial</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Received Amt (₹)</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={statusForm.receivedAmount}
+                  onChange={(e) => setStatusForm(p => ({ ...p, receivedAmount: e.target.value }))}
+                  className="h-10"
+                />
+              </div>
+              <div>
+                <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Mode</Label>
+                <select
+                  disabled
+                  value={statusForm.paymentMode}
+                  onChange={(e) => setStatusForm(p => ({ ...p, paymentMode: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-10 focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 cursor-not-allowed"
+                >
+                  <option value="">Select Mode</option>
+                  <option value="cash">Cash</option>
+                  <option value="online">Online / UPI</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div>
+                  <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Ref ID / Transaction No</Label>
+                  <Input
+                    disabled
+                    placeholder="Optional"
+                    value={statusForm.referenceId}
+                    onChange={(e) => setStatusForm(p => ({ ...p, referenceId: e.target.value }))}
+                    className="h-10 bg-gray-50 cursor-not-allowed"
+                  />
+               </div>
+               <div>
+                  <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Bank Name</Label>
+                  <Input
+                    disabled
+                    placeholder="Optional"
+                    value={statusForm.bankName}
+                    onChange={(e) => setStatusForm(p => ({ ...p, bankName: e.target.value }))}
+                    className="h-10 bg-gray-50 cursor-not-allowed"
+                  />
+               </div>
+            </div>
+
+            <div>
+              <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Remarks</Label>
+              <textarea
+                value={statusForm.remarks}
+                onChange={(e) => setStatusForm(p => ({ ...p, remarks: e.target.value }))}
+                placeholder="Add any notes here..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            <div className="pt-2">
+              <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Screenshot</Label>
+              <div className="mt-1 space-y-3">
+                 { (pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.payment?.lastPayment?.screenshotUrl || pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.screenshotUrl) && (
+                   <div className="relative w-full h-32 rounded-lg overflow-hidden border border-gray-200 group">
+                      <img 
+                        src={pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.payment?.lastPayment?.screenshotUrl || pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.screenshotUrl} 
+                        alt="Current Screenshot" 
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button 
+                           variant="secondary" 
+                           size="sm" 
+                           className="h-8 text-[10px]"
+                           onClick={() => setImagePreview(pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.payment?.lastPayment?.screenshotUrl || pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.screenshotUrl)}
+                         >
+                           <Eye className="h-3 w-3 mr-1" /> View Full
+                         </Button>
+                      </div>
+                   </div>
+                 )}
+                 <div className="flex items-center gap-4">
+                    <Input
+                      disabled
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+                          if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+                            toast.error("upload valid image less than 1 mb");
+                            e.target.value = "";
+                            return;
+                          }
+                          setStatusForm(p => ({ ...p, screenshot: file }));
+                        }
+                      }}
+                      className="text-xs flex-1 file:bg-gray-100 file:text-gray-500 file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 cursor-not-allowed bg-gray-50"
+                    />
+                    <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-500 border-gray-200">Current Proof Linked</Badge>
+                 </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 py-4 bg-gray-50 border-t gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={closeStatusModal} disabled={updatingStatus}>Cancel</Button>
+            <Button 
+              className="bg-green-600 hover:bg-green-700 text-white min-w-[120px]" 
+              disabled={updatingStatus}
+              onClick={handleUpdatePaymentStatus}
+            >
+              {updatingStatus ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...</> : "Update Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* FULL IMAGE PREVIEW DIALOG */}
+      <Dialog open={!!imagePreview} onOpenChange={() => setImagePreview(null)}>
+        <DialogContent className="max-w-[95vw] md:max-w-[80vw] lg:max-w-4xl p-0 overflow-hidden bg-black/95 border-none shadow-2xl gap-0">
+          <DialogHeader className="absolute top-2 right-2 z-50 bg-transparent">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-white rounded-full bg-black/20 hover:bg-black/40 border-none"
+              onClick={() => setImagePreview(null)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </DialogHeader>
+          <div className="flex items-center justify-center min-h-[50vh] max-h-[90vh] p-4 lg:p-8">
+            <img
+              src={imagePreview}
+              alt="Payment Full View"
+              className="max-h-full max-w-full object-contain shadow-2xl rounded-sm"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+             <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+                onClick={() => window.open(imagePreview, '_blank')}
+             >
+                Open in new tab
+             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

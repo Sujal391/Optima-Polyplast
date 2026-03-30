@@ -1,852 +1,415 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Typography,
-  Alert,
-  CircularProgress,
-  IconButton,
-  TablePagination,
-  Tooltip,
-  Container,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Chip,
-  InputAdornment,
-  Grid,
-  Divider,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  Close as CloseIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material';
-import { FaBottleDroplet } from 'react-icons/fa6';
-import {
-  addCap,
-  getCaps,
-  updateCapStock,
-  deleteCap,
-} from '../../services/api/stock';
+import { Plus, Edit2, Trash2, Search, X, AlertTriangle } from 'lucide-react';
+import { addCap, getCaps, updateCapStock, deleteCap } from '../../services/api/stock';
+
+const ROWS_OPTIONS = [5, 10, 20, 50];
+
+function statusBadge(status) {
+  if (status === 'OUT_OF_STOCK') return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">Out of Stock</span>;
+  if (status === 'LOW_STOCK')   return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap">Low Stock</span>;
+  if (status === 'NORMAL')      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200 whitespace-nowrap">Normal</span>;
+  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap">Unknown</span>;
+}
+
+const inputCls = "w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-colors";
+const labelCls = "block text-sm font-medium text-gray-700 mb-1.5";
+
+const neckTypes = ['narrow neck', 'wide neck'];
+const sizes     = ['20mm', '24mm', '28mm', '32mm', '38mm', '45mm', '53mm'];
+const colors    = ['White', 'Blue', 'Red', 'Green', 'Yellow', 'Black', 'Transparent', 'Other'];
 
 export default function CapManagement() {
-  const [caps, setCaps] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [caps, setCaps]                 = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
+  const [success, setSuccess]           = useState('');
+  const [isModalOpen, setIsModalOpen]   = useState(false);
+  const [isEditMode, setIsEditMode]     = useState(false);
   const [currentCapId, setCurrentCapId] = useState(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage]                 = useState(0);
+  const [rowsPerPage, setRowsPerPage]   = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [capToDelete, setCapToDelete] = useState(null);
-  
-  // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [capToDelete, setCapToDelete]   = useState(null);
+
+  const [searchQuery, setSearchQuery]       = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [neckTypeFilter, setNeckTypeFilter] = useState('');
-  const [sizeFilter, setSizeFilter] = useState('');
-  const [colorFilter, setColorFilter] = useState('');
+  const [sizeFilter, setSizeFilter]         = useState('');
+  const [colorFilter, setColorFilter]       = useState('');
 
-  // Form state for Add/Edit Cap
-  const [formData, setFormData] = useState({
-    neckType: '',
-    size: '',
-    color: '',
-    quantityAvailable: 0,
-    remarks: '',
-  });
-
-  // Stock Adjustment Form State
-  const [stockAdjustmentData, setStockAdjustmentData] = useState({
-    changeType: 'addition',
-    quantityChange: '',
-    stockRemarks: '',
-  });
+  const [formData, setFormData] = useState({ neckType: '', size: '', color: '', quantityAvailable: 0, remarks: '' });
+  const [stockAdjustmentData, setStockAdjustmentData] = useState({ changeType: 'addition', quantityChange: '', stockRemarks: '' });
   const [hasStockAdjustment, setHasStockAdjustment] = useState(false);
 
-  // Available options
-  const neckTypes = ['narrow neck', 'wide neck'];
-  const sizes = ['20mm', '24mm', '28mm', '32mm', '38mm', '45mm', '53mm'];
-  const colors = ['White', 'Blue', 'Red', 'Green', 'Yellow', 'Black', 'Transparent', 'Other'];
-
-  // Debounce search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, 500);
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch caps when filters change
-  useEffect(() => {
-    fetchCaps();
-  }, [debouncedSearch, neckTypeFilter, sizeFilter, colorFilter]);
+  useEffect(() => { fetchCaps(); }, [debouncedSearch, neckTypeFilter, sizeFilter, colorFilter]);
 
   const fetchCaps = async () => {
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const params = {};
       if (neckTypeFilter) params.neckType = neckTypeFilter;
       if (sizeFilter) params.size = sizeFilter;
       if (colorFilter) params.color = colorFilter;
-
       const response = await getCaps(params);
-      
       if (response.success) {
-        let capsData = response.data || [];
-        
-        // Filter by search query if provided
+        let data = response.data || [];
         if (debouncedSearch) {
-          capsData = capsData.filter(cap => 
+          data = data.filter(cap =>
             cap.displayName?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             cap.neckType.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             cap.size.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
             cap.color.toLowerCase().includes(debouncedSearch.toLowerCase())
           );
         }
-        
-        // Sort by display name
-        const sortedCaps = capsData.sort((a, b) => 
-          (a.displayName || '').localeCompare(b.displayName || '', undefined, { sensitivity: 'base' })
-        );
-        setCaps(sortedCaps);
-      } else {
-        setError('Failed to fetch caps');
-      }
+        setCaps(data.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || '', undefined, { sensitivity: 'base' })));
+      } else { setError('Failed to fetch caps'); }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to fetch caps');
-      console.error('Error fetching caps:', err);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'quantityAvailable' ? Number(value) : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: name === 'quantityAvailable' ? Number(value) : value }));
   };
 
   const handleStockAdjustmentChange = (e) => {
     const { name, value } = e.target;
-    setStockAdjustmentData(prev => ({
-      ...prev,
-      [name]: name === 'quantityChange' ? value : value
-    }));
+    setStockAdjustmentData(prev => ({ ...prev, [name]: value }));
     setHasStockAdjustment(true);
+  };
+
+  const resetModal = () => {
+    setFormData({ neckType: '', size: '', color: '', quantityAvailable: 0, remarks: '' });
+    setStockAdjustmentData({ changeType: 'addition', quantityChange: '', stockRemarks: '' });
+    setHasStockAdjustment(false);
   };
 
   const handleOpenModal = (cap = null) => {
     if (cap) {
-      setIsEditMode(true);
-      setCurrentCapId(cap._id);
-      setFormData({
-        neckType: cap.neckType,
-        size: cap.size,
-        color: cap.color,
-        quantityAvailable: cap.quantityAvailable || 0,
-        remarks: cap.remarks || '',
-      });
-      // Reset stock adjustment data
-      setStockAdjustmentData({
-        changeType: 'addition',
-        quantityChange: '',
-        stockRemarks: '',
-      });
+      setIsEditMode(true); setCurrentCapId(cap._id);
+      setFormData({ neckType: cap.neckType, size: cap.size, color: cap.color, quantityAvailable: cap.quantityAvailable || 0, remarks: cap.remarks || '' });
+      setStockAdjustmentData({ changeType: 'addition', quantityChange: '', stockRemarks: '' });
       setHasStockAdjustment(false);
-    } else {
-      setIsEditMode(false);
-      setCurrentCapId(null);
-      setFormData({
-        neckType: '',
-        size: '',
-        color: '',
-        quantityAvailable: 0,
-        remarks: '',
-      });
-      setStockAdjustmentData({
-        changeType: 'addition',
-        quantityChange: '',
-        stockRemarks: '',
-      });
-      setHasStockAdjustment(false);
-    }
+    } else { setIsEditMode(false); setCurrentCapId(null); resetModal(); }
     setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setIsEditMode(false);
-    setCurrentCapId(null);
-    setFormData({
-      neckType: '',
-      size: '',
-      color: '',
-      quantityAvailable: 0,
-      remarks: '',
-    });
-    setStockAdjustmentData({
-      changeType: 'addition',
-      quantityChange: '',
-      stockRemarks: '',
-    });
-    setHasStockAdjustment(false);
-    setError('');
-  };
+  const handleCloseModal = () => { setIsModalOpen(false); setIsEditMode(false); setCurrentCapId(null); resetModal(); setError(''); };
 
   const handleSubmit = async () => {
-    if (!formData.neckType || !formData.size || !formData.color) {
-      setError('Neck Type, Size, and Color are required');
-      return;
-    }
-
-    if (!isEditMode && (formData.quantityAvailable === '' || formData.quantityAvailable < 0)) {
-        setError('Initial quantity is required and cannot be negative');
-        return;
-    }
-
+    if (!formData.neckType || !formData.size || !formData.color) { setError('Neck Type, Size, and Color are required'); return; }
+    if (!isEditMode && (formData.quantityAvailable === '' || formData.quantityAvailable < 0)) { setError('Initial quantity is required and cannot be negative'); return; }
     try {
-      setLoading(true);
-      setError('');
-      
-      let capUpdateSuccess = false;
-      let stockAdjustmentSuccess = false;
-
-      // Update cap details if changed or adding new
+      setLoading(true); setError('');
+      let capUpdateSuccess = false, stockAdjustmentSuccess = false;
       if (!isEditMode) {
         const response = await addCap(formData);
-        if (response.success) {
-          capUpdateSuccess = true;
-          setSuccess(response.message || 'Cap added successfully!');
-        }
+        if (response.success) { capUpdateSuccess = true; setSuccess(response.message || 'Cap added successfully!'); }
       }
-
-      // Adjust stock if there's stock adjustment data
       if (isEditMode && hasStockAdjustment && stockAdjustmentData.quantityChange !== '' && parseFloat(stockAdjustmentData.quantityChange) >= 0) {
-        const adjustmentPayload = {
+        const stockResponse = await updateCapStock(currentCapId, {
           changeType: stockAdjustmentData.changeType,
           quantityChange: parseFloat(stockAdjustmentData.quantityChange),
           remarks: stockAdjustmentData.stockRemarks || 'Manual adjustment',
-        };
-
-        const stockResponse = await updateCapStock(currentCapId, adjustmentPayload);
-        if (stockResponse.success) {
-          stockAdjustmentSuccess = true;
-        }
+        });
+        if (stockResponse.success) stockAdjustmentSuccess = true;
       }
-
-      // Set success message
-    if (isEditMode) {
-    if (stockAdjustmentSuccess) {
-        setSuccess('Cap stock updated successfully!');
-    } else {
-        setSuccess('No changes made');
-    }
-    } else {
-    if (capUpdateSuccess) {
-        setSuccess('Cap added successfully!');
-    }
-    }
-      
-      handleCloseModal();
-      await fetchCaps();
-      setTimeout(() => setSuccess(''), 3000);
+      if (isEditMode) {
+        if (stockAdjustmentSuccess) setSuccess('Cap stock updated successfully!');
+        else setSuccess('No changes made');
+      } else { if (capUpdateSuccess) setSuccess('Cap added successfully!'); }
+      handleCloseModal(); await fetchCaps(); setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || err.message || `Failed to ${isEditMode ? 'update' : 'add'} cap`);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const handleDeleteClick = (cap) => {
-    setCapToDelete(cap);
-    setDeleteDialogOpen(true);
-  };
-
+  const handleDeleteClick  = (cap) => { setCapToDelete(cap); setDeleteDialogOpen(true); };
+  const handleDeleteCancel = () => { setDeleteDialogOpen(false); setCapToDelete(null); };
   const handleDeleteConfirm = async () => {
     if (!capToDelete) return;
-
     try {
-      setLoading(true);
-      setError('');
-      
+      setLoading(true); setError('');
       const response = await deleteCap(capToDelete._id);
-      
-      if (response.success) {
-        setSuccess(response.message || 'Cap deleted successfully!');
-        await fetchCaps();
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to delete cap');
-    } finally {
-      setLoading(false);
-      setDeleteDialogOpen(false);
-      setCapToDelete(null);
-    }
+      if (response.success) { setSuccess(response.message || 'Cap deleted successfully!'); await fetchCaps(); setTimeout(() => setSuccess(''), 3000); }
+    } catch (err) { setError(err.response?.data?.message || err.message || 'Failed to delete cap'); }
+    finally { setLoading(false); setDeleteDialogOpen(false); setCapToDelete(null); }
   };
 
-  const handleDeleteCancel = () => {
-    setDeleteDialogOpen(false);
-    setCapToDelete(null);
-  };
+  const paginatedCaps = caps.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+  const Pagination = () => {
+    const pages = Math.ceil(caps.length / rowsPerPage);
+    return (
+      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm text-gray-600">
+        <div className="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select value={rowsPerPage} onChange={e => { setRowsPerPage(Number(e.target.value)); setPage(0); }}
+            className="border border-gray-200 rounded-lg px-2 py-1 text-sm">
+            {ROWS_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>{page * rowsPerPage + 1}–{Math.min((page + 1) * rowsPerPage, caps.length)} of {caps.length}</span>
+          <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
+            className="px-2 py-1 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+          <button disabled={page >= pages - 1} onClick={() => setPage(p => p + 1)}
+            className="px-2 py-1 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+        </div>
+      </div>
+    );
   };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const getStockStatusColor = (status) => {
-    switch (status) {
-      case 'OUT_OF_STOCK':
-        return 'error';
-      case 'LOW_STOCK':
-        return 'warning';
-      case 'NORMAL':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStockStatusLabel = (status) => {
-    switch (status) {
-      case 'OUT_OF_STOCK':
-        return 'Out of Stock';
-      case 'LOW_STOCK':
-        return 'Low Stock';
-      case 'NORMAL':
-        return 'Normal';
-      default:
-        return status || 'Unknown';
-    }
-  };
-
-  const paginatedCaps = caps.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <FaBottleDroplet style={{ fontSize: 40, color: '#1976d2' }} />
-          <Typography variant="h4" component="h1" fontWeight="bold" color="primary">
-            Cap Management
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenModal()}
-          size="large"
-        >
-          Add Cap
-        </Button>
-      </Box>
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
 
-      {/* Filters */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              placeholder="Search caps..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Neck Type</InputLabel>
-              <Select
-                value={neckTypeFilter}
-                label="Neck Type"
-                sx={{ minWidth: 160 }}
-                onChange={(e) => setNeckTypeFilter(e.target.value)}
-              >
-                <MenuItem value="">All Types</MenuItem>
-                {neckTypes.map((type) => (
-                  <MenuItem key={type} value={type}>{type}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Size</InputLabel>
-              <Select
-                value={sizeFilter}
-                label="Size"
-                sx={{ minWidth: 160 }}
-                onChange={(e) => setSizeFilter(e.target.value)}
-              >
-                <MenuItem value="">All Sizes</MenuItem>
-                {sizes.map((size) => (
-                  <MenuItem key={size} value={size}>{size}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>Color</InputLabel>
-              <Select
-                value={colorFilter}
-                label="Color"
-                sx={{ minWidth: 160 }}
-                onChange={(e) => setColorFilter(e.target.value)}
-              >
-                <MenuItem value="">All Colors</MenuItem>
-                {colors.map((color) => (
-                  <MenuItem key={color} value={color}>{color}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Typography variant="body2" color="text.secondary">
-              Total: {caps.length} caps
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 rounded-xl">
+              <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" strokeWidth="2"/><circle cx="12" cy="12" r="3" strokeWidth="2"/></svg>
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">Cap Management</h1>
+              <p className="text-sm text-slate-500 mt-0.5">{caps.length} caps</p>
+            </div>
+          </div>
+          <button onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
+            <Plus className="h-4 w-4" /> Add Cap
+          </button>
+        </div>
 
-      {/* Success Message */}
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
+        {/* Alerts */}
+        {success && (
+          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm flex items-center justify-between">
+            {success}<button onClick={() => setSuccess('')}><X className="h-4 w-4" /></button>
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center justify-between">
+            {error}<button onClick={() => setError('')}><X className="h-4 w-4" /></button>
+          </div>
+        )}
 
-      {/* Error Message */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+        {/* Filters */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-5">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input type="text" placeholder="Search caps..."
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none" />
+            </div>
+            <select value={neckTypeFilter} onChange={e => setNeckTypeFilter(e.target.value)}
+              className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+              <option value="">All Neck Types</option>
+              {neckTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select value={sizeFilter} onChange={e => setSizeFilter(e.target.value)}
+              className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+              <option value="">All Sizes</option>
+              {sizes.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={colorFilter} onChange={e => setColorFilter(e.target.value)}
+              className="px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+              <option value="">All Colors</option>
+              {colors.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
 
-      {/* Loading State */}
-      {loading && caps.length === 0 && (
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress size={60} />
-        </Box>
-      )}
+        {/* Loading */}
+        {loading && caps.length === 0 && (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin h-8 w-8 border-4 border-amber-200 border-t-amber-500 rounded-full" />
+          </div>
+        )}
 
-      {/* Table */}
-      {!loading && caps.length > 0 && (
-        <Paper elevation={3}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Display Name</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Neck Type</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Size</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Color</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Available Quantity</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Status</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Remarks</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedCaps.map((cap, index) => (
-                  <TableRow
-                    key={cap._id}
-                    sx={{
-                      '&:hover': { backgroundColor: 'action.hover' },
-                      backgroundColor: index % 2 === 0 ? 'background.default' : 'action.hover',
-                    }}
-                  >
-                    <TableCell sx={{ fontWeight: 'medium' }}>
-                      {cap.displayName}
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={cap.neckType} size="small" color="primary" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={cap.size} size="small" color="secondary" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={cap.color} size="small" />
-                    </TableCell>
-                    <TableCell align="center">
-                      <strong>{cap.quantityAvailable || 0}</strong> Nos
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={getStockStatusLabel(cap.stockStatus)}
-                        color={getStockStatusColor(cap.stockStatus)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{cap.remarks || '-'}</TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Edit">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleOpenModal(cap)}
-                          size="small"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                            color="error"
-                            onClick={() => handleDeleteClick(cap)}
-                            size="small"
-                        >
-                            <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 20, 50]}
-            component="div"
-            count={caps.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
-      )}
-
-      {!loading && caps.length === 0 && (
-        <Paper elevation={2} sx={{ p: 6, textAlign: 'center' }}>
-          <FaBottleDroplet style={{ fontSize: 80, color: '#9e9e9e', marginBottom: 16 }} />
-          <Typography variant="h6" color="text.secondary">
-            No caps found. Add one to get started!
-          </Typography>
-        </Paper>
-      )}
-
-      {/* Add/Edit Cap Modal with Stock Adjustment */}
-      <Dialog open={isModalOpen} onClose={handleCloseModal} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600, pb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>{isEditMode ? 'Edit Cap' : 'Add Cap'}</span>
-          <IconButton onClick={handleCloseModal} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent sx={{ mt: 1 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-            
-            <Typography variant="h6" sx={{ mt: 1 }}>Cap Details</Typography>
-            <Divider />
-
-            {/* Cap Details */}
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required error={!formData.neckType}>
-                  <InputLabel>Neck Type</InputLabel>
-                  <Select
-                    name="neckType"
-                    value={formData.neckType}
-                    label="Neck Type"
-                    onChange={handleInputChange}
-                    disabled={isEditMode}
-                  >
-                    {neckTypes.map((type) => (
-                      <MenuItem key={type} value={type}>{type}</MenuItem>
+        {/* Table */}
+        {!loading && caps.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-amber-500 text-white">
+                    {['Display Name', 'Neck Type', 'Size', 'Color', 'Available Qty', 'Status', 'Remarks', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">{h}</th>
                     ))}
-                  </Select>
-                  {!formData.neckType && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
-                      Required field
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {paginatedCaps.map((cap, idx) => (
+                    <tr key={cap._id} className={`hover:bg-amber-50/40 transition-colors ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
+                      <td className="px-4 py-3 font-medium text-gray-800">{cap.displayName}</td>
+                      <td className="px-4 py-3"><span className="px-2.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 border border-blue-100 capitalize">{cap.neckType}</span></td>
+                      <td className="px-4 py-3"><span className="px-2.5 py-0.5 rounded-full text-xs bg-purple-50 text-purple-700 border border-purple-100">{cap.size}</span></td>
+                      <td className="px-4 py-3"><span className="px-2.5 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{cap.color}</span></td>
+                      <td className="px-4 py-3 font-semibold text-gray-800">{cap.quantityAvailable || 0} <span className="text-gray-400 font-normal text-xs">Nos</span></td>
+                      <td className="px-4 py-3">{statusBadge(cap.stockStatus)}</td>
+                      <td className="px-4 py-3 text-gray-500 max-w-[120px] truncate">{cap.remarks || '-'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleOpenModal(cap)} title="Edit"
+                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors">
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => handleDeleteClick(cap)} title="Delete"
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination />
+          </div>
+        )}
 
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required error={!formData.size}>
-                  <InputLabel>Size</InputLabel>
-                  <Select
-                    name="size"
-                    value={formData.size}
-                    label="Size"
-                    onChange={handleInputChange}
-                    disabled={isEditMode}
-                  >
-                    {sizes.map((size) => (
-                      <MenuItem key={size} value={size}>{size}</MenuItem>
-                    ))}
-                  </Select>
-                  {!formData.size && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
-                      Required field
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+        {!loading && caps.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <svg className="h-14 w-14 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" strokeWidth="1.5"/><circle cx="12" cy="12" r="3" strokeWidth="1.5"/></svg>
+            <p className="font-medium">No caps found. Add one to get started!</p>
+          </div>
+        )}
+      </div>
 
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required error={!formData.color}>
-                  <InputLabel>Color</InputLabel>
-                  <Select
-                    name="color"
-                    value={formData.color}
-                    label="Color"
-                    onChange={handleInputChange}
-                    disabled={isEditMode}
-                  >
-                    {colors.map((color) => (
-                      <MenuItem key={color} value={color}>{color}</MenuItem>
-                    ))}
-                  </Select>
-                  {!formData.color && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
-                      Required field
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
-            </Grid>
+      {/* ── Add/Edit Modal ───────────────────────────────────────────────── */}
+      {isModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+          onClick={handleCloseModal}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800">{isEditMode ? 'Edit Cap' : 'Add Cap'}</h3>
+              <button onClick={handleCloseModal} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Cap Details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Neck Type <span className="text-red-500">*</span></label>
+                  <select name="neckType" value={formData.neckType} onChange={handleInputChange} disabled={isEditMode}
+                    className={`${inputCls} ${isEditMode ? 'bg-gray-50 text-gray-400' : ''}`}>
+                    <option value="">Select Neck Type</option>
+                    {neckTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  {isEditMode && <p className="text-xs text-gray-400 mt-1">Cannot be changed</p>}
+                </div>
+                <div>
+                  <label className={labelCls}>Size <span className="text-red-500">*</span></label>
+                  <select name="size" value={formData.size} onChange={handleInputChange} disabled={isEditMode}
+                    className={`${inputCls} ${isEditMode ? 'bg-gray-50 text-gray-400' : ''}`}>
+                    <option value="">Select Size</option>
+                    {sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {isEditMode && <p className="text-xs text-gray-400 mt-1">Cannot be changed</p>}
+                </div>
+                <div>
+                  <label className={labelCls}>Color <span className="text-red-500">*</span></label>
+                  <select name="color" value={formData.color} onChange={handleInputChange} disabled={isEditMode}
+                    className={`${inputCls} ${isEditMode ? 'bg-gray-50 text-gray-400' : ''}`}>
+                    <option value="">Select Color</option>
+                    {colors.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  {isEditMode && <p className="text-xs text-gray-400 mt-1">Cannot be changed</p>}
+                </div>
+                {!isEditMode && (
+                  <div>
+                    <label className={labelCls}>Initial Quantity (Nos)</label>
+                    <input type="number" name="quantityAvailable" value={formData.quantityAvailable} onChange={handleInputChange} min="0" className={inputCls} />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className={labelCls}>Remarks</label>
+                <textarea name="remarks" value={formData.remarks} onChange={handleInputChange} rows={2} className={`${inputCls} resize-none`} />
+              </div>
 
-            {!isEditMode && (
-              <TextField
-                label="Initial Quantity Available"
-                name="quantityAvailable"
-                type="number"
-                value={formData.quantityAvailable}
-                onChange={handleInputChange}
-                fullWidth
-                inputProps={{ min: 0 }}
-                helperText="Number of caps available (in Nos)"
-                error={formData.quantityAvailable < 0}
-              />
+              {isEditMode && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Stock Adjustment</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelCls}>Change Type</label>
+                      <select name="changeType" value={stockAdjustmentData.changeType} onChange={handleStockAdjustmentChange} className={inputCls}>
+                        <option value="addition">Addition</option>
+                        <option value="reduction">Reduction</option>
+                        <option value="set">Set to Value</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Quantity Change</label>
+                      <input type="number" name="quantityChange" value={stockAdjustmentData.quantityChange} onChange={handleStockAdjustmentChange} min="0" className={inputCls} />
+                      <p className="text-xs text-gray-400 mt-1">
+                        {stockAdjustmentData.changeType === 'addition' ? 'Amount to add' : stockAdjustmentData.changeType === 'reduction' ? 'Amount to subtract' : 'Set to this value'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className={labelCls}>Adjustment Remarks</label>
+                    <textarea name="stockRemarks" value={stockAdjustmentData.stockRemarks} onChange={handleStockAdjustmentChange} rows={2} className={`${inputCls} resize-none`} placeholder="Notes" />
+                  </div>
+                </div>
+              )}
+              {error && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+            </div>
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={handleCloseModal} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50">Cancel</button>
+              <button onClick={handleSubmit} disabled={loading || !formData.neckType || !formData.size || !formData.color}
+                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-60">
+                {loading ? 'Saving...' : isEditMode ? 'Update' : 'Add'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Dialog ──────────────────────────────────── */}
+      {deleteDialogOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+          onClick={handleDeleteCancel}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-xl"><Trash2 className="h-5 w-5 text-red-600" /></div>
+              <h3 className="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this cap?</p>
+            {capToDelete && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm">
+                <div className="grid grid-cols-2 gap-2">
+                  <div><p className="text-xs text-gray-400">Neck Type</p><p className="font-semibold text-gray-800">{capToDelete.neckType}</p></div>
+                  <div><p className="text-xs text-gray-400">Size</p><p className="font-semibold text-gray-800">{capToDelete.size}</p></div>
+                  <div><p className="text-xs text-gray-400">Color</p><p className="font-semibold text-gray-800">{capToDelete.color}</p></div>
+                  <div><p className="text-xs text-gray-400">Available</p><p className="font-semibold text-gray-800">{capToDelete.quantityAvailable || 0} Nos</p></div>
+                </div>
+              </div>
             )}
-
-            <TextField
-              label="Remarks"
-              name="remarks"
-              value={formData.remarks}
-              onChange={handleInputChange}
-              multiline
-              rows={2}
-              fullWidth
-            />
-
-            {/* Stock Adjustment Section - Only in Edit Mode */}
-            {isEditMode && (
-              <>
-                <Typography variant="h6" sx={{ mt: 2 }}>Stock Adjustment</Typography>
-                <Divider />
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <FormControl fullWidth>
-                      <InputLabel>Change Type</InputLabel>
-                      <Select
-                        name="changeType"
-                        value={stockAdjustmentData.changeType}
-                        label="Change Type"
-                        onChange={handleStockAdjustmentChange}
-                      >
-                        <MenuItem value="addition">Addition</MenuItem>
-                        <MenuItem value="reduction">Reduction</MenuItem>
-                        <MenuItem value="set">Set to Value</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-
-                  <Grid item xs={12} sm={8}>
-                    <TextField
-                      label="Quantity Change"
-                      name="quantityChange"
-                      type="number"
-                      value={stockAdjustmentData.quantityChange}
-                      onChange={handleStockAdjustmentChange}
-                      fullWidth
-                      inputProps={{ min: 0 }}
-                      error={stockAdjustmentData.quantityChange !== '' && parseFloat(stockAdjustmentData.quantityChange) < 0}
-                      helperText={
-                        stockAdjustmentData.changeType === 'addition' ? 'Amount to add' :
-                        stockAdjustmentData.changeType === 'reduction' ? 'Amount to subtract' :
-                        'Set stock to this value'
-                      }
-                    />
-                  </Grid>
-                </Grid>
-
-                <TextField
-                  label="Stock Adjustment Remarks"
-                  name="stockRemarks"
-                  value={stockAdjustmentData.stockRemarks}
-                  onChange={handleStockAdjustmentChange}
-                  multiline
-                  rows={2}
-                  fullWidth
-                  placeholder="Additional notes about the stock adjustment"
-                />
-              </>
-            )}
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2, pt: 1 }}>
-          <Button onClick={handleCloseModal} variant="outlined">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={loading || !formData.neckType || !formData.size || !formData.color}
-          >
-            {loading ? 'Saving...' : isEditMode ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ 
-          fontWeight: 600, 
-          pb: 2,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1
-        }}>
-          <DeleteIcon color="error" />
-          Confirm Deletion
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            Are you sure you want to delete this cap?
-          </Typography>
-          
-          {capToDelete && (
-  <Paper
-    variant="outlined"
-    sx={{
-      p: 2,
-      bgcolor: "grey.50",
-      borderLeft: 4,
-      borderLeftColor: "error.main",
-    }}
-  >
-    <Grid container spacing={2}>
-      {/* LEFT SIDE */}
-      <Grid item xs={6}>
-        <Typography variant="caption" color="text.secondary">
-          Neck Type:
-        </Typography>
-        <Typography variant="body2" fontWeight="medium">
-          {capToDelete.neckType}
-        </Typography>
-      </Grid>
-
-      <Grid item xs={6}>
-        <Typography variant="caption" color="text.secondary">
-          Size:
-        </Typography>
-        <Typography variant="body2" fontWeight="medium">
-          {capToDelete.size}
-        </Typography>
-      </Grid>
-
-      {/* RIGHT SIDE */}
-      <Grid item xs={6}>
-        <Typography variant="caption" color="text.secondary">
-          Color:
-        </Typography>
-        <Typography variant="body2" fontWeight="medium">
-          {capToDelete.color}
-        </Typography>
-      </Grid>
-
-      <Grid item xs={6}>
-        <Typography variant="caption" color="text.secondary">
-          Available Quantity:
-        </Typography>
-        <Typography variant="body2" fontWeight="medium">
-          {capToDelete.quantityAvailable || 0} Nos
-        </Typography>
-      </Grid>
-    </Grid>
-  </Paper>
-)}
-
-          
-          <Typography 
-  variant="caption" 
-  color="error.main" 
-  sx={{ display: "flex", alignItems: "center", mt: 2, fontWeight: 600 }}
->
-  <WarningIcon sx={{ fontSize: 16, mr: 0.5 }} />
-  This action cannot be undone.
-</Typography>
-
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
-          <Button 
-            onClick={handleDeleteCancel} 
-            variant="outlined"
-            disabled={loading}
-            size="large"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            variant="contained"
-            color="error"
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
-            size="large"
-          >
-            {loading ? 'Deleting...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+            <div className="flex items-center gap-1.5 text-sm font-medium text-red-600 mb-4">
+              <AlertTriangle className="h-4 w-4" /> This action cannot be undone.
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleDeleteCancel} disabled={loading}
+                className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+              <button onClick={handleDeleteConfirm} disabled={loading}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-60">
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
