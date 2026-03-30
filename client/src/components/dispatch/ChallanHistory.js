@@ -36,15 +36,15 @@ const DispatchComponent = () => {
   const [processingOrders, setProcessingOrders] = useState([]);
   const [userChallans, setUserChallans] = useState([]);
   const [filteredChallans, setFilteredChallans] = useState([]);
-  
+
   const [searchUserCode, setSearchUserCode] = useState("");
   const [dcSearchTerm, setDcSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const [noChallansMessage, setNoChallansMessage] = useState(
     "Enter a user code to view challan history."
   );
-  
+
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
@@ -140,7 +140,7 @@ const DispatchComponent = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchChallansByUserCode(searchUserCode);
-    setDcSearchTerm(""); 
+    setDcSearchTerm("");
   };
 
   const handleDcSearchChange = (e) => {
@@ -223,7 +223,7 @@ const DispatchComponent = () => {
   };
 
   // --- PDF GENERATION LOGIC KEP EXACTLY AS ORIGINAL ---
-  const getChallanHTML = (challan, copyNumber = 1, totalCopies = 1) => {
+  const getChallanHTML = (challan) => {
     const subtotal = challan.items.reduce((acc, item) => acc + item.amount, 0);
     const gstRate = 0.05;
     const gstAmount = subtotal * gstRate;
@@ -235,11 +235,11 @@ const DispatchComponent = () => {
     const { customerName, firmName } = getCustomerInfo(challan);
 
     return `
-    <div style="font-family: Arial, sans-serif; padding: 15px; width: 140mm; box-sizing: border-box; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">      
-      <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; position: relative;">
-        <img src="${logo}" style="width: 80px; height: auto; margin-bottom: 5px;" />
-        <h1 style="font-size: 18px; margin: 3px 0; font-weight: bold; color: #2c3e50;">${companyDetails.name}</h1>
-        <div style="font-size: 9px; margin: 2px 0; color: #555;">
+    <div style="font-family: Arial, sans-serif; padding: 12px; width: 100%; max-width: 148mm; box-sizing: border-box; background: white; margin: 0 auto;">
+      <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px;">
+        <img src="${logo}" style="width: 60px; height: auto; margin-bottom: 5px;" />
+        <h1 style="font-size: 16px; margin: 3px 0; font-weight: bold; color: #2c3e50;">${companyDetails.name}</h1>
+        <div style="font-size: 8px; margin: 2px 0; color: #555;">
           <p style="margin: 1px 0;">${companyDetails.address}</p>
           <p style="margin: 1px 0;">
             <span>Phone: ${companyDetails.phone}</span> | 
@@ -249,125 +249,143 @@ const DispatchComponent = () => {
           <p style="margin: 2px 0; font-style: italic; color: #777;">${companyDetails.iso}</p>
         </div>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 10px; margin-bottom: 15px;">
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 9px; margin-bottom: 12px;">
         <!-- Left Column: Customer Details -->
-        <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
-          <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Customer Details</h3>
-          <p style="margin: 3px 0;"><strong>Firm Name:</strong> ${firmName}</p>
-          <p style="margin: 3px 0;"><strong>Customer Name:</strong> ${customerName}</p>
-          <p style="margin: 3px 0;"><strong>User Code:</strong> ${challan.userCode}</p>
-          <p style="margin: 3px 0;"><strong>Receiver:</strong> ${challan.receiverName}</p>
-          <p style="margin: 3px 0; line-height: 1.4;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
+        <div style="background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
+          <h3 style="margin: 0 0 6px 0; font-size: 10px; border-bottom: 1px solid #ddd; padding-bottom: 3px; color: #333;">Customer Details</h3>
+          <p style="margin: 2px 0;"><strong>Firm Name:</strong> ${firmName}</p>
+          <p style="margin: 2px 0;"><strong>Customer Name:</strong> ${customerName}</p>
+          <p style="margin: 2px 0;"><strong>User Code:</strong> ${challan.userCode}</p>
+          <p style="margin: 2px 0;"><strong>Receiver:</strong> ${challan.receiverName}</p>
+          <p style="margin: 2px 0; line-height: 1.3;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
         </div>
         
         <!-- Right Column: Challan Details -->
-        <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
-          <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Challan Details</h3>
-          <p style="margin: 3px 0;"><strong>Challan No:</strong> ${challan.invoiceNo}</p>
-          <p style="margin: 3px 0;"><strong>Date:</strong> ${displayDate}</p>
-          <p style="margin: 3px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
-          <p style="margin: 3px 0;"><strong>Driver Name:</strong> ${challan.driverName}</p>
-          <p style="margin: 3px 0;"><strong>Delivery Choice:</strong> ${challan.deliveryChoice || "Company Pickup"}</p>
+        <div style="background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
+          <h3 style="margin: 0 0 6px 0; font-size: 10px; border-bottom: 1px solid #ddd; padding-bottom: 3px; color: #333;">Challan Details</h3>
+          <p style="margin: 2px 0;"><strong>Challan No:</strong> ${challan.invoiceNo}</p>
+          <p style="margin: 2px 0;"><strong>Date:</strong> ${displayDate}</p>
+          <p style="margin: 2px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
+          <p style="margin: 2px 0;"><strong>Driver Name:</strong> ${challan.driverName}</p>
+          <p style="margin: 2px 0;"><strong>Delivery Choice:</strong> ${challan.deliveryChoice || "Company Pickup"}</p>
         </div>
       </div>
-      <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 15px;">
+      
+      <table style="width: 100%; border-collapse: collapse; font-size: 8px; margin-bottom: 12px;">
         <thead>
           <tr style="background: #34495e; color: white;">
-            <th style="border: 1px solid #2c3e50; padding: 5px;">No</th>
-            <th style="border: 1px solid #2c3e50; padding: 5px;">Description</th>
-            <th style="border: 1px solid #2c3e50; padding: 5px;">Boxes</th>
-            <th style="border: 1px solid #2c3e50; padding: 5px;">Rate</th>
-            <th style="border: 1px solid #2c3e50; padding: 5px;">Amount</th>
-          </tr>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">No</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Description</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Boxes</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Rate</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Amount</th>
+           </tr>
         </thead>
         <tbody>
           ${challan.items.map((item, index) => `
-              <tr>
-                <td style="border: 1px solid #ddd; padding: 5px; text-align:center;">${index + 1}</td>
-                <td style="border: 1px solid #ddd; padding: 5px;">${item.description}</td>
-                <td style="border: 1px solid #ddd; padding: 5px; text-align:center;">${item.boxes}</td>
-                <td style="border: 1px solid #ddd; padding: 5px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
-                <td style="border: 1px solid #ddd; padding: 5px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
-              </tr>
-            `).join("")}
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${index + 1}</td>
+              <td style="border: 1px solid #ddd; padding: 4px;">${item.description}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${item.boxes}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
+            </tr>
+          `).join("")}
         </tbody>
       </table>
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
-        <div style="width: 200px; font-size: 10px; background: #ecf0f1; padding: 10px; border-radius: 6px;">
-          <p style="margin: 4px 0; display: flex; justify-content: space-between;">
+      
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+        <div style="width: 180px; font-size: 9px; background: #ecf0f1; padding: 8px; border-radius: 6px;">
+          <p style="margin: 3px 0; display: flex; justify-content: space-between;">
             <span>Subtotal:</span> <span>₹ ${subtotal.toFixed(2)}</span>
           </p>
-          <p style="margin: 4px 0; display: flex; justify-content: space-between;">
+          <p style="margin: 3px 0; display: flex; justify-content: space-between;">
             <span>Delivery Charge:</span> <span>${deliveryCharge === 0 ? "Free" : `₹ ${deliveryCharge.toFixed(2)}`}</span>
           </p>
-          <div style="border-top: 1px dashed #999; margin: 8px 0 4px 0;"></div>
-          <p style="margin: 4px 0; display: flex; justify-content: space-between; font-weight: bold;">
+          <div style="border-top: 1px dashed #999; margin: 6px 0 3px 0;"></div>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between; font-weight: bold;">
             <span>Total with Delivery:</span> <span>₹ ${totalWithDelivery.toFixed(2)}</span>
           </p>
-          <div style="border-top: 1px dashed #999; margin: 8px 0 4px 0;"></div>
-          <p style="margin: 4px 0; display: flex; justify-content: space-between;">
+          <div style="border-top: 1px dashed #999; margin: 6px 0 3px 0;"></div>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between;">
             <span>GST (5%):</span> <span>₹ ${gstAmount.toFixed(2)}</span>
           </p>
-          <div style="border-top: 2px solid #bdc3c7; margin: 8px 0 4px 0;"></div>
-          <p style="margin: 4px 0; display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+          <div style="border-top: 2px solid #bdc3c7; margin: 6px 0 3px 0;"></div>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
             <span>Grand Total:</span> <span>₹ ${grandTotal.toFixed(2)}</span>
           </p>
         </div>
       </div>
-      <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 9px; border-top: 1px dashed #999; padding-top: 10px;">
+      
+      <div style="display: flex; justify-content: space-between; margin-top: 15px; font-size: 8px; border-top: 1px dashed #999; padding-top: 8px;">
         <div>
           <p style="margin: 2px 0;">Issuer’s Signature: ____________</p>
-          <p style="margin: 2px 0; color: #666; font-size: 8px;">Authorized Signatory</p>
+          <p style="margin: 2px 0; color: #666; font-size: 7px;">Authorized Signatory</p>
         </div>
         <div>
           <p style="margin: 2px 0;">Receiver’s Signature: ____________</p>
-          <p style="margin: 2px 0; color: #666; font-size: 8px;">Customer Signature</p>
+          <p style="margin: 2px 0; color: #666; font-size: 7px;">Customer Signature</p>
         </div>
       </div>
-      <div style="text-align: center; margin-top: 10px; font-size: 7px; color: #777;">
+      
+      <div style="text-align: center; margin-top: 8px; font-size: 6px; color: #777;">
         <p>This is a system generated challan - valid with authorized signature</p>
       </div>
     </div>
   `;
   };
 
-  const getDoubleChallanHTML = (challan) => {
-    return`
-  <!DOCTYPE html>
-  <html>
-  <head>
-  <meta charset="UTF-8">
-  <title>Challan - ${challan.invoiceNo}</title>
-  <style>
-  @page{ size:A4 portrait; margin:0; }
-  body{ margin:0; padding:0; font-family:Arial, sans-serif; }
-  .page{ width:210mm; height:297mm; display:flex; flex-direction:column; }
-  .half{ width:210mm; height:148.5mm; position:relative; overflow:hidden; border-bottom:2px dashed #999; }
-  .half:last-child{ border-bottom:none; }
-  .rotate{ position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(90deg); width:140mm; }
-  </style>
-  </head>
-  <body>
-  <div class="page">
-    <div class="half"><div class="rotate">${getChallanHTML(challan,1,2)}</div></div>
-    <div class="half"><div class="rotate">${getChallanHTML(challan,2,2)}</div></div>
-  </div>
-  </body>
-  </html>`;
+  const getSingleChallanHTML = (challan) => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Challan - ${challan.invoiceNo}</title>
+      <style>
+        @page {
+          size: A5;
+          margin: 8mm;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: Arial, sans-serif;
+          background: white;
+        }
+        .container {
+          width: 100%;
+          height: auto;
+          background: white;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        ${getChallanHTML(challan)}
+      </div>
+    </body>
+    </html>
+  `;
   };
 
   const downloadChallan = (challan) => {
     const element = document.createElement("div");
-    element.innerHTML = getDoubleChallanHTML(challan);
+    element.innerHTML = getSingleChallanHTML(challan);
 
     html2pdf()
       .from(element)
       .set({
-        margin: 0,
+        margin: 0.5,
         filename: `challan_${challan.invoiceNo}.pdf`,
-        image: { type: "jpeg", quality: 1 },
-        html2canvas: { scale: 6, useCORS: true },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: {
+          unit: "mm",
+          format: "a5",
+          orientation: "portrait"
+        },
       })
       .save();
   };
@@ -375,9 +393,11 @@ const DispatchComponent = () => {
   const printChallan = (challan) => {
     const printWindow = window.open("", "_blank");
     if (printWindow) {
-      printWindow.document.write(getDoubleChallanHTML(challan));
+      printWindow.document.write(getSingleChallanHTML(challan));
       printWindow.document.close();
-      printWindow.onload = () => { printWindow.print(); };
+      printWindow.onload = () => {
+        printWindow.print();
+      };
     }
   };
 
@@ -391,8 +411,8 @@ const DispatchComponent = () => {
   const pagedChallans = filteredChallans.slice(startIdx, startIdx + pageSize);
 
   const formatCurrency = (amount) => {
-    return amount !== undefined && amount !== null 
-      ? `₹${Number(amount).toLocaleString("en-IN")}` 
+    return amount !== undefined && amount !== null
+      ? `₹${Number(amount).toLocaleString("en-IN")}`
       : 'N/A';
   };
 
@@ -472,7 +492,7 @@ const DispatchComponent = () => {
       <ToastContainer position="top-right" autoClose={3000} />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <div className="flex items-center gap-3">
@@ -501,16 +521,16 @@ const DispatchComponent = () => {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden min-h-[400px]">
-          
+
           <div className="bg-gray-50/80 px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-               {isLoading ? (
-                  <p className="text-sm font-medium text-gray-600 animate-pulse">Scanning records...</p>
-               ) : userChallans.length > 0 ? (
-                  <p className="text-sm font-medium text-gray-800">Showing records for user code: <span className="font-bold text-blue-600">{searchUserCode}</span></p>
-               ) : (
-                  <p className="text-sm font-medium text-gray-500">{noChallansMessage}</p>
-               )}
+              {isLoading ? (
+                <p className="text-sm font-medium text-gray-600 animate-pulse">Scanning records...</p>
+              ) : userChallans.length > 0 ? (
+                <p className="text-sm font-medium text-gray-800">Showing records for user code: <span className="font-bold text-blue-600">{searchUserCode}</span></p>
+              ) : (
+                <p className="text-sm font-medium text-gray-500">{noChallansMessage}</p>
+              )}
             </div>
 
             {userChallans.length > 0 && (
@@ -545,18 +565,18 @@ const DispatchComponent = () => {
                       <TableHead className="font-semibold text-gray-600">Vehicle / Driver</TableHead>
                       <TableHead className="font-semibold text-gray-600 text-center">Status</TableHead>
                       <TableHead className="font-semibold text-gray-600 text-center">Scheduled</TableHead>
-                      <TableHead className="font-semibold text-gray-600 text-center">Split Info</TableHead>
+                      {/* <TableHead className="font-semibold text-gray-600 text-center">Split Info</TableHead> */}
                       <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
                       <TableHead className="font-semibold text-gray-600 text-right w-[140px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredChallans.length === 0 ? (
-                       <TableRow>
-                         <TableCell colSpan={9} className="h-32 text-center text-gray-500">
-                           No challans match the filter criteria "{dcSearchTerm}"
-                         </TableCell>
-                       </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={9} className="h-32 text-center text-gray-500">
+                          No challans match the filter criteria "{dcSearchTerm}"
+                        </TableCell>
+                      </TableRow>
                     ) : (
                       pagedChallans.map((challan) => {
                         const dcNumber = challan.invoiceNo || challan.dcNo || "";
@@ -585,7 +605,7 @@ const DispatchComponent = () => {
                             <TableCell className="text-center text-sm font-medium text-gray-700">
                               {new Date(challan.scheduledDate).toLocaleDateString("en-GB")}
                             </TableCell>
-                            <TableCell className="text-center text-sm">
+                            {/* <TableCell className="text-center text-sm">
                               {challan.splitInfo?.isSplit ? (
                                 <span className="text-blue-600 font-medium text-xs bg-blue-50 px-2 py-1 rounded-full">
                                   {challan.splitInfo.splitIndex + 1} / {challan.splitInfo.totalSplits}
@@ -593,7 +613,7 @@ const DispatchComponent = () => {
                               ) : (
                                 <span className="text-gray-400 text-xs">Single</span>
                               )}
-                            </TableCell>
+                            </TableCell> */}
                             <TableCell className="text-right font-bold text-gray-900">
                               {formatCurrency(challan.totalAmountWithDelivery)}
                             </TableCell>
@@ -622,11 +642,11 @@ const DispatchComponent = () => {
 
               {/* Mobile Card View */}
               <div className="block lg:hidden divide-y divide-gray-100">
-                 {filteredChallans.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 text-sm">No challans match the filter criteria.</div>
-                 ) : (
-                    pagedChallans.map(renderMobileChallanCard)
-                 )}
+                {filteredChallans.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 text-sm">No challans match the filter criteria.</div>
+                ) : (
+                  pagedChallans.map(renderMobileChallanCard)
+                )}
               </div>
 
               {/* Pagination */}

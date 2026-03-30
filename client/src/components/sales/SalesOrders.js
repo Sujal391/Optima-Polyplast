@@ -53,11 +53,15 @@ const SalesOrders = () => {
     fetchOrders();
   }, []);
 
-  const handleApprove = async (orderToApprove = selectedOrder) => {
-    if (!orderToApprove) return;
-    setApproving(orderToApprove._id || true);
+  const handleApprove = async (orderToApproveArg) => {
+    // If called via onClick={handleApprove}, the first arg is an event.
+    // We prefer the passed arg if it's a valid order object, otherwise fallback to selectedOrder.
+    const order = (orderToApproveArg && orderToApproveArg._id) ? orderToApproveArg : selectedOrder;
+    if (!order) return;
+
+    setApproving(order._id || true);
     try {
-      await api.put(`/sales/orders/${orderToApprove._id}/approve`);
+      await api.put(`/sales/orders/${order._id}/approve`);
       toast.success("Order approved successfully!");
       setDetailModal(false);
       setSelectedOrder(null);
@@ -369,6 +373,7 @@ const SalesOrders = () => {
                   <div>
                      <h4 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Customer info</h4>
                      <p className="font-semibold text-slate-800">{selectedOrder.user?.name || "Unknown"} ({selectedOrder.user?.phoneNumber || "-"})</p>
+                     <p className="font-semibold text-slate-800">{selectedOrder.user?.customerDetails?.userCode || "-"}</p>
                      <p className="text-sm text-slate-600 mt-1">{selectedOrder.user?.customerDetails?.firmName || selectedOrder.firmName}</p>
                   </div>
                   <div>
@@ -403,7 +408,7 @@ const SalesOrders = () => {
                                 {p.product?.image && (
                                   <img src={p.product.image} alt="" className="w-8 h-8 rounded border border-slate-200 object-cover" />
                                 )}
-                                <span>{p.product?.name || "Unknown"}</span>
+                                <span>{p.product?.name || "Unknown"} - {p.product?.category || ""}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3 text-center text-slate-600 font-semibold">{p.boxes}</td>
@@ -477,9 +482,9 @@ const SalesOrders = () => {
                      <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => setShowRejectInput(true)} disabled={approving}>
                        Reject Order
                      </Button>
-                     <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" onClick={handleApprove} disabled={approving}>
-                       {approving ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : "Approve Order"}
-                     </Button>
+                      <Button className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm" onClick={() => handleApprove(selectedOrder)} disabled={approving}>
+                        {approving ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : "Approve Order"}
+                      </Button>
                   </>
                 )}
               </DialogFooter>

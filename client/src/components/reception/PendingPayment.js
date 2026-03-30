@@ -98,7 +98,7 @@ export default function PendingPayment() {
   const fetchPendingPayments = async () => {
     setPendingLoading(true);
     try {
-      const res = await api.get("reception/pending-payments");
+      const res = await api.get("reception/pending-payments-details");
       setPendingPayments(res.data?.pendingPayments || []);
     } catch {
       toast.error("Error fetching pending payments");
@@ -174,7 +174,7 @@ export default function PendingPayment() {
       paymentId: payment.paymentId,
       currentStatus: payment.paymentStatus || payment.status || "pending",
       remainingAmount: payment.remainingAmount || 0,
-      totalAmount: payment.totalAmountWithDelivery || payment.totalAmount || 0,
+      totalAmount: payment.totalAmountWithGST || payment.totalAmountWithDelivery || payment.totalAmount || 0,
       paidAmount: payment.paidAmount || 0,
       type,
     });
@@ -397,7 +397,7 @@ export default function PendingPayment() {
                         <span className="text-sm text-gray-600">{p.user?.firmName || p.firmName || "N/A"}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithDelivery || p.totalAmount)}</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithGST || p.totalAmountWithDelivery || p.totalAmount)}</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <span className="font-semibold text-green-600">{formatCurrency(p.paidAmount)}</span>
@@ -464,7 +464,7 @@ export default function PendingPayment() {
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3 bg-gray-50 rounded-lg p-2">
                     <div>
                       <span className="text-xs text-gray-500 block">Total</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithDelivery || p.totalAmount)}</span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithGST || p.totalAmountWithDelivery || p.totalAmount)}</span>
                     </div>
                     <div>
                       <span className="text-xs text-gray-500 block">Remaining</span>
@@ -529,28 +529,40 @@ export default function PendingPayment() {
         <div className="space-y-6">
           
           {/* Financial Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Total Amount</p>
-              <p className="text-lg font-bold text-gray-900">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
+            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Total Amount</p>
+              <p className="text-sm sm:text-base font-bold text-gray-900">
                 {formatCurrency(detailsModal.payment.totalAmount)}
               </p>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Delivery Chg</p>
-              <p className="text-lg font-bold text-gray-900">
+            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">GST</p>
+              <p className="text-sm sm:text-base font-bold text-gray-900">
+                {formatCurrency(detailsModal.payment.gst || 0)}
+              </p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Total (Inc. GST)</p>
+              <p className="text-sm sm:text-base font-bold text-gray-900">
+                {formatCurrency(detailsModal.payment.totalAmountWithGST || detailsModal.payment.totalAmount)}
+              </p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Delivery Chg</p>
+              <p className="text-sm sm:text-base font-bold text-gray-900">
                 {formatCurrency(detailsModal.payment.deliveryCharge || 0)}
               </p>
             </div>
-            <div className="bg-green-50 p-4 rounded-xl border border-green-200 shadow-sm">
-              <p className="text-xs text-green-700 font-medium mb-1 uppercase">Paid Amount</p>
-              <p className="text-lg font-bold text-green-700">
+            <div className="bg-green-50 p-3 rounded-xl border border-green-200 shadow-sm">
+              <p className="text-[10px] text-green-700 font-medium mb-1 uppercase">Paid Amount</p>
+              <p className="text-sm sm:text-base font-bold text-green-700">
                 {formatCurrency(detailsModal.payment.paidAmount)}
               </p>
             </div>
-            <div className="bg-red-50 p-4 rounded-xl border border-red-200 shadow-sm">
-              <p className="text-xs text-red-700 font-medium mb-1 uppercase">Remaining</p>
-              <p className="text-lg font-bold text-red-700">
+            <div className="bg-red-50 p-3 rounded-xl border border-red-200 shadow-sm">
+              <p className="text-[10px] text-red-700 font-medium mb-1 uppercase">Remaining</p>
+              <p className="text-sm sm:text-base font-bold text-red-700">
                 {formatCurrency(detailsModal.payment.remainingAmount)}
               </p>
             </div>

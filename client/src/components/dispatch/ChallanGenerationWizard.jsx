@@ -580,7 +580,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                                 <p className="text-xs text-slate-400">@ ₹{product.pricePerBox}/box</p>
                               </div>
                               <div className="h-8 border-l border-slate-200" />
-                              <p className="font-bold text-indigo-600 text-sm">₹{(product.boxes * product.pricePerBox).toLocaleString('en-IN')}</p>
+                              <p className="font-bold text-indigo-600 text-sm">₹{(order.totalAmountWithGST).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                             </div>
                           )}
                         </div>
