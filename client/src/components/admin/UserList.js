@@ -17,7 +17,19 @@ import {
   Mail,
   Phone,
   Building2,
+  Trash2,
 } from "lucide-react";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 import {
   Card,
@@ -50,6 +62,9 @@ const Users = () => {
   const [popupType, setPopupType] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const api = axios.create({
     baseURL: process.env.REACT_APP_API,
@@ -156,6 +171,30 @@ const Users = () => {
       setPopupType("error");
       setPopupMessage("Failed to update status. Please try again later.");
     } finally {
+      setTimeout(() => setPopupMessage(null), 3000);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await api.delete(`/admin/users/${userToDelete.userCode}`);
+
+      if (response.status === 200) {
+        setUsers((prevUsers) => prevUsers.filter((u) => u.userCode !== userToDelete.userCode));
+        setPopupType("success");
+        setPopupMessage("User and related data deleted successfully");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setPopupType("error");
+      setPopupMessage(error.response?.data?.message || "Failed to delete user. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setUserToDelete(null);
       setTimeout(() => setPopupMessage(null), 3000);
     }
   };
@@ -363,6 +402,17 @@ const Users = () => {
                                 {user.isBeingToggled && (
                                   <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
                                 )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => {
+                                    setUserToDelete(user);
+                                    setShowDeleteDialog(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </td>
                           </motion.tr>
@@ -453,6 +503,17 @@ const Users = () => {
                               disabled={user.isBeingToggled}
                               className="scale-110"
                             />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-500"
+                              onClick={() => {
+                                setUserToDelete(user);
+                                setShowDeleteDialog(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       </motion.div>
@@ -505,6 +566,41 @@ const Users = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="h-5 w-5" /> Delete User Account
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{userToDelete?.name}</strong>?
+              <br /><br />
+              This action is <strong>permanent</strong> and will delete:
+              <ul className="list-disc ml-6 mt-2 space-y-1 text-xs">
+                <li>User profile and credentials</li>
+                <li>All order history and payments</li>
+                <li>All associated challans</li>
+                <li>Restores product stock levels</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteUser();
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirm Decletion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 };

@@ -15,6 +15,10 @@ import {
   X,
   Menu,
   ChevronRight,
+  History,
+  Filter,
+  Truck,
+  Activity,
 } from "lucide-react";
 import logo from "../../assets/logo1.png";
 import profile from "../../assets/profiles.jpg";
@@ -37,6 +41,10 @@ const navItems = [
   { path: "/order", icon: ShoppingCart, label: "Orders" },
   { path: "/users", icon: Users, label: "Users" },
   { path: "/PaymentReport", icon: FileText, label: "Payment Report" },
+  { path: "/admin/payments/history", icon: History, label: "Payment History" },
+  { path: "/admin/orders/filter", icon: Filter, label: "Order Filter" },
+  { path: "/admin/challans", icon: Truck, label: "Challan Report" },
+  { path: "/admin/stock/activities", icon: Activity, label: "Stock Activities" },
   { path: "/marketing", icon: Megaphone, label: "Marketing" },
   { path: "/createUser", icon: UserPlus, label: "Create Panels" },
   { path: "/upload-banner", icon: Image, label: "Upload Banner" },

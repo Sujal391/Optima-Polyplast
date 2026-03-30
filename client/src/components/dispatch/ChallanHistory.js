@@ -249,24 +249,26 @@ const DispatchComponent = () => {
           <p style="margin: 2px 0; font-style: italic; color: #777;">${companyDetails.iso}</p>
         </div>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 10px; margin-bottom: 15px; background: #f9f9f9; padding: 10px; border-radius: 6px;">
-        <div>
-          <p style="margin: 3px 0;"><strong>Challan No:</strong> ${challan.invoiceNo}</p>
-          <p style="margin: 3px 0;"><strong>Date:</strong> ${displayDate}</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 10px; margin-bottom: 15px;">
+        <!-- Left Column: Customer Details -->
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
+          <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Customer Details</h3>
+          <p style="margin: 3px 0;"><strong>Firm Name:</strong> ${firmName}</p>
+          <p style="margin: 3px 0;"><strong>Customer Name:</strong> ${customerName}</p>
           <p style="margin: 3px 0;"><strong>User Code:</strong> ${challan.userCode}</p>
           <p style="margin: 3px 0;"><strong>Receiver:</strong> ${challan.receiverName}</p>
-          <p style="margin: 3px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
+          <p style="margin: 3px 0; line-height: 1.4;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
         </div>
-        <div>
+        
+        <!-- Right Column: Challan Details -->
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
+          <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Challan Details</h3>
+          <p style="margin: 3px 0;"><strong>Challan No:</strong> ${challan.invoiceNo}</p>
+          <p style="margin: 3px 0;"><strong>Date:</strong> ${displayDate}</p>
+          <p style="margin: 3px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
           <p style="margin: 3px 0;"><strong>Driver Name:</strong> ${challan.driverName}</p>
-          <p style="margin: 3px 0;"><strong>GST Number:</strong> ${challan.customerGST || "-"}</p>
-          <p style="margin: 3px 0;"><strong>PAN Number:</strong> ${challan.customerPAN || "-"}</p>
           <p style="margin: 3px 0;"><strong>Delivery Choice:</strong> ${challan.deliveryChoice || "Company Pickup"}</p>
         </div>
-      </div>
-      <div style="font-size: 10px; background: #f5f5f5; padding: 8px; border-radius: 6px; margin-bottom: 15px;">
-        <p style="margin: 3px 0;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
-        <p style="margin: 3px 0;"><strong>Customer Name:</strong> ${customerName} | <strong>Firm Name:</strong> ${firmName}</p>
       </div>
       <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 15px;">
         <thead>
@@ -443,16 +445,16 @@ const DispatchComponent = () => {
             </Button>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => handleRowExpand(challan._id)} className="h-8 text-xs text-gray-500 font-medium px-2">
+        {/* <Button variant="ghost" size="sm" onClick={() => handleRowExpand(challan._id)} className="h-8 text-xs text-gray-500 font-medium px-2">
           {expandedRow === challan._id ? (
             <><ChevronUp className="h-3 w-3 mr-1"/> Close</>
           ) : (
             <><ChevronDown className="h-3 w-3 mr-1"/> Details</>
           )}
-        </Button>
+        </Button> */}
       </div>
 
-      {expandedRow === challan._id && (
+      {/* {expandedRow === challan._id && (
         <div className="mt-4 bg-blue-50/50 border border-blue-100 rounded-lg p-3">
           <p className="text-xs font-semibold text-blue-900 mb-1 border-b border-blue-100 pb-1">Split Info</p>
           <p className="text-xs text-blue-800">
@@ -461,7 +463,7 @@ const DispatchComponent = () => {
             ) : "Single Unsplit Challan"}
           </p>
         </div>
-      )}
+      )} */}
     </div>
   );
 

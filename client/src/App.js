@@ -24,10 +24,15 @@ import CategoryManagement from './components/admin/CategoryManagement';
 import FormulaManagement from './components/admin/FormulaManagement';
 import ReportsExport from './components/admin/ReportsExport';
 import PaymentReport from './components/admin/PaymentReport';
+import PaymentHistoryReport from './components/admin/reports/PaymentHistoryReport';
+import FilteredOrdersReport from './components/admin/reports/FilteredOrdersReport';
+import ChallanReport from './components/admin/reports/ChallanReport';
+import StockActivityReport from './components/admin/reports/StockActivityReport';
 
 // Reception Panel Components
 import ReceptionDashboard from './components/reception/Dashboard';
 import CreateOrder from './components/reception/CreateOrder';
+import PendingOrder from './components/reception/PendingOrder';
 import TotalOrder from './components/reception/TotalOrder';
 import ReceptionPendingPayment from './components/reception/PendingPayment';
 import ReceptionPartialPayment from './components/reception/PartialPayment';
@@ -133,6 +138,34 @@ function App() {
             </AuthLayout>
           </PrivateRoute>
         }/>
+        <Route path="/admin/payments/history" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AuthLayout>
+              <PaymentHistoryReport />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/admin/orders/filter" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AuthLayout>
+              <FilteredOrdersReport />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/admin/challans" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AuthLayout>
+              <ChallanReport />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/admin/stock/activities" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AuthLayout>
+              <StockActivityReport />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
 
         {/* Reception Panel Routes */}
         <Route path="/reception/dashboard" element={
@@ -163,6 +196,14 @@ function App() {
             <AuthLayout>
               <ReceptionDashboard />
               <CreateOrder />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/pending-orders" element={
+          <PrivateRoute allowedRoles={['reception']}>
+            <AuthLayout>
+              <ReceptionDashboard />
+              <PendingOrder />
             </AuthLayout>
           </PrivateRoute>
         }/>

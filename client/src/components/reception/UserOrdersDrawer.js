@@ -618,7 +618,18 @@ const UserOrdersDrawer = ({ open, onClose, customer }) => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => setStatusForm(p => ({ ...p, screenshot: e.target.files[0] }))}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+                          if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+                            toast.error("upload valid image less than 1 mb");
+                            e.target.value = "";
+                            return;
+                          }
+                          setStatusForm(p => ({ ...p, screenshot: file }));
+                        }
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>

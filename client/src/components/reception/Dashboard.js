@@ -30,7 +30,7 @@ const navLinks = [
 ];
 
 const ordersDropdown = [
-  // { to: "/pending-orders",             label: "Pending Orders",   icon: ClipboardList },
+  { to: "/pending-orders",             label: "Pending Orders",   icon: ClipboardList },
   { to: "/reception/pending-payments", label: "Pending Payments", icon: CreditCard },
   { to: "/total-orders",               label: "Order History",    icon: History },
 ];

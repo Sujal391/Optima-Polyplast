@@ -89,8 +89,10 @@ const BannerManagement = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (!file.type.startsWith("image/")) {
-        showToast("Please select an image file.", "error");
+      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+      if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+        showToast("upload valid image less than 1 mb", "error");
+        e.target.value = "";
         return;
       }
       setBannerImage(file);

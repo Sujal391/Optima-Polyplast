@@ -507,131 +507,248 @@ export default function PendingPayment() {
       </div>
 
       {/* 📌 PAYMENT DETAILS DIALOG */}
-      <Dialog 
-        open={detailsModal.isOpen} 
-        onOpenChange={(open) => !open && closeDetailsModal()}
-      >
-        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-gray-50">
-          <DialogHeader className="px-6 py-4 bg-white border-b shrink-0 flex flex-row items-center justify-between">
-            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
-               <Receipt className="h-5 w-5 text-green-600" /> Payment Overview
-            </DialogTitle>
-          </DialogHeader>
+      {/* 📌 PAYMENT DETAILS DIALOG */}
+<Dialog 
+  open={detailsModal.isOpen} 
+  onOpenChange={(open) => !open && closeDetailsModal()}
+>
+  <DialogContent className="max-w-3xl p-0 overflow-hidden bg-gray-50">
+    <DialogHeader className="px-6 py-4 bg-white border-b shrink-0 flex flex-row items-center justify-between">
+      <DialogTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">
+         <Receipt className="h-5 w-5 text-green-600" /> Payment Overview
+      </DialogTitle>
+    </DialogHeader>
 
-          <div className="px-6 py-5 overflow-y-auto max-h-[70vh]">
-            {detailsModal.loading ? (
-              <div className="flex flex-col items-center justify-center py-10 space-y-3">
-                <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                <span className="text-gray-500 text-sm">Loading details...</span>
+    <div className="px-6 py-5 overflow-y-auto max-h-[70vh]">
+      {detailsModal.loading ? (
+        <div className="flex flex-col items-center justify-center py-10 space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          <span className="text-gray-500 text-sm">Loading details...</span>
+        </div>
+      ) : detailsModal.payment ? (
+        <div className="space-y-6">
+          
+          {/* Financial Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Total Amount</p>
+              <p className="text-lg font-bold text-gray-900">
+                {formatCurrency(detailsModal.payment.totalAmount)}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Delivery Chg</p>
+              <p className="text-lg font-bold text-gray-900">
+                {formatCurrency(detailsModal.payment.deliveryCharge || 0)}
+              </p>
+            </div>
+            <div className="bg-green-50 p-4 rounded-xl border border-green-200 shadow-sm">
+              <p className="text-xs text-green-700 font-medium mb-1 uppercase">Paid Amount</p>
+              <p className="text-lg font-bold text-green-700">
+                {formatCurrency(detailsModal.payment.paidAmount)}
+              </p>
+            </div>
+            <div className="bg-red-50 p-4 rounded-xl border border-red-200 shadow-sm">
+              <p className="text-xs text-red-700 font-medium mb-1 uppercase">Remaining</p>
+              <p className="text-lg font-bold text-red-700">
+                {formatCurrency(detailsModal.payment.remainingAmount)}
+              </p>
+            </div>
+          </div>
+
+          {/* Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Customer Info Card */}
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-2">
+                 <User className="h-4 w-4 text-gray-400" />
+                 <h3 className="font-semibold text-gray-800">Customer Info</h3>
               </div>
-            ) : detailsModal.payment ? (
-              <div className="space-y-6">
-                
-                {/* Financial Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Total Amount</p>
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(detailsModal.payment.totalAmountWithDelivery || detailsModal.payment.totalAmount)}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-xs text-gray-500 font-medium mb-1 uppercase">Delivery Chg</p>
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(detailsModal.payment.deliveryCharge)}</p>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-xl border border-green-200 shadow-sm">
-                    <p className="text-xs text-green-700 font-medium mb-1 uppercase">Paid Amount</p>
-                    <p className="text-lg font-bold text-green-700">{formatCurrency(detailsModal.payment.paidAmount)}</p>
-                  </div>
-                  <div className="bg-red-50 p-4 rounded-xl border border-red-200 shadow-sm">
-                    <p className="text-xs text-red-700 font-medium mb-1 uppercase">Remaining</p>
-                    <p className="text-lg font-bold text-red-700">{formatCurrency(detailsModal.payment.remainingAmount)}</p>
-                  </div>
+              <div className="text-sm space-y-2">
+                <div>
+                  <span className="text-gray-500 block text-xs">Name</span>
+                  <span className="font-medium text-gray-900">
+                    {detailsModal.payment.user?.name || "N/A"}
+                  </span>
                 </div>
-
-                {/* Info Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
-                    <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-2">
-                       <User className="h-4 w-4 text-gray-400" />
-                       <h3 className="font-semibold text-gray-800">Customer Info</h3>
-                    </div>
-                    <div className="text-sm space-y-1">
-                      <p><span className="text-gray-500">Name:</span> <span className="font-medium text-gray-900">{detailsModal.payment.user?.name || "N/A"}</span></p>
-                      <p><span className="text-gray-500">Firm:</span> <span className="font-medium text-gray-900">{detailsModal.payment.user?.firmName || detailsModal.payment.firmName || "N/A"}</span></p>
-                      <p><span className="text-gray-500">Code:</span> <span className="font-mono text-xs">{detailsModal.payment.user?.userCode || "N/A"}</span></p>
-                      <p><span className="text-gray-500">Phone:</span> {detailsModal.payment.user?.phoneNumber || "N/A"}</p>
-                    </div>
-                  </div>
-                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
-                    <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-2">
-                       <MapPin className="h-4 w-4 text-gray-400" />
-                       <h3 className="font-semibold text-gray-800">Order Context</h3>
-                    </div>
-                    <div className="text-sm space-y-1">
-                      <p><span className="text-gray-500">Order ID:</span> <span className="font-mono text-xs font-semibold">{detailsModal.payment.orderId || "N/A"}</span></p>
-                      <p className="flex items-center gap-2">
-                         <span className="text-gray-500">Order Status:</span> 
-                         <Badge variant="outline" className="py-0 h-5" >{detailsModal.payment.orderStatus || "N/A"}</Badge>
-                      </p>
-                      <p className="flex items-center gap-2">
-                         <span className="text-gray-500">Payment Status:</span> 
-                         <Badge variant="outline" className={`py-0 h-5 ${getPaymentStatusColor(detailsModal.payment.paymentStatus)}`}>{detailsModal.payment.paymentStatus || "N/A"}</Badge>
-                      </p>
-                      <p><span className="text-gray-500">Created:</span> {formatDateTime(detailsModal.payment.createdAt)}</p>
-                    </div>
-                  </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Firm Name</span>
+                  <span className="font-medium text-gray-900">
+                    {detailsModal.payment.user?.customerDetails?.firmName || "N/A"}
+                  </span>
                 </div>
-
-                {/* Payment History List */}
-                {detailsModal.payment.paymentHistory?.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-500" /> Transaction History
-                    </div>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-transparent hover:bg-transparent">
-                            <TableHead className="font-semibold text-gray-600">Date</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Ref ID</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Mode</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Bank</TableHead>
-                            <TableHead className="font-semibold text-gray-600">Screenshot</TableHead>
-                            <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {detailsModal.payment.paymentHistory.map((h, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="text-xs">{formatDateTime(h.date || h.submissionDate || h.createdAt)}</TableCell>
-                              <TableCell className="font-mono text-xs">{h.referenceId || h.paymentId || "—"}</TableCell>
-                              <TableCell className="uppercase text-xs font-semibold">{h.paymentMode || "—"}</TableCell>
-                              <TableCell className="uppercase text-xs font-semibold">{h.bankName || "—"}</TableCell>
-                              <TableCell className="text-xs">
-                                {h.screenshotUrl ? (
-                                  <a href={h.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                                    <Eye className="h-3 w-3" /> View
-                                  </a>
-                                ) : "—"}
-                              </TableCell>
-                              <TableCell className="text-right font-bold text-green-700">
-                                {formatCurrency(h.amount || h.submittedAmount || h.verifiedAmount)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">User Code</span>
+                  <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                    {detailsModal.payment.user?.customerDetails?.userCode || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Phone Number</span>
+                  <span className="font-medium text-gray-900">
+                    {detailsModal.payment.user?.phoneNumber || "N/A"}
+                  </span>
+                </div>
+                {detailsModal.payment.user?.email && (
+                  <div>
+                    <span className="text-gray-500 block text-xs">Email</span>
+                    <span className="text-gray-900 text-sm break-all">
+                      {detailsModal.payment.user.email}
+                    </span>
                   </div>
                 )}
               </div>
-            ) : null}
+            </div>
+
+            {/* Order Context Card */}
+            <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 border-b border-gray-100 pb-2 mb-2">
+                 <MapPin className="h-4 w-4 text-gray-400" />
+                 <h3 className="font-semibold text-gray-800">Order Details</h3>
+              </div>
+              <div className="text-sm space-y-2">
+                <div>
+                  <span className="text-gray-500 block text-xs">Order ID</span>
+                  <span className="font-mono text-xs font-semibold">
+                    {detailsModal.payment.order?.orderId || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Order Status</span>
+                  <Badge variant="outline" className="mt-1">
+                    {detailsModal.payment.order?.orderStatus || "N/A"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Payment Status</span>
+                  <Badge variant="outline" className={`mt-1 ${getPaymentStatusColor(detailsModal.payment.status)}`}>
+                    {detailsModal.payment.status || "N/A"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Payment Type</span>
+                  <span className="text-gray-900 uppercase text-xs font-semibold">
+                    {detailsModal.payment.paymentType || "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-xs">Created At</span>
+                  <span className="text-gray-900 text-xs">
+                    {formatDateTime(detailsModal.payment.createdAt)}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <DialogFooter className="px-6 py-4 bg-white border-t shrink-0">
-             <Button variant="outline" onClick={closeDetailsModal}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* Products Section */}
+          {detailsModal.payment.order?.products?.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <PackageSearch className="h-4 w-4 text-gray-500" /> Products
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-transparent hover:bg-transparent">
+                      <TableHead className="font-semibold text-gray-600">Product Name</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Type</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-right">Quantity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailsModal.payment.order.products.map((product, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium text-gray-900">
+                          {product.name}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {product.type}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {product.boxes} boxes
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {/* Address Section */}
+          {detailsModal.payment.user?.customerDetails?.address && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-gray-500" /> Shipping Address
+              </div>
+              <div className="p-4 text-sm text-gray-600">
+                <p>{detailsModal.payment.user.customerDetails.address.address}</p>
+                <p>
+                  {detailsModal.payment.user.customerDetails.address.city}, 
+                  {detailsModal.payment.user.customerDetails.address.state} - 
+                  {detailsModal.payment.user.customerDetails.address.pinCode}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Payment History List */}
+          {detailsModal.payment.paymentHistory?.length > 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4 text-gray-500" /> Transaction History
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-transparent hover:bg-transparent">
+                      <TableHead className="font-semibold text-gray-600">Date</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Ref ID</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Mode</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Bank</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Screenshot</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailsModal.payment.paymentHistory.map((h, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs">{formatDateTime(h.date || h.submissionDate || h.createdAt)}</TableCell>
+                        <TableCell className="font-mono text-xs">{h.referenceId || h.paymentId || "—"}</TableCell>
+                        <TableCell className="uppercase text-xs font-semibold">{h.paymentMode || "—"}</TableCell>
+                        <TableCell className="uppercase text-xs font-semibold">{h.bankName || "—"}</TableCell>
+                        <TableCell className="text-xs">
+                          {h.screenshotUrl ? (
+                            <a href={h.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> View
+                            </a>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-green-700">
+                          {formatCurrency(h.amount || h.submittedAmount || h.verifiedAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 text-center">
+              <Clock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No payment history available</p>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+
+    <DialogFooter className="px-6 py-4 bg-white border-t shrink-0">
+       <Button variant="outline" onClick={closeDetailsModal}>Close</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
       {/* 📌 UPDATE STATUS DIALOG */}
       <Dialog open={statusModal.isOpen} onOpenChange={(open) => !open && closeStatusModal()}>
@@ -734,7 +851,18 @@ export default function PendingPayment() {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => setStatusForm(p => ({ ...p, screenshot: e.target.files[0] }))}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+                          if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+                            toast.error("upload valid image less than 1 mb");
+                            e.target.value = "";
+                            return;
+                          }
+                          setStatusForm(p => ({ ...p, screenshot: file }));
+                        }
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>

@@ -369,14 +369,14 @@ const DispatchComponent = () => {
                           <p className="text-xs text-gray-600 truncate" title={order.products.map((i) => `${i.product?.name}: ${i.boxes}`).join(', ')}>
                             {order.products.map((item, i) => (
                               <span key={i}>
-                                <span className="font-medium text-gray-800">{item.product?.name}</span> ({item.boxes})
+                                <span className="font-medium text-gray-800">{item.product?.name} - {item.product?.category}</span> ({item.boxes})
                                 {i < order.products.length - 1 ? ', ' : ''}
                               </span>
                             ))}
                           </p>
                         </TableCell>
                         <TableCell className="text-right font-bold text-gray-900">
-                          {formatCurrency(order.totalAmountWithDelivery || order.totalAmount)}
+                          {formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}
                         </TableCell>
                         <TableCell className="text-center">
                           <ActionDropdown order={order} />
@@ -406,7 +406,7 @@ const DispatchComponent = () => {
                         <p className="text-xs text-gray-500">{order.user?.name} · {order.user?.phoneNumber}</p>
                       </div>
                       <div className="flex flex-col items-end shrink-0 gap-1">
-                        <p className="font-bold text-gray-900 text-sm">{formatCurrency(order.totalAmountWithDelivery || order.totalAmount)}</p>
+                        <p className="font-bold text-gray-900 text-sm">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</p>
                         <ActionDropdown order={order} />
                       </div>
                     </div>
@@ -425,7 +425,7 @@ const DispatchComponent = () => {
                     {/* Products + expand */}
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-gray-500 truncate flex-1 mr-2">
-                        {order.products.map((i) => `${i.product?.name} (${i.boxes})`).join(', ')}
+                        {order.products.map((i) => `${i.product?.name} - ${i.product?.category} (${i.boxes})`).join(', ')}
                       </p>
                       <button
                         onClick={() => setExpandedRow((prev) => (prev === order._id ? null : order._id))}
@@ -444,7 +444,7 @@ const DispatchComponent = () => {
                           <p className="text-xs font-semibold text-gray-600 mb-1">Products:</p>
                           <ul className="text-xs text-gray-500 space-y-0.5 list-disc pl-4">
                             {order.products.map((item, i) => (
-                              <li key={i}>{item.product?.name}: <span className="font-semibold text-gray-700">{item.boxes} boxes</span></li>
+                              <li key={i}>{item.product?.name} - {item.product?.category} : <span className="font-semibold text-gray-700">{item.boxes} boxes</span></li>
                             ))}
                           </ul>
                         </div>

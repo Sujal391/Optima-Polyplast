@@ -214,7 +214,7 @@ const SalesOrders = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-1.5 items-start">
-                            <span className="text-sm font-bold text-slate-800">{formatCurrency(order.totalAmountWithDelivery || order.totalAmount)}</span>
+                            <span className="text-sm font-bold text-slate-800">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</span>
                             <Badge variant="outline" className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 ${getStatusColor(order.orderStatus)}`}>
                               {order.orderStatus?.replace('_', ' ')}
                             </Badge>
@@ -304,7 +304,7 @@ const SalesOrders = () => {
                      </div>
                      <div className="flex flex-col gap-1 items-end">
                        <span className="text-[10px] text-slate-500 font-semibold uppercase">Total Amount</span>
-                       <span className="text-sm font-bold text-slate-800">{formatCurrency(order.totalAmountWithDelivery || order.totalAmount)}</span>
+                                               <span className="text-sm font-bold text-slate-800">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</span>
                      </div>
                   </div>
 
@@ -414,12 +414,22 @@ const SalesOrders = () => {
                       </tbody>
                       <tfoot className="bg-slate-50/80 border-t border-slate-200 font-bold text-slate-800">
                         <tr>
-                          <td colSpan="3" className="px-4 py-3 text-right">Delivery Charge:</td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(selectedOrder.deliveryCharge)}</td>
+                          <td colSpan="3" className="px-4 py-3 text-right text-slate-500 font-medium">Subtotal:</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(selectedOrder.amount || selectedOrder.totalAmount || 0)}</td>
                         </tr>
                         <tr>
+                          <td colSpan="3" className="px-4 py-3 text-right text-slate-500 font-medium">GST:</td>
+                          <td className="px-4 py-3 text-right">{formatCurrency(selectedOrder.gst || 0)}</td>
+                        </tr>
+                        {Number(selectedOrder.deliveryCharge) > 0 && (
+                          <tr>
+                            <td colSpan="3" className="px-4 py-3 text-right text-slate-500 font-medium">Delivery Charge:</td>
+                            <td className="px-4 py-3 text-right text-red-600">+{formatCurrency(selectedOrder.deliveryCharge)}</td>
+                          </tr>
+                        )}
+                        <tr>
                           <td colSpan="3" className="px-4 py-3 text-right text-base text-blue-700">Grand Total:</td>
-                          <td className="px-4 py-3 text-right text-base text-blue-700">{formatCurrency(selectedOrder.totalAmountWithDelivery || selectedOrder.totalAmount)}</td>
+                          <td className="px-4 py-3 text-right text-base text-blue-700">{formatCurrency(selectedOrder.totalAmountWithGST || selectedOrder.totalAmountWithDelivery || selectedOrder.totalAmount)}</td>
                         </tr>
                       </tfoot>
                     </table>

@@ -54,8 +54,8 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       productCategory: p.product?.category || "N/A",
       boxes: p.boxes,
       originalBoxes: p.boxes,
-      pricePerBox: p.pricePerBox || p.product?.price || 0,
-      originalPrice: p.pricePerBox || p.product?.price || 0,
+      pricePerBox: p.price || p.product?.originalPrice || 0,   // ← was p.pricePerBox
+      originalPrice: p.price || p.product?.originalPrice || 0,
       isNew: false,
     })) || []
   );
@@ -174,7 +174,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
             boxes: p.boxes,
           };
           if (p.pricePerBox !== p.originalPrice) {
-            productPayload.pricePerBox = p.pricePerBox;
+            productPayload.price = p.pricePerBox;
           }
           return productPayload;
         }),
@@ -451,14 +451,21 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-gradient-to-r from-slate-50 to-white px-5 py-4 border-b border-slate-200 gap-3">
                   <div>
                     <h3 className="text-base font-bold text-slate-900">Order Items</h3>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      <span className="font-semibold text-indigo-600">{totalOrderQty} boxes</span>
-                      <span className="mx-1.5 text-slate-300">·</span>
-                      <span className="font-semibold text-emerald-600">₹{totalOrderValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                      {orderEdited && (
-                        <span className="ml-2 text-emerald-600 font-medium inline-flex items-center gap-1"><Check className="h-3 w-3"/> Updated</span>
-                      )}
-                    </p>
+                    <div className="text-sm text-slate-500 mt-0.5 space-y-1">
+                      <p className="flex items-center gap-2">
+                        <span className="font-semibold text-indigo-600">{totalOrderQty} boxes</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-medium">Subtotal: <span className="text-slate-900">₹{totalOrderValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></span>
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <span className="font-medium text-slate-500">GST (5%): <span className="text-slate-900">₹{(totalOrderValue * 0.05).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></span>
+                        <span className="text-slate-300">·</span>
+                        <span className="font-bold text-emerald-600 font-bold">Total: ₹{(totalOrderValue * 1.05 + (Number(order.deliveryCharge) || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        {orderEdited && (
+                          <span className="ml-2 text-emerald-600 font-medium inline-flex items-center gap-1"><Check className="h-3 w-3"/> Updated</span>
+                        )}
+                      </p>
+                    </div>
                   </div>
                   {!isEditingOrder ? (
                     <Button

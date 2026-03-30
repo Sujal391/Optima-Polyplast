@@ -284,7 +284,7 @@ export default function OrderManagement() {
                       </TableCell>
                       <TableCell>
                         <span className="font-semibold text-gray-900">
-                          {formatCurrency(o.totalAmountWithDelivery || o.totalAmount)}
+                          {formatCurrency(o.totalAmountWithGST || o.totalAmountWithDelivery || o.totalAmount)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -294,8 +294,8 @@ export default function OrderManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col items-start gap-1">
-                          <Badge variant="outline" className={getPaymentStatusColor(o.paymentStatus)}>
-                            {o.paymentStatus || "pending"}
+                          <Badge variant="outline" className={getPaymentStatusColor(o.paymentDetails?.status || o.paymentStatus)}>
+                            {o.paymentDetails?.status || o.paymentStatus || "pending"}
                           </Badge>
                           <span className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">
                             {o.paymentMethod || "COD"}
@@ -354,7 +354,7 @@ export default function OrderManagement() {
                       <p className="font-medium text-gray-900 mt-1">{o.user?.name || "N/A"}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-gray-900">{formatCurrency(o.totalAmountWithDelivery || o.totalAmount)}</p>
+                      <p className="font-bold text-gray-900">{formatCurrency(o.totalAmountWithGST || o.totalAmountWithDelivery || o.totalAmount)}</p>
                       <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mt-0.5">{o.paymentMethod || "COD"}</p>
                     </div>
                   </div>
@@ -369,8 +369,8 @@ export default function OrderManagement() {
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getOrderStatusColor(o.orderStatus)}`}>
                         {o.orderStatus || "pending"}
                       </Badge>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPaymentStatusColor(o.paymentStatus)}`}>
-                        {o.paymentStatus || "pending"}
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPaymentStatusColor(o.paymentDetails?.status || o.paymentStatus)}`}>
+                        {o.paymentDetails?.status || o.paymentStatus || "pending"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
@@ -473,10 +473,10 @@ export default function OrderManagement() {
                     <div className="min-w-0">
                       <p className="text-xs text-gray-500 font-medium">Payment ({detailModal.order.paymentMethod || 'COD'})</p>
                       <p className={`text-sm font-semibold truncate ${
-                        detailModal.order.paymentStatus === 'completed' || detailModal.order.paymentStatus === 'paid' 
+                        (detailModal.order.paymentDetails?.status || detailModal.order.paymentStatus) === 'completed' || (detailModal.order.paymentDetails?.status || detailModal.order.paymentStatus) === 'paid' 
                           ? 'text-green-700' : 'text-yellow-700'
                       }`}>
-                        {detailModal.order.paymentStatus || 'pending'}
+                        {detailModal.order.paymentDetails?.status || detailModal.order.paymentStatus || 'pending'}
                       </p>
                     </div>
                   </div>
@@ -577,7 +577,11 @@ export default function OrderManagement() {
                   <div className="bg-gray-50/80 p-4 border-t border-gray-100 flex flex-col items-end gap-2">
                     <div className="flex justify-between w-full sm:w-64 text-sm text-gray-600">
                       <span>Subtotal:</span>
-                      <span className="font-medium text-gray-900">{formatCurrency(detailModal.order.totalAmount)}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(detailModal.order.amount || detailModal.order.totalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between w-full sm:w-64 text-sm text-gray-600">
+                      <span>GST:</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(detailModal.order.gst)}</span>
                     </div>
                     {detailModal.order.deliveryCharge > 0 && (
                       <div className="flex justify-between w-full sm:w-64 text-sm text-gray-600">
@@ -587,8 +591,22 @@ export default function OrderManagement() {
                     )}
                     <div className="flex justify-between w-full sm:w-64 text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
                       <span>Grand Total:</span>
-                      <span className="text-blue-700">{formatCurrency(detailModal.order.totalAmountWithDelivery || detailModal.order.totalAmount)}</span>
+                      <span className="text-blue-700">{formatCurrency(detailModal.order.totalAmountWithGST || detailModal.order.totalAmountWithDelivery || detailModal.order.totalAmount)}</span>
                     </div>
+                    {detailModal.order.paidAmount !== undefined && (
+                      <>
+                        <div className="flex justify-between w-full sm:w-64 text-sm text-green-600">
+                          <span>Paid Amount:</span>
+                          <span className="font-medium">{formatCurrency(detailModal.order.paidAmount)}</span>
+                        </div>
+                        <div className="flex justify-between w-full sm:w-64 text-sm text-red-600">
+                          <span>Remaining:</span>
+                          <span className="font-medium">
+                            {formatCurrency((detailModal.order.totalAmountWithGST || detailModal.order.totalAmountWithDelivery || detailModal.order.totalAmount) - (detailModal.order.paidAmount || 0))}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

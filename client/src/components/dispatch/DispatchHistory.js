@@ -211,7 +211,7 @@ const DispatchComponent = () => {
           <p className="text-sm text-gray-500">{order.user?.name} | {order.user?.phoneNumber}</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="font-bold text-gray-900">{formatCurrency(order.totalAmountWithDelivery || order.totalAmount)}</p>
+          <p className="font-bold text-gray-900">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</p>
           <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mt-0.5">{order.paymentMethod || "COD"}</p>
         </div>
       </div>
@@ -377,7 +377,7 @@ const DispatchComponent = () => {
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium text-gray-900">{order.firmName || order.user?.customerDetails?.firmName || "N/A"}</span>
-                          <span className="text-gray-500 text-xs mt-0.5">{order.user?.name || "N/A"} • {order.user?.phoneNumber || ""}</span>
+                          <span className="text-gray-500 text-xs mt-0.5">{order.user?.name || "N/A"} • {order.user?.customerDetails?.userCode || ""}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -399,7 +399,7 @@ const DispatchComponent = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-bold text-gray-900">{formatCurrency(order.totalAmountWithDelivery || order.totalAmount)}</span>
+                        <span className="font-bold text-gray-900">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -593,7 +593,11 @@ const DispatchComponent = () => {
                 <div className="bg-gray-50/80 p-5 border-t border-gray-200 flex flex-col items-end space-y-2">
                   <div className="flex justify-between w-full max-w-xs text-sm">
                     <span className="text-gray-600 font-medium">Subtotal Net:</span>
-                    <span className="font-semibold text-gray-900">{formatCurrency(selectedOrder.totalAmount)}</span>
+                    <span className="font-semibold text-gray-900">{formatCurrency(selectedOrder.amount || selectedOrder.totalAmount)}</span>
+                  </div>
+                  <div className="flex justify-between w-full max-w-xs text-sm">
+                    <span className="text-gray-600 font-medium">GST:</span>
+                    <span className="font-semibold text-gray-900">{formatCurrency(selectedOrder.gst)}</span>
                   </div>
                   <div className="flex justify-between w-full max-w-xs text-sm">
                     <span className="text-gray-600 font-medium">Shipping Logistics:</span>
@@ -602,7 +606,7 @@ const DispatchComponent = () => {
                   <div className="border-t border-gray-200 w-full max-w-xs my-2"></div>
                   <div className="flex justify-between w-full max-w-xs text-base">
                     <span className="text-gray-800 font-bold uppercase tracking-wider">Grand Total:</span>
-                    <span className="font-bold text-green-700">{formatCurrency(selectedOrder.totalAmountWithDelivery)}</span>
+                    <span className="font-bold text-green-700">{formatCurrency(selectedOrder.totalAmountWithGST || selectedOrder.totalAmountWithDelivery || selectedOrder.totalAmount)}</span>
                   </div>
                 </div>
               </div>

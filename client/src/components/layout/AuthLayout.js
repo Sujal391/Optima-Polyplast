@@ -7,7 +7,8 @@ const ADMIN_ROUTES = [
   '/admin/dashboard', '/users', '/orders', '/PaymentReport', '/attandance',
   '/createUser', '/upload-banner', '/categories', '/formulas',
   '/export-reports', '/order', '/product', '/stock', '/raw-material-summary',
-  '/marketing',
+  '/marketing', '/admin/payments/history', '/admin/orders/filter',
+  '/admin/challans', '/admin/stock/activities'
 ];
 
 const AuthLayout = ({ children }) => {

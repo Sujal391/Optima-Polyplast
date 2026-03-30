@@ -632,7 +632,18 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
                 <input
                   id="image-upload"
                   type="file"
-                  onChange={(e) => setImage(e.target.files[0])}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+                      if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
+                        setError("upload valid image less than 1 mb");
+                        e.target.value = "";
+                        return;
+                      }
+                      setImage(file);
+                    }
+                  }}
                   accept="image/*"
                   className="hidden"
                 />
