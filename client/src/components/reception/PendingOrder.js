@@ -119,27 +119,17 @@ const PendingOrders = () => {
     order: null,
   });
   const [imagePreview, setImagePreview] = useState(null);
-
-  // Management modals
-  const [statusModal, setStatusModal] = useState({
+  // Verification modal
+  const [verifyDialog, setVerifyDialog] = useState({
     isOpen: false,
     paymentId: null,
-    currentStatus: "",
-    remainingAmount: 0,
-    totalAmount: 0,
+    orderId: null,
+    verifiedAmount: "",
     paidAmount: 0,
-    orderId: null
+    notes: "",
+    paymentRef: ""
   });
-  const [statusForm, setStatusForm] = useState({
-    paymentStatus: "completed",
-    receivedAmount: "",
-    paymentMode: "",
-    remarks: "",
-    referenceId: "",
-    bankName: "",
-    screenshot: null
-  });
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // pagination
   const [page, setPage] = useState(1);
@@ -238,85 +228,56 @@ const PendingOrders = () => {
     );
   });
 
-  const openStatusModal = (order) => {
+  const openVerifyDialog = (order) => {
     const payment = order.payment || {};
-    // Extract ID with priority
-    const extractedPaymentId = payment.paymentId || payment._id || payment.id || order.paymentId || order.id || order.orderId || order._id;
-    
-    setStatusModal({
+    const extractedPaymentId = payment.paymentId || payment._id || payment.id;
+    const paidAmount = payment.paidAmount || 0;
+    const lastPayment = payment.lastPayment || {};
+
+    setVerifyDialog({
       isOpen: true,
       paymentId: extractedPaymentId,
-      currentStatus: payment.status || order.paymentStatus || "pending",
-      remainingAmount: payment.remainingAmount ?? order.totalAmount ?? 0,
-      totalAmount: payment.totalAmount ?? order.totalAmountWithDelivery ?? order.totalAmount ?? 0,
-      paidAmount: payment.paidAmount ?? 0,
       orderId: order.orderId || order._id,
-    });
-    const lastPayment = payment.lastPayment || {};
-    setStatusForm({
-      paymentStatus: (payment.remainingAmount || 0) > 0 ? "partial" : "completed",
-      receivedAmount: (payment.remainingAmount || 0) || "",
-      paymentMode: payment.paymentMode || lastPayment.paymentMode || "",
-      remarks: lastPayment.remarks || "",
-      referenceId: lastPayment.referenceId || "",
-      bankName: lastPayment.bankName || "",
-      screenshot: null
+      verifiedAmount: paidAmount.toString(),
+      paidAmount: paidAmount,
+      notes: "",
+      paymentRef: lastPayment.referenceId || "N/A"
     });
   };
 
-  const closeStatusModal = () => {
-    setStatusModal({ isOpen: false, paymentId: null, currentStatus: "", remainingAmount: 0, totalAmount: 0, paidAmount: 0, orderId: null });
-    setStatusForm({ paymentStatus: "completed", receivedAmount: "", paymentMode: "", remarks: "", referenceId: "", bankName: "", screenshot: null });
-  };
-
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
+  const closeVerifyDialog = () => {
+    setVerifyDialog({
+      isOpen: false,
+      paymentId: null,
+      orderId: null,
+      verifiedAmount: "",
+      paidAmount: 0,
+      notes: "",
+      paymentRef: ""
     });
   };
 
-  const handleUpdatePaymentStatus = async () => {
-    const { paymentStatus, receivedAmount, paymentMode, remarks, referenceId, bankName, screenshot } = statusForm;
-    const { paymentId, remainingAmount, orderId } = statusModal;
+  const handleVerifyPayment = async () => {
+    const { paymentId, verifiedAmount, notes } = verifyDialog;
 
-    if (!paymentStatus) return toast.warning("Please select a status.");
-    if (!paymentMode) return toast.warning("Please select a mode.");
+    if (!verifiedAmount || isNaN(parseFloat(verifiedAmount))) {
+      return toast.warning("Please enter a valid amount.");
+    }
 
-    const parsedAmount = parseFloat(receivedAmount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) return toast.warning("Enter a valid amount.");
-    if (remainingAmount && parsedAmount > remainingAmount) return toast.warning(`Amount cannot exceed ₹${remainingAmount}.`);
-
-    setUpdatingStatus(true);
+    setIsVerifying(true);
     try {
-      let screenshotBase64 = undefined;
-      if (screenshot) {
-        screenshotBase64 = await convertToBase64(screenshot);
-      }
-
-      const payload = {
-        paymentStatus,
-        receivedAmount: parsedAmount,
-        paymentMode,
-        remarks: remarks || undefined,
-        referenceId: referenceId || undefined,
-        bankName: bankName || undefined,
-        screenshotUrl: screenshotBase64
-      };
-
-      const endpoint = `/reception/payments/${paymentId}/status`;
-
-      await api.patch(endpoint, payload);
-      toast.success("Payment updated successfully");
-      
+      await api.patch(`/reception/payments/${paymentId}/verify-submitted`, {
+        verifiedAmount: parseFloat(verifiedAmount),
+        notes: notes || "Payment confirmed"
+      });
+      toast.success("Payment verified successfully");
       fetchPendingOrders();
-      closeStatusModal();
+      closeVerifyDialog();
+      setDetailsModal({ isOpen: false, order: null });
     } catch (error) {
-      toast.error(error.response?.data?.details?.error || error.response?.data?.message || "Error updating payment");
+      toast.error(error.response?.data?.message || "Error verifying payment");
     } finally {
-      setUpdatingStatus(false);
+      setIsVerifying(false);
     }
   };
 
@@ -504,8 +465,8 @@ const PendingOrders = () => {
                                <DropdownMenuItem onClick={() => handleMarkAsProcessing(order)} className="cursor-pointer text-blue-600">
                                   <RefreshCw className="mr-2 h-4 w-4" /> Process Order
                                </DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => openStatusModal(order)} className="cursor-pointer text-green-600">
-                                  <CreditCard className="mr-2 h-4 w-4" /> Update Payment
+                               <DropdownMenuItem onClick={() => openVerifyDialog(order)} className="cursor-pointer text-green-600">
+                                  <CheckCircle2 className="mr-2 h-4 w-4" /> Verify Payment
                                </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -535,11 +496,11 @@ const PendingOrders = () => {
                 <div key={order._id} className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div>
-                      <span className="font-mono text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
+                      <span className="font-mono text-[10px] font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
                         {order.orderId || order._id.slice(-8).toUpperCase()}
                       </span>
                       <p className="font-medium text-gray-900 mt-1">
-                        {order.user?.name || "N/A"}
+                        {order.customer?.name || order.user?.name || "N/A"}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -551,7 +512,7 @@ const PendingOrders = () => {
 
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <p className="text-xs text-gray-500 font-mono">
-                      {order.user?.customerDetails?.userCode || "(Misc)"}
+                      {order.customer?.userCode || order.user?.customerDetails?.userCode || "(Misc)"}
                     </p>
                     <p className="text-xs text-gray-500 text-right">
                       {formatDate(order.createdAt)}
@@ -581,8 +542,8 @@ const PendingOrders = () => {
                                <DropdownMenuItem onClick={() => handleMarkAsProcessing(order)} className="cursor-pointer text-blue-600">
                                   <RefreshCw className="mr-2 h-4 w-4" /> Process
                                </DropdownMenuItem>
-                               <DropdownMenuItem onClick={() => openStatusModal(order)} className="cursor-pointer text-green-600">
-                                  <CreditCard className="mr-2 h-4 w-4" /> Update Payment
+                               <DropdownMenuItem onClick={() => openVerifyDialog(order)} className="cursor-pointer text-green-600">
+                                  <CheckCircle2 className="mr-2 h-4 w-4" /> Verify Payment
                                </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -970,10 +931,10 @@ const PendingOrders = () => {
               <DialogFooter className="px-6 py-4 bg-white border-t shrink-0 flex items-center justify-end gap-2">
                 <Button
                   className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                  onClick={() => openStatusModal(detailsModal.order)}
+                  onClick={() => openVerifyDialog(detailsModal.order)}
                 >
-                  <CreditCard className="h-4 w-4" />
-                  Update Payment
+                  <CheckCircle2 className="h-4 w-4" />
+                  Verify Payment
                 </Button>
                 <Button
                   variant="outline"
@@ -1131,166 +1092,72 @@ const PendingOrders = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 📌 UPDATE STATUS DIALOG */}
-      <Dialog open={statusModal.isOpen} onOpenChange={(open) => !open && closeStatusModal()}>
+      {/* 📌 VERIFY PAYMENT DIALOG */}
+      <Dialog open={verifyDialog.isOpen} onOpenChange={(open) => !open && closeVerifyDialog()}>
         <DialogContent className="max-w-md p-0 overflow-hidden bg-white">
           <div className="px-6 py-4 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-3">
                <div className="p-2 bg-green-100 text-green-600 rounded-lg">
-                  <CreditCard className="h-5 w-5" />
+                  <CheckCircle2 className="h-5 w-5" />
                </div>
                <div>
-                 <DialogTitle className="text-lg font-bold text-gray-900">Update Payment</DialogTitle>
+                 <DialogTitle className="text-lg font-bold text-gray-900">Verify Submitted Payment</DialogTitle>
                  <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mt-0.5">
-                    Order: {statusModal.orderId}
+                    Order: {verifyDialog.orderId}
                  </p>
                </div>
             </div>
           </div>
 
-          <div className="px-6 py-4 space-y-4 overflow-y-auto max-h-[65vh]">
-            
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 grid grid-cols-2 gap-3 text-sm">
+          <div className="px-6 py-4 space-y-4">
+            <div className="bg-blue-50 rounded-xl border border-blue-100 p-4 grid grid-cols-2 gap-3 text-sm">
               <div>
-                 <span className="block text-xs text-gray-500 font-medium">Remaining Amount</span>
-                 <span className="font-bold text-red-600 text-base">{formatCurrency(statusModal.remainingAmount)}</span>
+                 <span className="block text-xs text-blue-500 font-medium">Submitted Amount</span>
+                 <span className="font-bold text-blue-700 text-lg">{formatCurrency(verifyDialog.paidAmount)}</span>
               </div>
               <div className="text-right">
-                 <span className="block text-xs text-gray-500 font-medium">Total Amount</span>
-                 <span className="font-semibold text-gray-900">{formatCurrency(statusModal.totalAmount)}</span>
+                 <span className="block text-xs text-blue-500 font-medium">Reference ID</span>
+                 <span className="font-mono text-xs font-bold text-blue-800">{verifyDialog.paymentRef}</span>
               </div>
             </div>
 
             <div>
-              <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Status</Label>
-              <select
-                disabled
-                value={statusForm.paymentStatus}
-                onChange={(e) => setStatusForm(p => ({ ...p, paymentStatus: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 cursor-not-allowed"
-              >
-                <option value="completed">Completed</option>
-                <option value="partial">Partial</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Received Amt (₹)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={statusForm.receivedAmount}
-                  onChange={(e) => setStatusForm(p => ({ ...p, receivedAmount: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-              <div>
-                <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Mode</Label>
-                <select
-                  disabled
-                  value={statusForm.paymentMode}
-                  onChange={(e) => setStatusForm(p => ({ ...p, paymentMode: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm h-10 focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 cursor-not-allowed"
-                >
-                  <option value="">Select Mode</option>
-                  <option value="cash">Cash</option>
-                  <option value="online">Online / UPI</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Ref ID / Transaction No</Label>
-                  <Input
-                    disabled
-                    placeholder="Optional"
-                    value={statusForm.referenceId}
-                    onChange={(e) => setStatusForm(p => ({ ...p, referenceId: e.target.value }))}
-                    className="h-10 bg-gray-50 cursor-not-allowed"
-                  />
-               </div>
-               <div>
-                  <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Bank Name</Label>
-                  <Input
-                    disabled
-                    placeholder="Optional"
-                    value={statusForm.bankName}
-                    onChange={(e) => setStatusForm(p => ({ ...p, bankName: e.target.value }))}
-                    className="h-10 bg-gray-50 cursor-not-allowed"
-                  />
-               </div>
-            </div>
-
-            <div>
-              <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Remarks</Label>
-              <textarea
-                value={statusForm.remarks}
-                onChange={(e) => setStatusForm(p => ({ ...p, remarks: e.target.value }))}
-                placeholder="Add any notes here..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-green-500"
+              <Label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">
+                Verified Amount (₹)
+              </Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={verifyDialog.verifiedAmount}
+                onChange={(e) => setVerifyDialog(p => ({ ...p, verifiedAmount: e.target.value }))}
+                className="h-11 font-bold text-lg"
               />
+              <p className="text-[10px] text-gray-400 mt-1 italic">
+                * Confirm the actual amount received in the bank statement.
+              </p>
             </div>
 
-            <div className="pt-2">
-              <Label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Payment Screenshot</Label>
-              <div className="mt-1 space-y-3">
-                 { (pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.payment?.lastPayment?.screenshotUrl || pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.screenshotUrl) && (
-                   <div className="relative w-full h-32 rounded-lg overflow-hidden border border-gray-200 group">
-                      <img 
-                        src={pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.payment?.lastPayment?.screenshotUrl || pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.screenshotUrl} 
-                        alt="Current Screenshot" 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button 
-                           variant="secondary" 
-                           size="sm" 
-                           className="h-8 text-[10px]"
-                           onClick={() => setImagePreview(pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.payment?.lastPayment?.screenshotUrl || pendingOrders.find(o => (o.orderId || o._id) === statusModal.orderId)?.screenshotUrl)}
-                         >
-                           <Eye className="h-3 w-3 mr-1" /> View Full
-                         </Button>
-                      </div>
-                   </div>
-                 )}
-                 <div className="flex items-center gap-4">
-                    <Input
-                      disabled
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-                          if (!validTypes.includes(file.type) || file.size > 1024 * 1024) {
-                            toast.error("upload valid image less than 1 mb");
-                            e.target.value = "";
-                            return;
-                          }
-                          setStatusForm(p => ({ ...p, screenshot: file }));
-                        }
-                      }}
-                      className="text-xs flex-1 file:bg-gray-100 file:text-gray-500 file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-2 cursor-not-allowed bg-gray-50"
-                    />
-                    <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-500 border-gray-200">Current Proof Linked</Badge>
-                 </div>
-              </div>
+            <div>
+              <Label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">
+                Verification Notes
+              </Label>
+              <textarea
+                value={verifyDialog.notes}
+                onChange={(e) => setVerifyDialog(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Payment confirmed from bank statement / UPI screenshot matches"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-green-500 transition-all font-medium"
+              />
             </div>
           </div>
 
           <DialogFooter className="px-6 py-4 bg-gray-50 border-t gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={closeStatusModal} disabled={updatingStatus}>Cancel</Button>
+            <Button variant="ghost" onClick={closeVerifyDialog} disabled={isVerifying}>Cancel</Button>
             <Button 
-              className="bg-green-600 hover:bg-green-700 text-white min-w-[120px]" 
-              disabled={updatingStatus}
-              onClick={handleUpdatePaymentStatus}
+              className="bg-green-600 hover:bg-green-700 text-white min-w-[140px] shadow-md shadow-green-100" 
+              disabled={isVerifying}
+              onClick={handleVerifyPayment}
             >
-              {updatingStatus ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Updating...</> : "Update Payment"}
+              {isVerifying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verifying...</> : "Verify & Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

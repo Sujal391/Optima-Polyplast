@@ -25,6 +25,7 @@ api.interceptors.request.use(
 const navLinks = [
   { to: "/dispatch/dashboard", label: "Home", icon: Home },
   { to: "/dispatch/processing-orders", label: "Processing Orders", icon: ClipboardList },
+  { to: "/dispatch/challans", label: "All Challans", icon: FileText },
   { to: "/dispatch/dispatch-history", label: "Dispatch History", icon: History },
   { to: "/dispatch/challan-history", label: "Challan History", icon: FileText },
 ];

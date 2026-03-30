@@ -301,7 +301,7 @@ const PartialPayment = () => {
                     <TableCell>{payment.user?.name || "N/A"}</TableCell>
                     <TableCell>{payment.user?.firmName || payment.firmName || "N/A"}</TableCell>
                     <TableCell>{payment.user?.phoneNumber || "N/A"}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.totalAmountWithDelivery)}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.totalAmountWithGST || payment.totalAmountWithDelivery || payment.totalAmount)}</TableCell>
                     <TableCell sx={{ color: 'success.main', fontWeight: 500 }}>{formatCurrency(payment.paidAmount)}</TableCell>
                     <TableCell sx={{ color: 'error.main', fontWeight: 500 }}>{formatCurrency(payment.remainingAmount)}</TableCell>
                     <TableCell>
@@ -456,6 +456,14 @@ const PartialPayment = () => {
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Total Amount</Typography>
                     <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.totalAmount)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">GST</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.gst || 0)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Total (Inc. GST)</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.totalAmountWithGST || detailsModal.payment.totalAmount)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Paid Amount</Typography>

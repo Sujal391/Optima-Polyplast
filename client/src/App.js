@@ -42,6 +42,7 @@ import DispatchDashboard from './components/dispatch/Dashboard';
 import DispatchList from './components/dispatch/DispatchList';
 import DispatchHistory from './components/dispatch/DispatchHistory';
 import ChallanHistory from './components/dispatch/ChallanHistory';
+import ChallanList from './components/dispatch/ChallanList';
 
 // Stock Panel Components
 import StockDashboard from './components/stock/Dashboard';
@@ -350,6 +351,14 @@ function App() {
             <AuthLayout>
               <DispatchDashboard />
               <ChallanHistory />
+            </AuthLayout>
+          </PrivateRoute>
+        }/>
+        <Route path="/dispatch/challans" element={
+          <PrivateRoute allowedRoles={['dispatch']}>
+            <AuthLayout>
+              <DispatchDashboard />
+              <ChallanList />
             </AuthLayout>
           </PrivateRoute>
         }/>

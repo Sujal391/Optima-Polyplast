@@ -3,8 +3,9 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
-  Loader2, RefreshCw, MoreVertical, FileText, XCircle,
-  ChevronDown, ChevronUp, PackageSearch, Search, ClipboardList, CheckCircle2
+  Loader2, RefreshCw, MoreVertical, FileText, XCircle, Undo2,
+  ChevronDown, ChevronUp, PackageSearch, Search, ClipboardList, CheckCircle2,
+  Printer, Download
 } from "lucide-react";
 import cookies from "js-cookie";
 
@@ -14,6 +15,21 @@ import {
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import Paginator from '../common/Paginator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import html2pdf from "html2pdf.js";
+import logo from "../../assets/logo1.png";
 import ChallanGenerationWizard from "./ChallanGenerationWizard";
 import RescheduleModal from "./RescheduleModal";
 
@@ -57,6 +73,174 @@ const getPaymentColor = (status) => {
 
 const statusLabel = (s) => (s ? s.replace(/_/g, ' ') : 'approved by sales');
 
+const companyDetails = {
+  name: "OPTIMA POLYPLAST LLP",
+  address: "Plot No.12, 296, Industrial Road, Near Umiya Battery, Mota Jalundra Industrial Zone, Derojnagar, Gandhinagar, Gujarat",
+  phone: "+919274658587",
+  email: "info@optimapoliplast.com",
+  gst: "24AAFFO8968G1ZU",
+  iso: "ISO 9001:2015 Certified Company",
+};
+
+const getDisplayDate = (challan) => {
+  if (challan.rescheduleHistory && challan.rescheduleHistory.length > 0) {
+    const latestReschedule = challan.rescheduleHistory[challan.rescheduleHistory.length - 1];
+    return new Date(latestReschedule.newDate).toLocaleDateString("en-GB");
+  }
+  return new Date(challan.challanDate || challan.createdAt).toLocaleDateString("en-GB");
+};
+
+const formatAddress = (shippingAddress) => {
+  if (!shippingAddress) return "-";
+  const addressParts = [
+    shippingAddress.address,
+    shippingAddress.city,
+    shippingAddress.state,
+    shippingAddress.pinCode,
+  ].filter((part) => part && part.trim() !== "");
+  return addressParts.join(", ") || "-";
+};
+
+const getCustomerInfo = (challan) => {
+  let customerName = "-";
+  let firmName = "-";
+  const originalOrder = challan.originalOrder || challan.order;
+
+  if (originalOrder) {
+    if (originalOrder.customerName) customerName = originalOrder.customerName;
+    if (originalOrder.firmName) firmName = originalOrder.firmName;
+    if (originalOrder.customer?.name) customerName = originalOrder.customer.name;
+    if (originalOrder.customer?.firmName) firmName = originalOrder.customer.firmName;
+    if (originalOrder.user?.name) customerName = originalOrder.user.name;
+  }
+  if (customerName === "-" && challan.receiverName) customerName = challan.receiverName;
+  return { customerName, firmName };
+};
+
+const getChallanHTML = (challan, copyNumber = 1, totalCopies = 1) => {
+  const subtotal = (challan.items || []).reduce((acc, item) => acc + (item.amount || 0), 0);
+  const gstRate = 0.05;
+  const gstAmount = subtotal * gstRate;
+  const deliveryCharge = challan.deliveryCharge || 0;
+  const totalWithDelivery = subtotal + deliveryCharge;
+  const grandTotal = totalWithDelivery + gstAmount;
+  const displayDate = getDisplayDate(challan);
+  const formattedAddress = formatAddress(challan.shippingAddress);
+  const { customerName, firmName } = getCustomerInfo(challan);
+
+  return `
+  <div style="font-family: Arial, sans-serif; padding: 15px; width: 140mm; box-sizing: border-box; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">      
+    <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; position: relative;">
+      <img src="${logo}" style="width: 80px; height: auto; margin-bottom: 5px;" />
+      <h1 style="font-size: 18px; margin: 3px 0; font-weight: bold; color: #2c3e50;">${companyDetails.name}</h1>
+      <div style="font-size: 9px; margin: 2px 0; color: #555;">
+        <p style="margin: 1px 0;">${companyDetails.address}</p>
+        <p style="margin: 1px 0;">
+          <span>Phone: ${companyDetails.phone}</span> | 
+          <span>Email: ${companyDetails.email}</span> | 
+          <span>GST: ${companyDetails.gst}</span>
+        </p>
+        <p style="margin: 2px 0; font-style: italic; color: #777;">${companyDetails.iso}</p>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 10px; margin-bottom: 15px;">
+      <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
+        <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Customer Details</h3>
+        <p style="margin: 3px 0;"><strong>Firm Name:</strong> ${firmName}</p>
+        <p style="margin: 3px 0;"><strong>Customer Name:</strong> ${customerName}</p>
+        <p style="margin: 3px 0;"><strong>User Code:</strong> ${challan.userCode}</p>
+        <p style="margin: 3px 0;"><strong>Receiver:</strong> ${challan.receiverName}</p>
+        <p style="margin: 3px 0; line-height: 1.4;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
+      </div>
+      <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
+        <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Challan Details</h3>
+        <p style="margin: 3px 0;"><strong>Challan No:</strong> ${challan.invoiceNo || challan.dcNo}</p>
+        <p style="margin: 3px 0;"><strong>Date:</strong> ${displayDate}</p>
+        <p style="margin: 3px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
+        <p style="margin: 3px 0;"><strong>Driver Name:</strong> ${challan.driverName}</p>
+        <p style="margin: 3px 0;"><strong>Delivery Choice:</strong> ${challan.deliveryChoice || "Company Pickup"}</p>
+      </div>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 15px;">
+      <thead>
+        <tr style="background: #34495e; color: white;">
+          <th style="border: 1px solid #2c3e50; padding: 5px;">No</th>
+          <th style="border: 1px solid #2c3e50; padding: 5px;">Description</th>
+          <th style="border: 1px solid #2c3e50; padding: 5px;">Boxes</th>
+          <th style="border: 1px solid #2c3e50; padding: 5px;">Rate</th>
+          <th style="border: 1px solid #2c3e50; padding: 5px;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(challan.items || []).map((item, index) => `
+            <tr>
+              <td style="border: 1px solid #ddd; padding: 5px; text-align:center;">${index + 1}</td>
+              <td style="border: 1px solid #ddd; padding: 5px;">${item.description || item.productName}</td>
+              <td style="border: 1px solid #ddd; padding: 5px; text-align:center;">${item.boxes}</td>
+              <td style="border: 1px solid #ddd; padding: 5px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 5px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
+            </tr>
+          `).join("")}
+      </tbody>
+    </table>
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+      <div style="width: 200px; font-size: 10px; background: #ecf0f1; padding: 10px; border-radius: 6px;">
+        <p style="margin: 4px 0; display: flex; justify-content: space-between;">
+          <span>Subtotal:</span> <span>₹ ${subtotal.toFixed(2)}</span>
+        </p>
+        <p style="margin: 4px 0; display: flex; justify-content: space-between;">
+          <span>Delivery Charge:</span> <span>${deliveryCharge === 0 ? "Free" : `₹ ${deliveryCharge.toFixed(2)}`}</span>
+        </p>
+        <div style="border-top: 1px dashed #999; margin: 8px 0 4px 0;"></div>
+        <p style="margin: 4px 0; display: flex; justify-content: space-between; font-weight: bold;">
+          <span>Total with Delivery:</span> <span>₹ ${totalWithDelivery.toFixed(2)}</span>
+        </p>
+        <div style="border-top: 1px dashed #999; margin: 8px 0 4px 0;"></div>
+        <p style="margin: 4px 0; display: flex; justify-content: space-between;">
+          <span>GST (5%):</span> <span>₹ ${gstAmount.toFixed(2)}</span>
+        </p>
+        <div style="border-top: 2px solid #bdc3c7; margin: 8px 0 4px 0;"></div>
+        <p style="margin: 4px 0; display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+          <span>Grand Total:</span> <span>₹ ${grandTotal.toFixed(2)}</span>
+        </p>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 9px; border-top: 1px dashed #999; padding-top: 10px;">
+      <div>Issuer’s Signature: ____________</div>
+      <div>Receiver’s Signature: ____________</div>
+    </div>
+    <div style="text-align: center; margin-top: 10px; font-size: 7px; color: #777;">
+      <p>This is a system generated challan - valid with authorized signature</p>
+    </div>
+  </div>
+`;
+};
+
+const getDoubleChallanHTML = (challan) => {
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+  <meta charset="UTF-8">
+  <title>Challan - ${challan.invoiceNo || challan.dcNo}</title>
+  <style>
+  @page{ size:A4 portrait; margin:0; }
+  body{ margin:0; padding:0; font-family:Arial, sans-serif; }
+  .page{ width:210mm; height:297mm; display:flex; flex-direction:column; }
+  .half{ width:210mm; height:148.5mm; position:relative; overflow:hidden; border-bottom:2px dashed #999; }
+  .half:last-child{ border-bottom:none; }
+  .rotate{ position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(90deg); width:140mm; }
+  </style>
+  </head>
+  <body>
+  <div class="page">
+    <div class="half"><div class="rotate">${getChallanHTML(challan, 1, 2)}</div></div>
+    <div class="half"><div class="rotate">${getChallanHTML(challan, 2, 2)}</div></div>
+  </div>
+  </body>
+  </html>`;
+};
+
 const DispatchComponent = () => {
   const [processingOrders, setProcessingOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -66,27 +250,74 @@ const DispatchComponent = () => {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [selectedChallan, setSelectedChallan] = useState(null);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [successModalData, setSuccessModalData] = useState(null);
 
-  // Fix: use data attributes to detect outside clicks, not a single ref
-  const handleGlobalClick = useCallback((e) => {
-    if (!e.target.closest('[data-menu-container]')) {
-      setActiveMenuId(null);
+  const handleDownloadChallans = () => {
+    if (!successModalData) return;
+    successModalData.forEach(challan => {
+      const element = document.createElement("div");
+      element.innerHTML = getDoubleChallanHTML(challan);
+      html2pdf()
+        .from(element)
+        .set({
+          margin: 0,
+          filename: `challan_${challan.invoiceNo || challan.dcNo}.pdf`,
+          image: { type: "jpeg", quality: 1 },
+          html2canvas: { scale: 6, useCORS: true },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        })
+        .save();
+    });
+    setSuccessModalData(null);
+  };
+
+  const handlePrintChallans = () => {
+    if (!successModalData) return;
+    
+    let combinedHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="UTF-8">
+      <title>Batch Print Challans</title>
+      <style>
+      @page{ size:A4 portrait; margin:0; }
+      body{ margin:0; padding:0; font-family:Arial, sans-serif; }
+      .page{ width:210mm; height:297mm; display:flex; flex-direction:column; page-break-after: always; }
+      .page:last-child { page-break-after: auto; }
+      .half{ width:210mm; height:148.5mm; position:relative; overflow:hidden; border-bottom:2px dashed #999; }
+      .half:last-child{ border-bottom:none; }
+      .rotate{ position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(90deg); width:140mm; }
+      </style>
+      </head>
+      <body>
+    `;
+
+    successModalData.forEach(challan => {
+      combinedHTML += `
+        <div class="page">
+          <div class="half"><div class="rotate">${getChallanHTML(challan, 1, 2)}</div></div>
+          <div class="half"><div class="rotate">${getChallanHTML(challan, 2, 2)}</div></div>
+        </div>
+      `;
+    });
+
+    combinedHTML += `
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(combinedHTML);
+      printWindow.document.close();
+      printWindow.onload = () => { printWindow.print(); };
     }
-  }, []);
-
-  useEffect(() => {
-    document.addEventListener("mousedown", handleGlobalClick);
-    return () => document.removeEventListener("mousedown", handleGlobalClick);
-  }, [handleGlobalClick]);
-
-  const handleMenuToggle = (e, orderId) => {
-    e.stopPropagation();
-    setActiveMenuId((prev) => (prev === orderId ? null : orderId));
+    setSuccessModalData(null);
   };
 
   const fetchProcessingOrders = async () => {
@@ -104,13 +335,22 @@ const DispatchComponent = () => {
   };
 
   const updateOrderStatus = async (orderId, status) => {
-    setActiveMenuId(null);
     try {
       await api.patch(`/dispatch/orders/${orderId}/status`, { status });
       toast.success(`Order ${status === 'cancelled' ? 'cancelled' : `updated to ${status}`} successfully`);
       await fetchProcessingOrders();
     } catch (error) {
       toast.error(error.response?.data?.error || "Error updating order status");
+    }
+  };
+
+  const moveOrderToSales = async (orderId) => {
+    try {
+      await api.patch(`/dispatch/orders/${orderId}/move-to-sales-pending`);
+      toast.success("Order moved back to sales successfully");
+      await fetchProcessingOrders();
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Error moving order to sales");
     }
   };
 
@@ -137,8 +377,10 @@ const DispatchComponent = () => {
       };
 
       const response = await api.post(`/dispatch/orders/${orderId}/generate-challan`, payload);
-      toast.success(`${response.data.count || response.data.challans?.length || 1} challan(s) generated!`);
-      setGeneratedChallans(response.data.challans || []);
+      const outputChallans = response.data.challans || [];
+      toast.success(`${response.data.count || outputChallans.length || 1} challan(s) generated!`);
+      setGeneratedChallans(outputChallans);
+      setSuccessModalData(outputChallans.length > 0 ? outputChallans : [{ invoiceNo: "Generated", dcNo: "Generated", items: [], ...response.data }]);
       setShowWizard(false);
       setSelectedOrder(null);
 
@@ -186,7 +428,6 @@ const DispatchComponent = () => {
   const handleOrderSelection = (order) => {
     setSelectedOrder(order);
     setShowWizard(true);
-    setActiveMenuId(null);
   };
 
   useEffect(() => { fetchProcessingOrders(); }, []);
@@ -213,40 +454,44 @@ const DispatchComponent = () => {
 
   /* ─── Action Dropdown (shared by desktop & mobile) ─── */
   const ActionDropdown = ({ order }) => (
-    <div data-menu-container className="relative inline-block">
-      <button
-        onClick={(e) => handleMenuToggle(e, order._id)}
-        className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
-        title="Order actions"
-      >
-        <MoreVertical className="h-4 w-4 text-gray-500" />
-      </button>
-
-      {activeMenuId === order._id && (
-        <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] py-1 overflow-hidden">
-          {challanAlreadyExists(order) ? (
-            <div className="px-4 py-2.5 text-sm text-gray-400 flex items-center gap-2 cursor-not-allowed select-none">
-              <CheckCircle2 className="h-4 w-4 text-green-400" /> Challan Generated
-            </div>
-          ) : (
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); handleOrderSelection(order); }}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors"
-            >
-              <FileText className="h-4 w-4 text-blue-500" /> Generate Challan
-            </button>
-          )}
-          <div className="border-t border-gray-100 mt-1">
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); updateOrderStatus(order._id, "cancelled"); }}
-              className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-            >
-              <XCircle className="h-4 w-4 text-red-500" /> Cancel Order
-            </button>
-          </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+          title="Order actions"
+        >
+          <MoreVertical className="h-4 w-4 text-gray-500" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52 bg-white border border-gray-100 rounded-xl shadow-xl z-[100] py-1 overflow-hidden">
+        {challanAlreadyExists(order) ? (
+          <DropdownMenuItem disabled className="px-4 py-2.5 text-sm text-gray-400 flex items-center gap-2 cursor-not-allowed select-none">
+            <CheckCircle2 className="h-4 w-4 text-green-400" /> Challan Generated
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem 
+            onSelect={() => handleOrderSelection(order)}
+            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 focus:bg-blue-50 hover:text-blue-700 focus:text-blue-700 flex items-center gap-2 transition-colors cursor-pointer outline-none"
+          >
+            <FileText className="h-4 w-4 text-blue-500" /> Generate Challan
+          </DropdownMenuItem>
+        )}
+        <div className="border-t border-gray-100 mt-1">
+          <DropdownMenuItem 
+            onSelect={() => moveOrderToSales(order._id)}
+            className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 focus:bg-indigo-50 flex items-center gap-2 transition-colors cursor-pointer outline-none"
+          >
+            <Undo2 className="h-4 w-4 text-indigo-500" /> Back to Sales
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onSelect={() => updateOrderStatus(order._id, "cancelled")}
+            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer outline-none"
+          >
+            <XCircle className="h-4 w-4 text-red-500" /> Cancel Order
+          </DropdownMenuItem>
         </div>
-      )}
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   return (
@@ -341,7 +586,7 @@ const DispatchComponent = () => {
                         <TableCell>
                           <p className="font-semibold text-gray-900 text-sm">{order.firmName || "N/A"}</p>
                           <p className="text-gray-500 text-xs mt-0.5">{order.user?.name}</p>
-                          <p className="font-mono text-gray-400 text-[10px]">{order.user?.phoneNumber}</p>
+                          <p className="font-mono text-gray-400 text-[10px]">{order.user?.customerDetails?.userCode}</p>
                         </TableCell>
                         <TableCell className="max-w-[180px]">
                           <p className="text-xs text-gray-500 truncate" title={
@@ -504,6 +749,34 @@ const DispatchComponent = () => {
           loading={rescheduleLoading}
         />
       )}
+
+      {/* Success Options Modal */}
+      <Dialog open={!!successModalData}>
+        <DialogContent className="sm:max-w-md" hideClose onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="text-xl text-center flex flex-col items-center gap-2">
+              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                <CheckCircle2 className="h-6 w-6 text-green-600" />
+              </div>
+              Challan Generated Successfully!
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-500">
+              What would you like to do with the {successModalData?.length || 1} generated challan(s)?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button onClick={handlePrintChallans} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center justify-center gap-2">
+              <Printer className="w-4 h-4" /> Print Challan
+            </Button>
+            <Button onClick={handleDownloadChallans} variant="outline" className="w-full border-blue-200 hover:bg-blue-50 text-blue-700 font-medium flex items-center justify-center gap-2">
+              <Download className="w-4 h-4" /> Download Challan
+            </Button>
+            <Button onClick={() => setSuccessModalData(null)} variant="ghost" className="w-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 font-medium">
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

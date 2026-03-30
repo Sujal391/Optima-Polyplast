@@ -152,11 +152,11 @@ const Login = () => {
             </span>
           </div>
 
-          <div className="flex justify-end mb-6">
+          {/* <div className="flex justify-end mb-6">
             <Link to="/ForgotPassword" className="text-sm sm:text-md text-orange-500 hover:underline">
               Forgot Password?
             </Link>
-          </div>
+          </div> */}
 
           <div className="flex justify-center">
             <button
