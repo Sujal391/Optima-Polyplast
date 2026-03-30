@@ -116,11 +116,19 @@ const FilteredOrdersReport = () => {
 
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase() || '';
+    if (s === 'pending') return <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+    if (s === 'preview') return <Badge className="bg-blue-50 text-blue-700 border-blue-200">Preview</Badge>;
+    if (s === 'sales_pending') return <Badge className="bg-amber-50 text-amber-700 border-amber-200">Sales Pending</Badge>;
+    if (s === 'approved_by_sales') return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Approved</Badge>;
+    if (s === 'rejected_by_sales') return <Badge className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>;
+    if (s === 'shipped') return <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200">Shipped</Badge>;
+    if (s === 'cancelled') return <Badge className="bg-slate-50 text-slate-700 border-slate-200">Cancelled</Badge>;
+    
+    // Fallback for any other/old statuses
     if (s.includes('pending')) return <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
-    if (s.includes('processing')) return <Badge className="bg-blue-50 text-blue-700 border-blue-200">Processing</Badge>;
     if (s.includes('delivered') || s.includes('completed')) return <Badge className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
     if (s.includes('rejected') || s.includes('cancelled')) return <Badge className="bg-red-50 text-red-700 border-red-200">Cancelled</Badge>;
-    return <Badge variant="outline" className="capitalize">{status}</Badge>;
+    return <Badge variant="outline" className="capitalize">{status.replace(/_/g, ' ')}</Badge>;
   };
 
   return (
@@ -176,8 +184,11 @@ const FilteredOrdersReport = () => {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="preview">Preview</SelectItem>
+                  <SelectItem value="sales_pending">Sales Pending</SelectItem>
+                  <SelectItem value="approved_by_sales">Approved by Sales</SelectItem>
+                  <SelectItem value="rejected_by_sales">Rejected by Sales</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
