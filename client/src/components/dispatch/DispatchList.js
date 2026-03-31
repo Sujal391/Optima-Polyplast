@@ -8,6 +8,9 @@ import {
   Printer, Download
 } from "lucide-react";
 import cookies from "js-cookie";
+import html2pdf from "html2pdf.js";
+import logo from "../../assets/logo1.png";
+import qrImage from "../../assets/qr.png";
 
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -28,8 +31,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import html2pdf from "html2pdf.js";
-import logo from "../../assets/logo1.png";
 import ChallanGenerationWizard from "./ChallanGenerationWizard";
 import RescheduleModal from "./RescheduleModal";
 
@@ -117,7 +118,8 @@ const getCustomerInfo = (challan) => {
   return { customerName, firmName };
 };
 
-const getChallanHTML = (challan, copyNumber = 1, totalCopies = 1) => {
+// Updated A5 Portrait Single Challan HTML
+const getChallanHTML = (challan) => {
   const subtotal = (challan.items || []).reduce((acc, item) => acc + (item.amount || 0), 0);
   const gstRate = 0.05;
   const gstAmount = subtotal * gstRate;
@@ -129,117 +131,199 @@ const getChallanHTML = (challan, copyNumber = 1, totalCopies = 1) => {
   const { customerName, firmName } = getCustomerInfo(challan);
 
   return `
-  <div style="font-family: Arial, sans-serif; padding: 15px; width: 140mm; box-sizing: border-box; border: 1px solid #e0e0e0; border-radius: 8px; background: white;">      
-    <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px; position: relative;">
-      <img src="${logo}" style="width: 80px; height: auto; margin-bottom: 5px;" />
-      <h1 style="font-size: 18px; margin: 3px 0; font-weight: bold; color: #2c3e50;">${companyDetails.name}</h1>
-      <div style="font-size: 9px; margin: 2px 0; color: #555;">
-        <p style="margin: 1px 0;">${companyDetails.address}</p>
-        <p style="margin: 1px 0;">
-          <span>Phone: ${companyDetails.phone}</span> | 
-          <span>Email: ${companyDetails.email}</span> | 
-          <span>GST: ${companyDetails.gst}</span>
-        </p>
-        <p style="margin: 2px 0; font-style: italic; color: #777;">${companyDetails.iso}</p>
+    <div style="font-family: Arial, sans-serif; padding: 12px; width: 100%; max-width: 148mm; box-sizing: border-box; background: white; margin: 0 auto;">
+      <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px;">
+        <img src="${logo}" style="width: 60px; height: auto; margin-bottom: 5px;" />
+        <h1 style="font-size: 16px; margin: 3px 0; font-weight: bold; color: #2c3e50;">${companyDetails.name}</h1>
+        <div style="font-size: 8px; margin: 2px 0; color: #555;">
+          <p style="margin: 1px 0;">${companyDetails.address}</p>
+          <p style="margin: 1px 0;">
+            <span>Phone: ${companyDetails.phone}</span> | 
+            <span>Email: ${companyDetails.email}</span> | 
+            <span>GST: ${companyDetails.gst}</span>
+          </p>
+          <p style="margin: 2px 0; font-style: italic; color: #777;">${companyDetails.iso}</p>
+        </div>
       </div>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 10px; margin-bottom: 15px;">
-      <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
-        <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Customer Details</h3>
-        <p style="margin: 3px 0;"><strong>Firm Name:</strong> ${firmName}</p>
-        <p style="margin: 3px 0;"><strong>Customer Name:</strong> ${customerName}</p>
-        <p style="margin: 3px 0;"><strong>User Code:</strong> ${challan.userCode}</p>
-        <p style="margin: 3px 0;"><strong>Receiver:</strong> ${challan.receiverName}</p>
-        <p style="margin: 3px 0; line-height: 1.4;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 9px; margin-bottom: 12px;">
+        <div style="background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
+          <h3 style="margin: 0 0 6px 0; font-size: 10px; border-bottom: 1px solid #ddd; padding-bottom: 3px; color: #333;">Customer Details</h3>
+          <p style="margin: 2px 0;"><strong>Firm Name:</strong> ${firmName}</p>
+          <p style="margin: 2px 0;"><strong>Customer Name:</strong> ${customerName}</p>
+          <p style="margin: 2px 0;"><strong>User Code:</strong> ${challan.userCode}</p>
+          <p style="margin: 2px 0;"><strong>Receiver:</strong> ${challan.receiverName}</p>
+          <p style="margin: 2px 0; line-height: 1.3;"><strong>Delivery Address:</strong> ${formattedAddress}</p>
+        </div>
+        
+        <div style="background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #eee;">
+          <h3 style="margin: 0 0 6px 0; font-size: 10px; border-bottom: 1px solid #ddd; padding-bottom: 3px; color: #333;">Challan Details</h3>
+          <p style="margin: 2px 0;"><strong>Challan No:</strong> ${challan.invoiceNo || challan.dcNo}</p>
+          <p style="margin: 2px 0;"><strong>Date:</strong> ${displayDate}</p>
+          <p style="margin: 2px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
+          <p style="margin: 2px 0;"><strong>Driver Name:</strong> ${challan.driverName}</p>
+          <p style="margin: 2px 0;"><strong>Delivery Choice:</strong> ${challan.deliveryChoice || "Company Pickup"}</p>
+        </div>
       </div>
-      <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
-        <h3 style="margin: 0 0 8px 0; font-size: 11px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #333;">Challan Details</h3>
-        <p style="margin: 3px 0;"><strong>Challan No:</strong> ${challan.invoiceNo || challan.dcNo}</p>
-        <p style="margin: 3px 0;"><strong>Date:</strong> ${displayDate}</p>
-        <p style="margin: 3px 0;"><strong>Vehicle No:</strong> ${challan.vehicleNo}</p>
-        <p style="margin: 3px 0;"><strong>Driver Name:</strong> ${challan.driverName}</p>
-        <p style="margin: 3px 0;"><strong>Delivery Choice:</strong> ${challan.deliveryChoice || "Company Pickup"}</p>
-      </div>
-    </div>
-    <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 15px;">
-      <thead>
-        <tr style="background: #34495e; color: white;">
-          <th style="border: 1px solid #2c3e50; padding: 5px;">No</th>
-          <th style="border: 1px solid #2c3e50; padding: 5px;">Description</th>
-          <th style="border: 1px solid #2c3e50; padding: 5px;">Boxes</th>
-          <th style="border: 1px solid #2c3e50; padding: 5px;">Rate</th>
-          <th style="border: 1px solid #2c3e50; padding: 5px;">Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${(challan.items || []).map((item, index) => `
+      
+      <table style="width: 100%; border-collapse: collapse; font-size: 8px; margin-bottom: 12px;">
+        <thead>
+          <tr style="background: #34495e; color: white;">
+            <th style="border: 1px solid #2c3e50; padding: 4px;">No</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Description</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Boxes</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Rate</th>
+            <th style="border: 1px solid #2c3e50; padding: 4px;">Amount</th>
+           </tr>
+        </thead>
+        <tbody>
+          ${(challan.items || []).map((item, index) => `
             <tr>
-              <td style="border: 1px solid #ddd; padding: 5px; text-align:center;">${index + 1}</td>
-              <td style="border: 1px solid #ddd; padding: 5px;">${item.description || item.productName}</td>
-              <td style="border: 1px solid #ddd; padding: 5px; text-align:center;">${item.boxes}</td>
-              <td style="border: 1px solid #ddd; padding: 5px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
-              <td style="border: 1px solid #ddd; padding: 5px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${index + 1}</td>
+              <td style="border: 1px solid #ddd; padding: 4px;">${item.description || item.productName}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${item.boxes}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
+              <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
             </tr>
           `).join("")}
-      </tbody>
-    </table>
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
-      <div style="width: 200px; font-size: 10px; background: #ecf0f1; padding: 10px; border-radius: 6px;">
-        <p style="margin: 4px 0; display: flex; justify-content: space-between;">
-          <span>Subtotal:</span> <span>₹ ${subtotal.toFixed(2)}</span>
-        </p>
-        <p style="margin: 4px 0; display: flex; justify-content: space-between;">
-          <span>Delivery Charge:</span> <span>${deliveryCharge === 0 ? "Free" : `₹ ${deliveryCharge.toFixed(2)}`}</span>
-        </p>
-        <div style="border-top: 1px dashed #999; margin: 8px 0 4px 0;"></div>
-        <p style="margin: 4px 0; display: flex; justify-content: space-between; font-weight: bold;">
-          <span>Total with Delivery:</span> <span>₹ ${totalWithDelivery.toFixed(2)}</span>
-        </p>
-        <div style="border-top: 1px dashed #999; margin: 8px 0 4px 0;"></div>
-        <p style="margin: 4px 0; display: flex; justify-content: space-between;">
-          <span>GST (5%):</span> <span>₹ ${gstAmount.toFixed(2)}</span>
-        </p>
-        <div style="border-top: 2px solid #bdc3c7; margin: 8px 0 4px 0;"></div>
-        <p style="margin: 4px 0; display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
-          <span>Grand Total:</span> <span>₹ ${grandTotal.toFixed(2)}</span>
-        </p>
+        </tbody>
+      </table>
+      
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+        <div style="width: 110px; border: 1px solid #ddd; border-radius: 6px; padding: 6px; text-align: center; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <h4 style="margin: 0 0 3px 0; font-size: 8px; font-weight: 800; color: #222; text-transform: uppercase;">Optima Polyplast LLP</h4>
+          <p style="margin: 0 0 3px 0; font-size: 6px; font-weight: 700;">
+            <span style="color: #666; font-style: italic;">UPI ID:</span> <span style="color: #900;">optimap.07@idfcbank</span>
+          </p>
+          <p style="margin: 0 0 4px 0; font-size: 5px; color: #555; line-height: 1.2;">Scan this QR code with any<br/>UPI app to transfer</p>
+          <img src="${qrImage}" style="width: 65px; height: 65px; margin: 0 auto; display: block;" alt="QR Code" />
+          <div style="margin-top: 4px; background: #900; color: white; padding: 3px; border-radius: 2px; font-size: 5.5px; font-weight: bold; letter-spacing: 0.2px;">
+            IDFC FIRST Bank
+          </div>
+        </div>
+
+        <div style="width: 180px; font-size: 9px; background: #ecf0f1; padding: 8px; border-radius: 6px;">
+          <p style="margin: 3px 0; display: flex; justify-content: space-between;">
+            <span>Subtotal:</span> <span>₹ ${subtotal.toFixed(2)}</span>
+          </p>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between;">
+            <span>Delivery Charge:</span> <span>${deliveryCharge === 0 ? "Free" : `₹ ${deliveryCharge.toFixed(2)}`}</span>
+          </p>
+          <div style="border-top: 1px dashed #999; margin: 6px 0 3px 0;"></div>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between; font-weight: bold;">
+            <span>Total with Delivery:</span> <span>₹ ${totalWithDelivery.toFixed(2)}</span>
+          </p>
+          <div style="border-top: 1px dashed #999; margin: 6px 0 3px 0;"></div>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between;">
+            <span>GST (5%):</span> <span>₹ ${gstAmount.toFixed(2)}</span>
+          </p>
+          <div style="border-top: 2px solid #bdc3c7; margin: 6px 0 3px 0;"></div>
+          <p style="margin: 3px 0; display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
+            <span>Grand Total:</span> <span>₹ ${grandTotal.toFixed(2)}</span>
+          </p>
+        </div>
+      </div>
+      
+      <div style="display: flex; justify-content: space-between; margin-top: 15px; font-size: 8px; border-top: 1px dashed #999; padding-top: 8px;">
+        <div>
+          <p style="margin: 2px 0;">Issuer's Signature: ____________</p>
+          <p style="margin: 2px 0; color: #666; font-size: 7px;">Authorized Signatory</p>
+        </div>
+        <div>
+          <p style="margin: 2px 0;">Receiver's Signature: ____________</p>
+          <p style="margin: 2px 0; color: #666; font-size: 7px;">Customer Signature</p>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 8px; font-size: 6px; color: #777;">
+        <p>This is a system generated challan - valid with authorized signature</p>
       </div>
     </div>
-    <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 9px; border-top: 1px dashed #999; padding-top: 10px;">
-      <div>Issuer’s Signature: ____________</div>
-      <div>Receiver’s Signature: ____________</div>
-    </div>
-    <div style="text-align: center; margin-top: 10px; font-size: 7px; color: #777;">
-      <p>This is a system generated challan - valid with authorized signature</p>
-    </div>
-  </div>
-`;
+  `;
 };
 
-const getDoubleChallanHTML = (challan) => {
+// Generate multiple copies on separate A5 pages
+const getMultiChallanHTML = (challan, copies = 2) => {
+  const challanHTML = getChallanHTML(challan);
+  let allChallansHTML = '';
+
+  for (let i = 0; i < copies; i++) {
+    allChallansHTML += `
+      <div style="page-break-after: ${i < copies - 1 ? 'always' : 'auto'};">
+        ${challanHTML}
+      </div>
+    `;
+  }
+
   return `
-  <!DOCTYPE html>
-  <html>
-  <head>
-  <meta charset="UTF-8">
-  <title>Challan - ${challan.invoiceNo || challan.dcNo}</title>
-  <style>
-  @page{ size:A4 portrait; margin:0; }
-  body{ margin:0; padding:0; font-family:Arial, sans-serif; }
-  .page{ width:210mm; height:297mm; display:flex; flex-direction:column; }
-  .half{ width:210mm; height:148.5mm; position:relative; overflow:hidden; border-bottom:2px dashed #999; }
-  .half:last-child{ border-bottom:none; }
-  .rotate{ position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(90deg); width:140mm; }
-  </style>
-  </head>
-  <body>
-  <div class="page">
-    <div class="half"><div class="rotate">${getChallanHTML(challan, 1, 2)}</div></div>
-    <div class="half"><div class="rotate">${getChallanHTML(challan, 2, 2)}</div></div>
-  </div>
-  </body>
-  </html>`;
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Challan - ${challan.invoiceNo || challan.dcNo}</title>
+      <style>
+        @page {
+          size: A5;
+          margin: 8mm;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: Arial, sans-serif;
+          background: white;
+        }
+      </style>
+    </head>
+    <body>
+      ${allChallansHTML}
+    </body>
+    </html>
+  `;
 };
+
+// Generate batch HTML for multiple challans
+const getBatchMultiChallanHTML = (challans, copies = 2) => {
+  let allChallansHTML = '';
+
+  challans.forEach((challan, challanIndex) => {
+    const challanHTML = getChallanHTML(challan);
+    for (let i = 0; i < copies; i++) {
+      const isLast = (challanIndex === challans.length - 1) && (i === copies - 1);
+      allChallansHTML += `
+        <div style="page-break-after: ${isLast ? 'auto' : 'always'};">
+          ${challanHTML}
+        </div>
+      `;
+    }
+  });
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Batch Challans</title>
+      <style>
+        @page {
+          size: A5;
+          margin: 8mm;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: Arial, sans-serif;
+          background: white;
+        }
+      </style>
+    </head>
+    <body>
+      ${allChallansHTML}
+    </body>
+    </html>
+  `;
+};
+
+const DEFAULT_COPIES = 1;
 
 const DispatchComponent = () => {
   const [processingOrders, setProcessingOrders] = useState([]);
@@ -255,67 +339,58 @@ const DispatchComponent = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [successModalData, setSuccessModalData] = useState(null);
+  const [printCopies, setPrintCopies] = useState(DEFAULT_COPIES);
 
   const handleDownloadChallans = () => {
     if (!successModalData) return;
-    successModalData.forEach(challan => {
+
+    if (successModalData.length === 1) {
       const element = document.createElement("div");
-      element.innerHTML = getDoubleChallanHTML(challan);
+      element.innerHTML = getMultiChallanHTML(successModalData[0], printCopies);
       html2pdf()
         .from(element)
         .set({
-          margin: 0,
-          filename: `challan_${challan.invoiceNo || challan.dcNo}.pdf`,
-          image: { type: "jpeg", quality: 1 },
-          html2canvas: { scale: 6, useCORS: true },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          margin: 0.5,
+          filename: `challan_${successModalData[0].invoiceNo || successModalData[0].dcNo}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "mm", format: "a5", orientation: "portrait" },
         })
         .save();
-    });
+    } else {
+      const element = document.createElement("div");
+      element.innerHTML = getBatchMultiChallanHTML(successModalData, printCopies);
+      html2pdf()
+        .from(element)
+        .set({
+          margin: 0.5,
+          filename: `challans_batch_${Date.now()}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "mm", format: "a5", orientation: "portrait" },
+        })
+        .save();
+    }
     setSuccessModalData(null);
   };
 
   const handlePrintChallans = () => {
     if (!successModalData) return;
-    
-    let combinedHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-      <meta charset="UTF-8">
-      <title>Batch Print Challans</title>
-      <style>
-      @page{ size:A4 portrait; margin:0; }
-      body{ margin:0; padding:0; font-family:Arial, sans-serif; }
-      .page{ width:210mm; height:297mm; display:flex; flex-direction:column; page-break-after: always; }
-      .page:last-child { page-break-after: auto; }
-      .half{ width:210mm; height:148.5mm; position:relative; overflow:hidden; border-bottom:2px dashed #999; }
-      .half:last-child{ border-bottom:none; }
-      .rotate{ position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) rotate(90deg); width:140mm; }
-      </style>
-      </head>
-      <body>
-    `;
 
-    successModalData.forEach(challan => {
-      combinedHTML += `
-        <div class="page">
-          <div class="half"><div class="rotate">${getChallanHTML(challan, 1, 2)}</div></div>
-          <div class="half"><div class="rotate">${getChallanHTML(challan, 2, 2)}</div></div>
-        </div>
-      `;
-    });
-
-    combinedHTML += `
-      </body>
-      </html>
-    `;
+    let printHTML;
+    if (successModalData.length === 1) {
+      printHTML = getMultiChallanHTML(successModalData[0], printCopies);
+    } else {
+      printHTML = getBatchMultiChallanHTML(successModalData, printCopies);
+    }
 
     const printWindow = window.open("", "_blank");
     if (printWindow) {
-      printWindow.document.write(combinedHTML);
+      printWindow.document.write(printHTML);
       printWindow.document.close();
-      printWindow.onload = () => { printWindow.print(); };
+      printWindow.onload = () => {
+        printWindow.print();
+      };
     }
     setSuccessModalData(null);
   };
@@ -452,7 +527,6 @@ const DispatchComponent = () => {
   const pagedOrders = filteredOrders.slice(startIdx, startIdx + pageSize);
   const challanAlreadyExists = (order) => order.challanGenerated || (order.challanCount > 0);
 
-  /* ─── Action Dropdown (shared by desktop & mobile) ─── */
   const ActionDropdown = ({ order }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -469,7 +543,7 @@ const DispatchComponent = () => {
             <CheckCircle2 className="h-4 w-4 text-green-400" /> Challan Generated
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onSelect={() => handleOrderSelection(order)}
             className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 focus:bg-blue-50 hover:text-blue-700 focus:text-blue-700 flex items-center gap-2 transition-colors cursor-pointer outline-none"
           >
@@ -477,13 +551,13 @@ const DispatchComponent = () => {
           </DropdownMenuItem>
         )}
         <div className="border-t border-gray-100 mt-1">
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onSelect={() => moveOrderToSales(order._id)}
             className="w-full text-left px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 focus:bg-indigo-50 flex items-center gap-2 transition-colors cursor-pointer outline-none"
           >
             <Undo2 className="h-4 w-4 text-indigo-500" /> Back to Sales
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onSelect={() => updateOrderStatus(order._id, "cancelled")}
             className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 focus:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer outline-none"
           >
@@ -500,7 +574,6 @@ const DispatchComponent = () => {
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
-        {/* ── Page Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-3">
@@ -535,10 +608,8 @@ const DispatchComponent = () => {
           </div>
         </div>
 
-        {/* ── Main Content Card ── */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
 
-          {/* Loading */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center h-52 text-gray-400 gap-2">
               <Loader2 className="h-7 w-7 animate-spin text-blue-500" />
@@ -546,7 +617,6 @@ const DispatchComponent = () => {
             </div>
           )}
 
-          {/* Empty */}
           {!isLoading && pagedOrders.length === 0 && (
             <div className="flex flex-col items-center justify-center h-52 text-gray-400 gap-2">
               <PackageSearch className="h-10 w-10 text-gray-300" />
@@ -555,7 +625,6 @@ const DispatchComponent = () => {
             </div>
           )}
 
-          {/* ── Desktop Table (lg+) ── */}
           {!isLoading && pagedOrders.length > 0 && (
             <>
               <div className="hidden lg:block">
@@ -632,11 +701,9 @@ const DispatchComponent = () => {
                 </Table>
               </div>
 
-              {/* ── Mobile / Tablet Cards (< lg) ── */}
               <div className="block lg:hidden divide-y divide-gray-100">
                 {pagedOrders.map((order) => (
                   <div key={order._id} className="p-4 hover:bg-gray-50/60 transition-colors">
-                    {/* Top row: ID + amount + action menu */}
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -656,7 +723,6 @@ const DispatchComponent = () => {
                       </div>
                     </div>
 
-                    {/* Badge row */}
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getPaymentColor(order.paymentStatus)}`}>
                         {order.paymentStatus || "pending"}
@@ -667,7 +733,6 @@ const DispatchComponent = () => {
                       <span className="text-[10px] text-gray-400">{formatDate(order.createdAt)}</span>
                     </div>
 
-                    {/* Products + expand */}
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-gray-500 truncate flex-1 mr-2">
                         {order.products.map((i) => `${i.product?.name} - ${i.product?.category} (${i.boxes})`).join(', ')}
@@ -682,7 +747,6 @@ const DispatchComponent = () => {
                       </button>
                     </div>
 
-                    {/* Expanded detail */}
                     {expandedRow === order._id && (
                       <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
                         <div>
@@ -709,7 +773,6 @@ const DispatchComponent = () => {
             </>
           )}
 
-          {/* ── Pagination ── */}
           {total > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <span className="text-sm text-gray-500">
@@ -732,7 +795,6 @@ const DispatchComponent = () => {
         </div>
       </div>
 
-      {/* ── Wizard ── */}
       {showWizard && selectedOrder && (
         <ChallanGenerationWizard
           order={selectedOrder}
@@ -750,7 +812,6 @@ const DispatchComponent = () => {
         />
       )}
 
-      {/* Success Options Modal */}
       <Dialog open={!!successModalData}>
         <DialogContent className="sm:max-w-md" hideClose onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
@@ -764,12 +825,26 @@ const DispatchComponent = () => {
               What would you like to do with the {successModalData?.length || 1} generated challan(s)?
             </DialogDescription>
           </DialogHeader>
+
+          <div className="flex items-center justify-center gap-3 py-2">
+            <span className="text-sm text-gray-600">Number of copies:</span>
+            <select
+              value={printCopies}
+              onChange={(e) => setPrintCopies(parseInt(e.target.value))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>{n} copy{n > 1 ? 's' : ''}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex flex-col gap-3 py-4">
             <Button onClick={handlePrintChallans} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center justify-center gap-2">
-              <Printer className="w-4 h-4" /> Print Challan
+              <Printer className="w-4 h-4" /> Print Challan ({printCopies} copy{printCopies > 1 ? 's' : ''})
             </Button>
             <Button onClick={handleDownloadChallans} variant="outline" className="w-full border-blue-200 hover:bg-blue-50 text-blue-700 font-medium flex items-center justify-center gap-2">
-              <Download className="w-4 h-4" /> Download Challan
+              <Download className="w-4 h-4" /> Download Challan ({printCopies} copy{printCopies > 1 ? 's' : ''})
             </Button>
             <Button onClick={() => setSuccessModalData(null)} variant="ghost" className="w-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 font-medium">
               Cancel
