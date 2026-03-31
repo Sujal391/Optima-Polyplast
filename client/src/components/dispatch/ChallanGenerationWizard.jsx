@@ -158,6 +158,11 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   };
 
   const handleSaveOrderEdit = async () => {
+    if (orderProducts.length === 0) {
+      toast.error("Order must have at least 1 product.");
+      return;
+    }
+
     const invalid = orderProducts.some((p) => !p.boxes || p.boxes <= 0);
     if (invalid) {
       toast.error("All products must have at least 1 box.");
@@ -567,7 +572,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                                   className="w-24 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center bg-white shadow-sm"
                                 />
                               </div>
-                              {product.isNew && (
+                              {orderProducts.length > 1 && (
                                 <button onClick={() => handleRemoveProduct(index)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg mt-5 transition-colors">
                                   <Trash2 className="h-4 w-4" />
                                 </button>
@@ -580,7 +585,10 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                                 <p className="text-xs text-slate-400">@ ₹{product.pricePerBox}/box</p>
                               </div>
                               <div className="h-8 border-l border-slate-200" />
-                              <p className="font-bold text-indigo-600 text-sm">₹{(order.totalAmountWithGST).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                              <div className="text-right">
+                                <p className="font-bold text-indigo-600 text-sm">₹{(product.boxes * product.pricePerBox).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">+ 5% GST</p>
+                              </div>
                             </div>
                           )}
                         </div>

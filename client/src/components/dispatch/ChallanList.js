@@ -8,6 +8,7 @@ import {
   Calendar, Truck, User, MapPin, RefreshCw, X, ChevronDown, ChevronUp, XCircle, AlertCircle
 } from "lucide-react";
 import logo from "../../assets/logo1.png";
+import qrImage from "../../assets/qr.png";
 import cookies from "js-cookie";
 
 import {
@@ -251,7 +252,19 @@ const ChallanList = () => {
           </tbody>
         </table>
         
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+          <div style="width: 110px; border: 1px solid #ddd; border-radius: 6px; padding: 6px; text-align: center; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <h4 style="margin: 0 0 3px 0; font-size: 8px; font-weight: 800; color: #222; text-transform: uppercase;">Optima Polyplast LLP</h4>
+            <p style="margin: 0 0 3px 0; font-size: 6px; font-weight: 700;">
+              <span style="color: #666; font-style: italic;">UPI ID:</span> <span style="color: #900;">optimap.07@idfcbank</span>
+            </p>
+            <p style="margin: 0 0 4px 0; font-size: 5px; color: #555; line-height: 1.2;">Scan this QR code with any<br/>UPI app to transfer</p>
+            <img src="${qrImage}" style="width: 65px; height: 65px; margin: 0 auto; display: block;" alt="QR Code" />
+            <div style="margin-top: 4px; background: #900; color: white; padding: 3px; border-radius: 2px; font-size: 5.5px; font-weight: bold; letter-spacing: 0.2px;">
+              IDFC FIRST Bank
+            </div>
+          </div>
+
           <div style="width: 180px; font-size: 9px; background: #ecf0f1; padding: 8px; border-radius: 6px;">
             <p style="margin: 3px 0; display: flex; justify-content: space-between;">
               <span>Subtotal:</span> <span>₹ ${subtotal.toFixed(2)}</span>
