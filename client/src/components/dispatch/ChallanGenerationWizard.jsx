@@ -212,6 +212,14 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       return;
     }
 
+    const missingPrice = orderProducts.some(
+      (p) => p.pricePerBox === "" || p.pricePerBox === null || Number.isNaN(Number(p.pricePerBox))
+    );
+    if (missingPrice) {
+      toast.error("Please fill price per box for all products.");
+      return;
+    }
+
     try {
       setIsSavingOrder(true);
 
@@ -221,8 +229,9 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
             productId: p.productId,
             boxes: p.boxes,
           };
-          if (p.pricePerBox !== p.originalPrice) {
-            productPayload.price = p.pricePerBox;
+          const currentPrice = Number(p.pricePerBox);
+          if (currentPrice !== p.originalPrice) {
+            productPayload.price = currentPrice;
           }
           return productPayload;
         }),
@@ -236,7 +245,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
         prev.map((p) => ({
           ...p,
           originalBoxes: p.boxes,
-          originalPrice: p.pricePerBox,
+          originalPrice: Number(p.pricePerBox),
           isNew: false,
         }))
       );
@@ -258,6 +267,16 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     setIsEditingOrder(false);
   };
 
+  const handleStartOrderEdit = () => {
+    setOrderProducts((prev) =>
+      prev.map((p) => ({
+        ...p,
+        pricePerBox: "",
+      }))
+    );
+    setIsEditingOrder(true);
+  };
+
   const handleBoxChange = (index, value) => {
     const num = parseInt(value) || 0;
     setOrderProducts((prev) => {
@@ -268,10 +287,12 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   };
 
   const handlePriceChange = (index, value) => {
-    const num = parseFloat(value) || 0;
     setOrderProducts((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], pricePerBox: num };
+      updated[index] = {
+        ...updated[index],
+        pricePerBox: value === "" ? "" : parseFloat(value),
+      };
       return updated;
     });
   };
@@ -577,7 +598,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsEditingOrder(true)}
+                      onClick={handleStartOrderEdit}
                       className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl"
                     >
                       <Edit className="h-4 w-4 mr-2" /> Modify Items
