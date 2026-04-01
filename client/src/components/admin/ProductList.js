@@ -144,7 +144,7 @@ const Product = () => {
 
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
-    
+
     try {
       const token = cookies.get("token");
       if (!token) {
@@ -191,40 +191,40 @@ const Product = () => {
     >
       {/* Page Header */}
       <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-  
-  {/* LEFT SIDE */}
-  <div>
-    <motion.h1
-      className="text-xl md:text-2xl font-bold text-slate-800"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-    >
-      Product Management
-    </motion.h1>
 
-    <motion.p
-      className="text-sm md:text-base text-slate-500 mt-1"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.1 }}
-    >
-      Manage your products, track inventory, and update product details
-    </motion.p>
-  </div>
+        {/* LEFT SIDE */}
+        <div>
+          <motion.h1
+            className="text-xl md:text-2xl font-bold text-slate-800"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            Product Management
+          </motion.h1>
 
-  {/* RIGHT SIDE BUTTON */}
-  <Button
-    onClick={() => {
-      setEditingProduct(null);
-      setShowUploadForm(true);
-    }}
-    className="bg-blue-600 hover:bg-blue-700 w-full md:w-auto"
-  >
-    <Plus className="h-4 w-4 mr-2" />
-    Add New Product
-  </Button>
+          <motion.p
+            className="text-sm md:text-base text-slate-500 mt-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            Manage your products, track inventory, and update product details
+          </motion.p>
+        </div>
 
-</div>
+        {/* RIGHT SIDE BUTTON */}
+        <Button
+          onClick={() => {
+            setEditingProduct(null);
+            setShowUploadForm(true);
+          }}
+          className="bg-blue-600 hover:bg-blue-700 w-full md:w-auto"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add New Product
+        </Button>
+
+      </div>
 
       {/* Main Content */}
       <AnimatePresence mode="wait">
@@ -272,10 +272,10 @@ const Product = () => {
           >
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-4">
-  <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4">
 
-    {/* Add Product Button (Top Right) */}
-    {/* <div className="flex justify-end">
+                  {/* Add Product Button (Top Right) */}
+                  {/* <div className="flex justify-end">
       <Button
         onClick={() => {
           setEditingProduct(null);
@@ -288,76 +288,75 @@ const Product = () => {
       </Button>
     </div> */}
 
-  </div>
-</CardHeader>
+                </div>
+              </CardHeader>
               <Separator />
               <CardContent className="pt-6">
                 {/* Filters - 1 row on mobile */}
                 <div className="flex flex-col md:flex-row gap-3 mb-6 items-stretch md:items-center">
 
-  {/* Search */}
-  <div className="relative flex-1">
-    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-    <Input
-      placeholder="Search products..."
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className="pl-9"
-    />
-  </div>
+                  {/* Search */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
 
-  {/* Filter 1 */}
-  <Select
-    value={productType || "all"}
-    onValueChange={(value) =>
-      setProductType(value === "all" ? "" : value)
-    }
-  >
-    <SelectTrigger className="w-full md:w-[180px]">
-      <SelectValue placeholder="All Types" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">All Types</SelectItem>
-      <SelectItem value="Bottle">Bottle</SelectItem>
-      <SelectItem value="Raw Material">Raw Material</SelectItem>
-    </SelectContent>
-  </Select>
+                  {/* Filter 1 */}
+                  <Select
+                    value={productType || "all"}
+                    onValueChange={(value) =>
+                      setProductType(value === "all" ? "" : value)
+                    }
+                  >
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="Bottle">Bottle</SelectItem>
+                      <SelectItem value="Raw Material">Raw Material</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-  {/* Filter 2 */}
-  <Select
-    value={selectedCategory || "all"}
-    onValueChange={(value) =>
-      setSelectedCategory(value === "all" ? "" : value)
-    }
-  >
-    <SelectTrigger className="w-full md:w-[180px]">
-      <SelectValue placeholder="All Categories" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">All Categories</SelectItem>
+                  {/* Filter 2 */}
+                  <Select
+                    value={selectedCategory || "all"}
+                    onValueChange={(value) =>
+                      setSelectedCategory(value === "all" ? "" : value)
+                    }
+                  >
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
 
-      {productType === "Raw Material" ? (
-        <>
-          <SelectItem value="25 mm Plastic ROPP Cap">25 mm Plastic ROPP Cap</SelectItem>
-          <SelectItem value="Narrow Neck Cap">Narrow Neck Cap</SelectItem>
-          <SelectItem value="Pet Preforms">Pet Preforms</SelectItem>
-          <SelectItem value="26/22 Shortneck caps">26/22 Shortneck caps</SelectItem>
-          <SelectItem value="27mm Alaska caps">27mm Alaska caps</SelectItem>
-        </>
-      ) : (
-        <>
-          <SelectItem value="200ml">200ml</SelectItem>
-          <SelectItem value="250ml">250ml</SelectItem>
-          <SelectItem value="500ml">500ml</SelectItem>
-          <SelectItem value="700ml">700ml</SelectItem>
-          <SelectItem value="1L">1L</SelectItem>
-          <SelectItem value="2L">2L</SelectItem>
-          <SelectItem value="5L">5L</SelectItem>
-        </>
-      )}
-    </SelectContent>
-  </Select>
-</div>
+                      {productType === "Raw Material" ? (
+                        <>
+                          <SelectItem value="25 mm Plastic ROPP Cap">25 mm Plastic ROPP Cap</SelectItem>
+                          <SelectItem value="Narrow Neck Cap">Narrow Neck Cap</SelectItem>
+                          <SelectItem value="Pet Preforms">Pet Preforms</SelectItem>
+                          <SelectItem value="26/22 Shortneck caps">26/22 Shortneck caps</SelectItem>
+                          <SelectItem value="27mm Alaska caps">27mm Alaska caps</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="200ml">200ml</SelectItem>
+                          <SelectItem value="250ml">250ml</SelectItem>
+                          <SelectItem value="500ml">500ml</SelectItem>
+                          <SelectItem value="700ml">700ml</SelectItem>
+                          <SelectItem value="900ml">900ml</SelectItem>
+                          <SelectItem value="1L">1L</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Products Grid - 2 columns mobile, 3 columns tablet, 4 columns desktop */}
                 {pagedProducts.length === 0 ? (
@@ -470,7 +469,7 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
 
   const getCategories = (type) => {
     if (type === "Bottle") {
-      return ["200ml", "250ml", "500ml", "700ml", "1L", "2L", "5L"];
+      return ["200ml", "250ml", "500ml", "700ml", "900ml", "1L"];
     } else if (type === "Raw Material") {
       return [
         "25 mm Plastic ROPP Cap",
@@ -498,12 +497,6 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
       !formData.bottlesPerBox
     ) {
       setError("Please fill in all required fields");
-      setLoading(false);
-      return;
-    }
-
-    if (Number(formData.boxes) < 230) {
-      setError("Minimum 230 boxes are required");
       setLoading(false);
       return;
     }
@@ -677,8 +670,8 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
                 </div>
                 <div>
                   <Label htmlFor="type">Product Type *</Label>
-                  <Select 
-                    value={formData.type} 
+                  <Select
+                    value={formData.type}
                     onValueChange={(value) => {
                       setFormData({ ...formData, type: value, category: "" });
                     }}
@@ -697,8 +690,8 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="category">Category *</Label>
-                  <Select 
-                    value={formData.category || "placeholder"} 
+                  <Select
+                    value={formData.category || "placeholder"}
                     onValueChange={(value) => {
                       if (value !== "placeholder") {
                         setFormData({ ...formData, category: value });
@@ -716,13 +709,12 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="boxes">Number of Boxes * (min 230)</Label>
+                  <Label htmlFor="boxes">Number of Boxes *</Label>
                   <Input
                     id="boxes"
                     type="number"
                     value={formData.boxes}
                     onChange={(e) => setFormData({ ...formData, boxes: e.target.value })}
-                    min="230"
                     required
                   />
                 </div>
@@ -748,6 +740,7 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
                     value={formData.originalPrice}
                     onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
                     min="0"
+                    step="any"
                     required
                   />
                 </div>
@@ -762,6 +755,7 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
                     value={formData.discountedPrice}
                     onChange={(e) => setFormData({ ...formData, discountedPrice: e.target.value })}
                     min="0"
+                    step="any"
                   />
                 </div>
               </div>
@@ -822,6 +816,7 @@ const UploadForm = ({ onClose, editingProduct, onSuccess }) => {
                       value={formData.bulkDiscountPrice}
                       onChange={(e) => setFormData({ ...formData, bulkDiscountPrice: e.target.value })}
                       min="0"
+                      step="any"
                       required
                     />
                   </div>
@@ -904,7 +899,7 @@ const ProductCard = ({ product, onEdit, onDelete, index }) => {
         <CardContent className="p-3 md:p-4">
           <h4 className="font-semibold text-slate-800 truncate text-sm md:text-base mb-1">{product.name}</h4>
           <p className="text-xs md:text-sm text-slate-500 truncate mb-2 md:mb-3">{product.description || "No description"}</p>
-          
+
           <div className="space-y-1.5 md:space-y-2">
             <div className="flex justify-between items-center text-xs md:text-sm">
               <span className="text-slate-500">Original Price:</span>
