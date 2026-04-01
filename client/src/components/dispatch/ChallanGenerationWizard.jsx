@@ -594,6 +594,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                       </p>
                     </div>
                   </div>
+
                   {!isEditingOrder ? (
                     <Button
                       variant="outline"
@@ -817,7 +818,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                           
                           {/* Delivery Charge */}
                           <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Delivery Charge / Box</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Total Delivery Charge</label>
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">₹</span>
                               <input
@@ -827,11 +828,6 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                                 className="w-full pl-7 p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
                               />
                             </div>
-                            {challanCharge > 0 && (
-                              <p className="text-[10px] text-indigo-600 mt-1 font-bold">
-                                Total: ₹{(challanQty * challanCharge).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                              </p>
-                            )}
                           </div>
 
                           {/* Delivery Date (readonly) */}
