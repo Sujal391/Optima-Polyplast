@@ -8,18 +8,18 @@ import { Link, useLocation } from "react-router-dom";
 import logo from "../../assets/logo1.png";
 
 const navItems = [
-  { path: "/admin/dashboard",  icon: FaHome,              label: "Dashboard"     },
-  { path: "/product",          icon: FaProductHunt,       label: "Products"      },
-  { path: "/order",            icon: FaShoppingCart,      label: "Orders"        },
-  { path: "/users",            icon: FaUser,              label: "Users"         },
-  { path: "/PaymentReport",    icon: FaFileInvoiceDollar, label: "Payment Report"},
+  { path: "/admin/dashboard", icon: FaHome, label: "Dashboard" },
+  { path: "/product", icon: FaProductHunt, label: "Products" },
+  { path: "/order", icon: FaShoppingCart, label: "Orders" },
+  { path: "/users", icon: FaUser, label: "Users" },
+  // { path: "/PaymentReport",    icon: FaFileInvoiceDollar, label: "Payment Report"},
   { path: "/admin/payments/history", icon: FaFileInvoiceDollar, label: "Payment History" },
-  { path: "/admin/orders/filter",   icon: FaShoppingCart,      label: "Order Filter"   },
-  { path: "/admin/challans",        icon: FaFileInvoiceDollar, label: "Challan Report" },
-  { path: "/admin/stock/activities", icon: FaProductHunt,       label: "Stock Activities"},
-  { path: "/marketing",        icon: FaBullhorn,          label: "Marketing"     },
-  { path: "/createUser",       icon: FaUserPlus,          label: "Create Panels" },
-  { path: "/upload-banner",    icon: FaUserPlus,          label: "Upload Banner" },
+  { path: "/admin/orders/filter", icon: FaShoppingCart, label: "Order Filter" },
+  { path: "/admin/challans", icon: FaFileInvoiceDollar, label: "Challan Report" },
+  { path: "/admin/stock/activities", icon: FaProductHunt, label: "Stock Activities" },
+  { path: "/marketing", icon: FaBullhorn, label: "Marketing" },
+  { path: "/createUser", icon: FaUserPlus, label: "Create Panels" },
+  { path: "/upload-banner", icon: FaUserPlus, label: "Upload Banner" },
 ];
 
 const Sidebar = () => {

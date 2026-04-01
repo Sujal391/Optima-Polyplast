@@ -169,7 +169,7 @@ const PendingOrders = () => {
       const response = await api.patch(`/reception/orders/${orderId}/status`, {
         status: "sales_pending",
       });
-      setPendingOrders((prev) => prev.filter((o) => o._id !== orderId));
+      fetchPendingOrders(); // Refresh data after status change
 
       if (response.data.priceUpdated) {
         setPriceUpdateModal({

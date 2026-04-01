@@ -72,14 +72,14 @@ const DispatchComponent = () => {
   const handleSearch = (term) => {
     setSearchTerm(term);
     setPage(1); // Reset to first page on search
-    
+
     if (!term.trim()) {
       setFilteredOrders(orderHistory);
       return;
     }
 
     const searchTermLower = term.toLowerCase().trim();
-    
+
     const filtered = orderHistory.filter(order => {
       const searchableFields = {
         orderId: order.orderId || '',
@@ -100,7 +100,7 @@ const DispatchComponent = () => {
       };
 
       if (searchField === 'all') {
-        return Object.values(searchableFields).some(value => 
+        return Object.values(searchableFields).some(value =>
           value.toLowerCase().includes(searchTermLower)
         );
       } else {
@@ -230,12 +230,12 @@ const DispatchComponent = () => {
             {order.paymentStatus || "pending"}
           </Badge>
         </div>
-               <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => handleRowExpand(order._id)} className="h-8 px-2 text-xs border-gray-200 text-gray-600">
             {expandedRow === order._id ? (
-              <><ChevronUp className="h-3 w-3 mr-1"/> Less</>
+              <><ChevronUp className="h-3 w-3 mr-1" /> Less</>
             ) : (
-              <><ChevronDown className="h-3 w-3 mr-1"/> Split</>
+              <><ChevronDown className="h-3 w-3 mr-1" />More</>
             )}
           </Button>
           <Button variant="outline" size="sm" onClick={() => openChallansModal(order)} className="h-8 px-2 text-xs border-green-200 text-green-700 hover:bg-green-50">
@@ -266,7 +266,7 @@ const DispatchComponent = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-gray-100">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        
+
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -299,7 +299,7 @@ const DispatchComponent = () => {
               </button>
             )}
           </div>
-          
+
           <div className="flex items-center gap-3 w-full md:w-auto">
             <label htmlFor="searchField" className="text-sm font-medium text-gray-600 shrink-0">
               Filter By:
@@ -324,7 +324,7 @@ const DispatchComponent = () => {
 
         {/* Main Content Area */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          
+
           {/* Desktop Table View */}
           <div className="hidden lg:block">
             <Table>
@@ -436,10 +436,10 @@ const DispatchComponent = () => {
                 <span className="text-sm">Fetching history...</span>
               </div>
             ) : pagedOrders.length === 0 ? (
-               <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2 p-4 text-center">
-                 <PackageSearch className="h-8 w-8 text-gray-300 mb-2" />
-                 <span className="text-sm">No history records found</span>
-               </div>
+              <div className="flex flex-col items-center justify-center h-48 text-gray-400 space-y-2 p-4 text-center">
+                <PackageSearch className="h-8 w-8 text-gray-300 mb-2" />
+                <span className="text-sm">No history records found</span>
+              </div>
             ) : (
               pagedOrders.map(renderMobileOrderCard)
             )}
@@ -481,7 +481,7 @@ const DispatchComponent = () => {
             </div>
 
             <div className="p-5 md:p-6 overflow-y-auto space-y-6">
-              
+
               {/* Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
@@ -553,7 +553,7 @@ const DispatchComponent = () => {
                           <p className="font-medium text-gray-700 text-sm">{selectedOrder.shippingAddress}</p>
                         )}
                       </div>
-                    ) : ( <span className="text-gray-400">No Address Validated</span> )}
+                    ) : (<span className="text-gray-400">No Address Validated</span>)}
                   </div>
                 </div>
               </div>
@@ -574,7 +574,7 @@ const DispatchComponent = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                     {selectedOrder.products.map((item, index) => (
+                      {selectedOrder.products.map((item, index) => (
                         <TableRow key={item._id || index}>
                           <TableCell>
                             <p className="font-medium text-gray-900">{item.product?.name || "N/A"}</p>
@@ -588,7 +588,7 @@ const DispatchComponent = () => {
                     </TableBody>
                   </Table>
                 </div>
-                
+
                 {/* Modal Footer Aggregates */}
                 <div className="bg-gray-50/80 p-5 border-t border-gray-200 flex flex-col items-end space-y-2">
                   <div className="flex justify-between w-full max-w-xs text-sm">

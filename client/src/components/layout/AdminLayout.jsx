@@ -40,7 +40,7 @@ const navItems = [
   { path: "/product", icon: Package, label: "Products" },
   { path: "/order", icon: ShoppingCart, label: "Orders" },
   { path: "/users", icon: Users, label: "Users" },
-  { path: "/PaymentReport", icon: FileText, label: "Payment Report" },
+  // { path: "/PaymentReport", icon: FileText, label: "Payment Report" },
   { path: "/admin/payments/history", icon: History, label: "Payment History" },
   { path: "/admin/orders/filter", icon: Filter, label: "Order Filter" },
   { path: "/admin/challans", icon: Truck, label: "Challan Report" },

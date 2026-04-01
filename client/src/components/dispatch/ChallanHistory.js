@@ -128,8 +128,7 @@ const DispatchComponent = () => {
         (challan.invoiceNo || "").toLowerCase().includes(term) ||
         (challan.dcNo || "").toLowerCase().includes(term) ||
         (challan.orderCode || "").toLowerCase().includes(term) ||
-        (challan.receiverName || "").toLowerCase().includes(term) ||
-        (challan.vehicleNo || "").toLowerCase().includes(term)
+        (challan.firmName || challan.receiverName || "").toLowerCase().includes(term)
       );
     });
 
@@ -220,7 +219,10 @@ const DispatchComponent = () => {
       customerName = challan.receiverName;
     }
 
-    return { customerName, firmName };
+    return {
+      customerName: customerName !== "-" ? customerName : (challan.firmName || "-"),
+      firmName: firmName !== "-" ? firmName : (challan.firmName || "-")
+    };
   };
 
   // --- PDF GENERATION LOGIC KEP EXACTLY AS ORIGINAL ---
@@ -287,7 +289,7 @@ const DispatchComponent = () => {
           ${challan.items.map((item, index) => `
             <tr>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${index + 1}</td>
-              <td style="border: 1px solid #ddd; padding: 4px;">${item.description}</td>
+              <td style="border: 1px solid #ddd; padding: 4px;">${item.productName || item.description || "-"} ${item.category ? `(${item.category})` : ''}</td>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${item.boxes}</td>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
@@ -442,26 +444,28 @@ const DispatchComponent = () => {
   };
 
   const renderMobileChallanCard = (challan) => (
-    <div key={challan._id} className="p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
+    <div key={challan.challanId || challan._id} className="p-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
       <div className="flex justify-between items-start mb-2">
         <div>
           <span className="font-mono text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
             {challan.invoiceNo || challan.dcNo}
           </span>
-          <p className="font-medium text-gray-900 mt-1">{challan.receiverName || "N/A"}</p>
-          <p className="text-sm text-gray-500">{challan.driverName} | {challan.vehicleNo}</p>
+          <p className="font-medium text-gray-900 mt-1">{challan.firmName || "N/A"}</p>
+          <p className="text-sm text-gray-500">
+            {challan.items?.length || 0} items | {challan.items?.reduce((s, i) => s + (i.boxes || 0), 0)} boxes
+          </p>
         </div>
         <div className="text-right shrink-0">
           <Badge variant="outline" className={`uppercase text-[10px] tracking-wider ${getStatusBadgeVariant(challan.status)}`}>
             {challan.status || "pending"}
           </Badge>
-          <p className="font-bold text-gray-900 mt-1.5">{formatCurrency(challan.totalAmountWithDelivery)}</p>
+          <p className="font-bold text-gray-900 mt-1.5">{formatCurrency(challan.totalAmountWithDelivery || challan.totalAmount)}</p>
         </div>
       </div>
 
       <div className="flex justify-between items-center text-xs text-gray-500 mb-3 border-b border-gray-100 pb-3">
         <span>Order Code: <strong>{challan.orderCode || "Unknown"}</strong></span>
-        <span>Scheduled: <strong>{new Date(challan.scheduledDate).toLocaleDateString("en-GB")}</strong></span>
+        <span>Date: <strong>{new Date(challan.createdAt).toLocaleDateString("en-GB")}</strong></span>
       </div>
 
       <div className="flex items-center justify-between pt-1">
@@ -573,11 +577,11 @@ const DispatchComponent = () => {
                   <TableHeader>
                     <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
                       <TableHead className="font-semibold text-gray-600">DC No</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Order Ref</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Receiver</TableHead>
-                      <TableHead className="font-semibold text-gray-600">Vehicle / Driver</TableHead>
+                      {/* <TableHead className="font-semibold text-gray-600">Order Ref</TableHead> */}
+                      <TableHead className="font-semibold text-gray-600">Firm Name</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Items Summary</TableHead>
                       <TableHead className="font-semibold text-gray-600 text-center">Status</TableHead>
-                      <TableHead className="font-semibold text-gray-600 text-center">Scheduled</TableHead>
+                      <TableHead className="font-semibold text-gray-600 text-center">Date</TableHead>
                       {/* <TableHead className="font-semibold text-gray-600 text-center">Split Info</TableHead> */}
                       <TableHead className="font-semibold text-gray-600 text-right">Amount</TableHead>
                       <TableHead className="font-semibold text-gray-600 text-right w-[140px]">Actions</TableHead>
@@ -596,18 +600,22 @@ const DispatchComponent = () => {
                         const shouldHighlight = dcSearchTerm && dcNumber.toLowerCase().includes(dcSearchTerm.toLowerCase());
 
                         return (
-                          <TableRow key={challan._id} className="hover:bg-blue-50/40 transition-colors">
+                          <TableRow key={challan.challanId || challan._id} className="hover:bg-blue-50/40 transition-colors">
                             <TableCell>
                               <span className={`font-mono text-xs font-semibold px-2 py-1 rounded ${shouldHighlight ? "bg-yellow-200 text-yellow-900" : "bg-gray-100 text-gray-800"}`}>
                                 {dcNumber}
                               </span>
                             </TableCell>
-                            <TableCell className="font-medium text-gray-700 text-sm">{challan.orderCode}</TableCell>
-                            <TableCell className="text-sm font-medium text-gray-900">{challan.receiverName}</TableCell>
+                            {/* <TableCell className="font-medium text-gray-700 text-sm">{challan.orderCode || "-"}</TableCell> */}
+                            <TableCell className="text-sm font-medium text-gray-900">{challan.firmName || "-"}</TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-800">{challan.vehicleNo}</span>
-                                <span className="text-xs text-gray-500">{challan.driverName}</span>
+                                <span className="text-sm font-medium text-gray-800">
+                                  {challan.items?.map(i => i.productName).join(", ") || "No items"}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {challan.items?.reduce((s, i) => s + (i.boxes || 0), 0) || 0} total boxes
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
@@ -616,7 +624,7 @@ const DispatchComponent = () => {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center text-sm font-medium text-gray-700">
-                              {new Date(challan.scheduledDate).toLocaleDateString("en-GB")}
+                              {new Date(challan.createdAt).toLocaleDateString("en-GB")}
                             </TableCell>
                             {/* <TableCell className="text-center text-sm">
                               {challan.splitInfo?.isSplit ? (
@@ -628,7 +636,7 @@ const DispatchComponent = () => {
                               )}
                             </TableCell> */}
                             <TableCell className="text-right font-bold text-gray-900">
-                              {formatCurrency(challan.totalAmountWithDelivery)}
+                              {formatCurrency(challan.totalAmountWithDelivery || challan.totalAmount)}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex gap-1.5 justify-end">

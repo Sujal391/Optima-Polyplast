@@ -440,7 +440,9 @@ const DispatchComponent = () => {
       const payload = {
         splitInfo: {
           numberOfChallans: wizardData.splitInfo.numberOfChallans,
-          quantities: wizardData.splitInfo.quantities,
+          itemsDistribution: wizardData.splitInfo.itemsDistribution.map(challan => 
+            challan.filter(p => p.boxes > 0).map(p => ({ productId: p.productId, boxes: p.boxes }))
+          ),
         },
         extraItems: wizardData.extraItems || [],
         scheduledDates: wizardData.scheduledDates.map((d) => new Date(d).toISOString()),
