@@ -68,6 +68,47 @@ const getPaymentStatusColor = (status) => {
   return "bg-gray-100 text-gray-700 border-gray-200";
 };
 
+const getPaymentAmounts = (payment = {}) => {
+  const order = payment.order || {};
+  const baseAmount = payment.amount ?? order.amount ?? payment.baseAmount ?? payment.totalAmount ?? 0;
+  const gst = payment.gst ?? order.gst ?? 0;
+  const totalWithGST = payment.totalAmountWithGST ?? order.totalAmountWithGST ?? (baseAmount + gst);
+  const deliveryCharge = payment.deliveryCharge ?? order.deliveryCharge ?? 0;
+  const totalAmount = payment.totalAmountWithDelivery ?? order.totalAmountWithDelivery ?? totalWithGST + deliveryCharge;
+  const paidAmount = payment.paidAmount ?? 0;
+  const remainingAmount = payment.remainingAmount ?? Math.max(totalAmount - paidAmount, 0);
+
+  return {
+    baseAmount,
+    gst,
+    totalWithGST,
+    deliveryCharge,
+    totalAmount,
+    paidAmount,
+    remainingAmount,
+  };
+};
+
+const getResolvedPaymentStatus = (payment = {}, fallback = "pending") =>
+  payment.paymentStatus || payment.status || fallback;
+
+const getPaymentUser = (payment = {}) => ({
+  name: payment.user?.name || "N/A",
+  firmName: payment.user?.firmName || payment.user?.customerDetails?.firmName || payment.firmName || "N/A",
+  userCode: payment.user?.userCode || payment.user?.customerDetails?.userCode || "N/A",
+  phoneNumber: payment.user?.phoneNumber || "N/A",
+  email: payment.user?.email || "",
+});
+
+const getPaymentGstNumber = (payment = {}) =>
+  payment.gstNumber || payment.user?.customerDetails?.gstNumber || "";
+
+const getPaymentProducts = (payment = {}) =>
+  payment.products || payment.order?.products || [];
+
+const getPaymentShippingAddress = (payment = {}) =>
+  payment.shippingAddress || payment.user?.customerDetails?.address || null;
+
 export default function PendingPayment() {
   // STATE
   const [activeTab, setActiveTab] = useState("pending"); // "pending" | "partial"
@@ -169,18 +210,19 @@ export default function PendingPayment() {
 
   // STATUS MODAL
   const openStatusModal = (payment, type) => {
+    const amounts = getPaymentAmounts(payment);
     setStatusModal({
       isOpen: true,
       paymentId: payment.paymentId,
-      currentStatus: payment.paymentStatus || payment.status || "pending",
-      remainingAmount: payment.remainingAmount || 0,
-      totalAmount: payment.totalAmountWithGST || payment.totalAmountWithDelivery || payment.totalAmount || 0,
-      paidAmount: payment.paidAmount || 0,
+      currentStatus: getResolvedPaymentStatus(payment),
+      remainingAmount: amounts.remainingAmount,
+      totalAmount: amounts.totalAmount,
+      paidAmount: amounts.paidAmount,
       type,
     });
     setStatusForm({
-      paymentStatus: payment.remainingAmount > 0 ? "partial" : "completed",
-      receivedAmount: payment.remainingAmount || "",
+      paymentStatus: amounts.remainingAmount > 0 ? "partial" : "completed",
+      receivedAmount: amounts.remainingAmount || "",
       paymentMode: payment.paymentMode || "",
       remarks: "",
       referenceId: "",
@@ -274,6 +316,12 @@ export default function PendingPayment() {
 
   const { data, total, startIdx, page, pageSize, setPage, setPageSize } = pagedData();
   const isLoading = activeTab === "pending" ? pendingLoading : partialLoading;
+  const detailsAmounts = detailsModal.payment ? getPaymentAmounts(detailsModal.payment) : null;
+  const detailsUser = detailsModal.payment ? getPaymentUser(detailsModal.payment) : null;
+  const detailsProducts = detailsModal.payment ? getPaymentProducts(detailsModal.payment) : [];
+  const detailsShippingAddress = detailsModal.payment ? getPaymentShippingAddress(detailsModal.payment) : null;
+  const detailsPaymentStatus = detailsModal.payment ? getResolvedPaymentStatus(detailsModal.payment, "N/A") : "N/A";
+  const detailsGstNumber = detailsModal.payment ? getPaymentGstNumber(detailsModal.payment) : "";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
@@ -397,17 +445,17 @@ export default function PendingPayment() {
                         <span className="text-sm text-gray-600">{p.user?.firmName || p.firmName || "N/A"}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithGST || p.totalAmountWithDelivery || p.totalAmount)}</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(getPaymentAmounts(p).totalAmount)}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-semibold text-green-600">{formatCurrency(p.paidAmount)}</span>
+                        <span className="font-semibold text-green-600">{formatCurrency(getPaymentAmounts(p).paidAmount)}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-bold text-red-600">{formatCurrency(p.remainingAmount)}</span>
+                        <span className="font-bold text-red-600">{formatCurrency(getPaymentAmounts(p).remainingAmount)}</span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getPaymentStatusColor(p.paymentStatus || p.status)}>
-                          {p.paymentStatus || p.status || activeTab}
+                        <Badge variant="outline" className={getPaymentStatusColor(getResolvedPaymentStatus(p, activeTab))}>
+                          {getResolvedPaymentStatus(p, activeTab)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
@@ -456,19 +504,19 @@ export default function PendingPayment() {
                       </span>
                       <p className="font-medium text-gray-900 mt-1">{p.user?.name || "N/A"}</p>
                     </div>
-                    <Badge variant="outline" className={`${getPaymentStatusColor(p.paymentStatus || p.status)} py-0 shrink-0`}>
-                      {p.paymentStatus || p.status || activeTab}
+                    <Badge variant="outline" className={`${getPaymentStatusColor(getResolvedPaymentStatus(p, activeTab))} py-0 shrink-0`}>
+                      {getResolvedPaymentStatus(p, activeTab)}
                     </Badge>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3 bg-gray-50 rounded-lg p-2">
                     <div>
                       <span className="text-xs text-gray-500 block">Total</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(p.totalAmountWithGST || p.totalAmountWithDelivery || p.totalAmount)}</span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(getPaymentAmounts(p).totalAmount)}</span>
                     </div>
                     <div>
                       <span className="text-xs text-gray-500 block">Remaining</span>
-                      <span className="font-bold text-red-600">{formatCurrency(p.remainingAmount)}</span>
+                      <span className="font-bold text-red-600">{formatCurrency(getPaymentAmounts(p).remainingAmount)}</span>
                     </div>
                   </div>
                   
@@ -531,39 +579,45 @@ export default function PendingPayment() {
           {/* Financial Summary */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Total Amount</p>
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Base Amount</p>
               <p className="text-sm sm:text-base font-bold text-gray-900">
-                {formatCurrency(detailsModal.payment.totalAmount)}
+                {formatCurrency(detailsAmounts?.baseAmount)}
               </p>
             </div>
             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">GST</p>
               <p className="text-sm sm:text-base font-bold text-gray-900">
-                {formatCurrency(detailsModal.payment.gst || 0)}
+                {formatCurrency(detailsAmounts?.gst)}
               </p>
             </div>
             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Total (Inc. GST)</p>
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Total With GST</p>
               <p className="text-sm sm:text-base font-bold text-gray-900">
-                {formatCurrency(detailsModal.payment.totalAmountWithGST || detailsModal.payment.totalAmount)}
+                {formatCurrency(detailsAmounts?.totalWithGST)}
               </p>
             </div>
             <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Delivery Chg</p>
               <p className="text-sm sm:text-base font-bold text-gray-900">
-                {formatCurrency(detailsModal.payment.deliveryCharge || 0)}
+                {formatCurrency(detailsAmounts?.deliveryCharge)}
+              </p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+              <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase">Grand Total</p>
+              <p className="text-sm sm:text-base font-bold text-gray-900">
+                {formatCurrency(detailsAmounts?.totalAmount)}
               </p>
             </div>
             <div className="bg-green-50 p-3 rounded-xl border border-green-200 shadow-sm">
               <p className="text-[10px] text-green-700 font-medium mb-1 uppercase">Paid Amount</p>
               <p className="text-sm sm:text-base font-bold text-green-700">
-                {formatCurrency(detailsModal.payment.paidAmount)}
+                {formatCurrency(detailsAmounts?.paidAmount)}
               </p>
             </div>
             <div className="bg-red-50 p-3 rounded-xl border border-red-200 shadow-sm">
               <p className="text-[10px] text-red-700 font-medium mb-1 uppercase">Remaining</p>
               <p className="text-sm sm:text-base font-bold text-red-700">
-                {formatCurrency(detailsModal.payment.remainingAmount)}
+                {formatCurrency(detailsAmounts?.remainingAmount)}
               </p>
             </div>
           </div>
@@ -580,32 +634,40 @@ export default function PendingPayment() {
                 <div>
                   <span className="text-gray-500 block text-xs">Name</span>
                   <span className="font-medium text-gray-900">
-                    {detailsModal.payment.user?.name || "N/A"}
+                    {detailsUser?.name}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 block text-xs">Firm Name</span>
                   <span className="font-medium text-gray-900">
-                    {detailsModal.payment.user?.customerDetails?.firmName || "N/A"}
+                    {detailsUser?.firmName}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 block text-xs">User Code</span>
                   <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                    {detailsModal.payment.user?.customerDetails?.userCode || "N/A"}
+                    {detailsUser?.userCode}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 block text-xs">Phone Number</span>
                   <span className="font-medium text-gray-900">
-                    {detailsModal.payment.user?.phoneNumber || "N/A"}
+                    {detailsUser?.phoneNumber}
                   </span>
                 </div>
-                {detailsModal.payment.user?.email && (
+                {detailsGstNumber && (
+                  <div>
+                    <span className="text-gray-500 block text-xs">GST Number</span>
+                    <span className="font-medium text-gray-900">
+                      {detailsGstNumber}
+                    </span>
+                  </div>
+                )}
+                {detailsUser?.email && (
                   <div>
                     <span className="text-gray-500 block text-xs">Email</span>
                     <span className="text-gray-900 text-sm break-all">
-                      {detailsModal.payment.user.email}
+                      {detailsUser.email}
                     </span>
                   </div>
                 )}
@@ -622,25 +684,25 @@ export default function PendingPayment() {
                 <div>
                   <span className="text-gray-500 block text-xs">Order ID</span>
                   <span className="font-mono text-xs font-semibold">
-                    {detailsModal.payment.order?.orderId || "N/A"}
+                    {detailsModal.payment.orderId || detailsModal.payment.order?.orderId || "N/A"}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 block text-xs">Order Status</span>
                   <Badge variant="outline" className="mt-1">
-                    {detailsModal.payment.order?.orderStatus || "N/A"}
+                    {detailsModal.payment.orderStatus || detailsModal.payment.order?.orderStatus || "N/A"}
                   </Badge>
                 </div>
                 <div>
                   <span className="text-gray-500 block text-xs">Payment Status</span>
-                  <Badge variant="outline" className={`mt-1 ${getPaymentStatusColor(detailsModal.payment.status)}`}>
-                    {detailsModal.payment.status || "N/A"}
+                  <Badge variant="outline" className={`mt-1 ${getPaymentStatusColor(detailsPaymentStatus)}`}>
+                    {detailsPaymentStatus}
                   </Badge>
                 </div>
                 <div>
-                  <span className="text-gray-500 block text-xs">Payment Type</span>
+                  <span className="text-gray-500 block text-xs">Payment Method</span>
                   <span className="text-gray-900 uppercase text-xs font-semibold">
-                    {detailsModal.payment.paymentType || "N/A"}
+                    {detailsModal.payment.paymentMethod || detailsModal.payment.paymentType || "N/A"}
                   </span>
                 </div>
                 <div>
@@ -654,7 +716,7 @@ export default function PendingPayment() {
           </div>
 
           {/* Products Section */}
-          {detailsModal.payment.order?.products?.length > 0 && (
+          {detailsProducts.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
                 <PackageSearch className="h-4 w-4 text-gray-500" /> Products
@@ -669,13 +731,13 @@ export default function PendingPayment() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {detailsModal.payment.order.products.map((product, idx) => (
+                    {detailsProducts.map((product, idx) => (
                       <TableRow key={idx}>
                         <TableCell className="font-medium text-gray-900">
-                          {product.name}
+                          {product.productName || product.name || product.product?.name || "N/A"}
                         </TableCell>
                         <TableCell className="text-gray-600">
-                          {product.type}
+                          {product.productType || product.type || product.product?.type || "N/A"}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           {product.boxes} boxes
@@ -689,17 +751,17 @@ export default function PendingPayment() {
           )}
 
           {/* Address Section */}
-          {detailsModal.payment.user?.customerDetails?.address && (
+          {detailsShippingAddress && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800 text-sm flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-gray-500" /> Shipping Address
               </div>
               <div className="p-4 text-sm text-gray-600">
-                <p>{detailsModal.payment.user.customerDetails.address.address}</p>
+                <p>{detailsShippingAddress.address}</p>
                 <p>
-                  {detailsModal.payment.user.customerDetails.address.city}, 
-                  {detailsModal.payment.user.customerDetails.address.state} - 
-                  {detailsModal.payment.user.customerDetails.address.pinCode}
+                  {detailsShippingAddress.city},
+                  {detailsShippingAddress.state} -
+                  {detailsShippingAddress.pinCode}
                 </p>
               </div>
             </div>

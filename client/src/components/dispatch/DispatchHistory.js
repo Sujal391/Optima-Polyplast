@@ -399,7 +399,7 @@ const DispatchComponent = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className="font-bold text-gray-900">{formatCurrency(order.totalAmountWithGST || order.totalAmountWithDelivery || order.totalAmount)}</span>
+                        <span className="font-bold text-gray-900">{formatCurrency(order.totalAmountWithDelivery || order.totalAmountWithDelivery || order.totalAmount)}</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -600,13 +600,17 @@ const DispatchComponent = () => {
                     <span className="font-semibold text-gray-900">{formatCurrency(selectedOrder.gst)}</span>
                   </div>
                   <div className="flex justify-between w-full max-w-xs text-sm">
-                    <span className="text-gray-600 font-medium">Shipping Logistics:</span>
+                    <span className="text-gray-600 font-medium">Total with GST:</span>
+                    <span className="font-semibold text-gray-900">{formatCurrency(selectedOrder.totalAmountWithGST || ((selectedOrder.amount || selectedOrder.totalAmount || 0) + (selectedOrder.gst || 0)))}</span>
+                  </div>
+                  <div className="flex justify-between w-full max-w-xs text-sm">
+                    <span className="text-gray-600 font-medium">Delivery Charge:</span>
                     <span className="font-semibold text-gray-900">{formatCurrency(selectedOrder.deliveryCharge)}</span>
                   </div>
                   <div className="border-t border-gray-200 w-full max-w-xs my-2"></div>
                   <div className="flex justify-between w-full max-w-xs text-base">
                     <span className="text-gray-800 font-bold uppercase tracking-wider">Grand Total:</span>
-                    <span className="font-bold text-green-700">{formatCurrency(selectedOrder.totalAmountWithGST || selectedOrder.totalAmountWithDelivery || selectedOrder.totalAmount)}</span>
+                    <span className="font-bold text-green-700">{formatCurrency(selectedOrder.totalAmountWithDelivery || selectedOrder.totalAmountWithGST || selectedOrder.totalAmount)}</span>
                   </div>
                 </div>
               </div>
@@ -742,6 +746,14 @@ const DispatchComponent = () => {
                           <div className="flex justify-between">
                             <span className="text-gray-500">Subtotal</span>
                             <span className="font-semibold text-gray-900">{formatCurrency(challan.totalAmount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">GST (5%)</span>
+                            <span className="font-semibold text-gray-900">{formatCurrency(challan.gst)}</span>
+                          </div>
+                          <div className="flex justify-between font-medium">
+                            <span className="text-gray-700">Total with GST</span>
+                            <span className="font-semibold text-gray-900">{formatCurrency(challan.totalAmountWithGST)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Delivery Charge</span>

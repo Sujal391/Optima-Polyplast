@@ -82,6 +82,43 @@ const getPaymentStatusColor = (status) => {
   return colors[s] || "default";
 };
 
+const getPaymentAmounts = (payment = {}) => {
+  const baseAmount = payment.amount ?? payment.baseAmount ?? payment.totalAmount ?? 0;
+  const gst = payment.gst ?? 0;
+  const totalWithGST = payment.totalAmountWithGST ?? (baseAmount + gst);
+  const deliveryCharge = payment.deliveryCharge ?? 0;
+  const totalAmount = payment.totalAmountWithDelivery ?? (totalWithGST + deliveryCharge);
+  const paidAmount = payment.paidAmount ?? 0;
+  const remainingAmount = payment.remainingAmount ?? Math.max(totalAmount - paidAmount, 0);
+
+  return {
+    baseAmount,
+    gst,
+    totalWithGST,
+    deliveryCharge,
+    totalAmount,
+    paidAmount,
+    remainingAmount,
+  };
+};
+
+const getResolvedPaymentStatus = (payment = {}, fallback = "N/A") =>
+  payment.paymentStatus || payment.status || fallback;
+
+const getPaymentUser = (payment = {}) => ({
+  name: payment.user?.name || "N/A",
+  firmName: payment.user?.firmName || payment.user?.customerDetails?.firmName || payment.firmName || "N/A",
+  userCode: payment.user?.userCode || payment.user?.customerDetails?.userCode || "N/A",
+  phoneNumber: payment.user?.phoneNumber || "N/A",
+  email: payment.user?.email || "N/A",
+});
+
+const getPaymentProducts = (payment = {}) =>
+  payment.products || payment.order?.products || [];
+
+const getPaymentShippingAddress = (payment = {}) =>
+  payment.shippingAddress || payment.user?.customerDetails?.address || null;
+
 const toast = {
   success: (msg) => console.log("✓", msg),
   error: (msg) => console.error("✗", msg),
@@ -219,6 +256,11 @@ const PartialPayment = () => {
   const startIdx = (page - 1) * pageSize;
   const endIdx = startIdx + pageSize;
   const pagedPayments = filteredPayments.slice(startIdx, endIdx);
+  const detailsAmounts = detailsModal.payment ? getPaymentAmounts(detailsModal.payment) : null;
+  const detailsUser = detailsModal.payment ? getPaymentUser(detailsModal.payment) : null;
+  const detailsProducts = detailsModal.payment ? getPaymentProducts(detailsModal.payment) : [];
+  const detailsShippingAddress = detailsModal.payment ? getPaymentShippingAddress(detailsModal.payment) : null;
+  const detailsPaymentStatus = detailsModal.payment ? getResolvedPaymentStatus(detailsModal.payment) : "N/A";
 
   const formatShippingAddress = (address) =>
     address ? `${address.address || ''}, ${address.city || ''}, ${address.state || ''} ${address.pinCode || ''}` : 'N/A';
@@ -301,9 +343,9 @@ const PartialPayment = () => {
                     <TableCell>{payment.user?.name || "N/A"}</TableCell>
                     <TableCell>{payment.user?.firmName || payment.firmName || "N/A"}</TableCell>
                     <TableCell>{payment.user?.phoneNumber || "N/A"}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(payment.totalAmountWithGST || payment.totalAmountWithDelivery || payment.totalAmount)}</TableCell>
-                    <TableCell sx={{ color: 'success.main', fontWeight: 500 }}>{formatCurrency(payment.paidAmount)}</TableCell>
-                    <TableCell sx={{ color: 'error.main', fontWeight: 500 }}>{formatCurrency(payment.remainingAmount)}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{formatCurrency(getPaymentAmounts(payment).totalAmount)}</TableCell>
+                    <TableCell sx={{ color: 'success.main', fontWeight: 500 }}>{formatCurrency(getPaymentAmounts(payment).paidAmount)}</TableCell>
+                    <TableCell sx={{ color: 'error.main', fontWeight: 500 }}>{formatCurrency(getPaymentAmounts(payment).remainingAmount)}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <LinearProgress
@@ -393,19 +435,19 @@ const PartialPayment = () => {
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Customer Name</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.user?.name || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsUser?.name}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Firm Name</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.user?.firmName || detailsModal.payment.firmName || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsUser?.firmName}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">User Code</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.user?.userCode || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsUser?.userCode}</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Created At</Typography>
-                    <Typography variant="body2" fontWeight={500}>{formatDateTime(detailsModal.payment.createdAt)}</Typography>
+                    <Typography variant="caption" color="text.secondary">Order ID</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.orderId || detailsModal.payment.order?.orderId || "N/A"}</Typography>
                   </Grid>
                 </Grid>
               </Box>
@@ -420,11 +462,11 @@ const PartialPayment = () => {
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Phone Number</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.user?.phoneNumber || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsUser?.phoneNumber}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Email Address</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.user?.email || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsUser?.email}</Typography>
                   </Grid>
                   {detailsModal.payment.gstNumber && (
                     <Grid item xs={6}>
@@ -442,7 +484,7 @@ const PartialPayment = () => {
                   <Box sx={{ width: 4, height: 24, bgcolor: 'secondary.main', borderRadius: 1 }} />
                   Shipping Address
                 </Typography>
-                <Typography variant="body2">{formatShippingAddress(detailsModal.payment.shippingAddress)}</Typography>
+                <Typography variant="body2">{formatShippingAddress(detailsShippingAddress)}</Typography>
               </Box>
 
               <Divider sx={{ my: 2 }} />
@@ -454,32 +496,32 @@ const PartialPayment = () => {
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Total Amount</Typography>
-                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.totalAmount)}</Typography>
+                    <Typography variant="caption" color="text.secondary">Base Amount</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsAmounts?.baseAmount)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">GST</Typography>
-                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.gst || 0)}</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsAmounts?.gst)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Total (Inc. GST)</Typography>
-                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.totalAmountWithGST || detailsModal.payment.totalAmount)}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Paid Amount</Typography>
-                    <Typography variant="h6" fontWeight={600} color="success.main">{formatCurrency(detailsModal.payment.paidAmount)}</Typography>
+                    <Typography variant="caption" color="text.secondary">Total With GST</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsAmounts?.totalWithGST)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Delivery Charge</Typography>
-                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.deliveryCharge)}</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsAmounts?.deliveryCharge)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Total with Delivery</Typography>
-                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsModal.payment.totalAmountWithDelivery)}</Typography>
+                    <Typography variant="caption" color="text.secondary">Grand Total</Typography>
+                    <Typography variant="h6" fontWeight={600}>{formatCurrency(detailsAmounts?.totalAmount)}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Paid Amount</Typography>
+                    <Typography variant="h6" fontWeight={600} color="success.main">{formatCurrency(detailsAmounts?.paidAmount)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Remaining Amount</Typography>
-                    <Typography variant="h6" fontWeight={600} color="error.main">{formatCurrency(detailsModal.payment.remainingAmount)}</Typography>
+                    <Typography variant="h6" fontWeight={600} color="error.main">{formatCurrency(detailsAmounts?.remainingAmount)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Payment Percentage</Typography>
@@ -497,45 +539,43 @@ const PartialPayment = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Payment Method</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.paymentMethod || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.paymentMethod || detailsModal.payment.paymentType || "N/A"}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Payment Status</Typography>
                     <Chip
-                      label={detailsModal.payment.paymentStatus || detailsModal.payment.status || "N/A"}
-                      color={getPaymentStatusColor(detailsModal.payment.paymentStatus || detailsModal.payment.status)}
+                      label={detailsPaymentStatus}
+                      color={getPaymentStatusColor(detailsPaymentStatus)}
                       size="small"
                     />
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Order Status</Typography>
-                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.orderStatus || "N/A"}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{detailsModal.payment.orderStatus || detailsModal.payment.order?.orderStatus || "N/A"}</Typography>
                   </Grid>
                 </Grid>
               </Box>
 
-              {detailsModal.payment.products?.length > 0 && (
+              {detailsProducts.length > 0 && (
                 <>
                   <Divider sx={{ my: 2 }} />
                   <Box>
                     <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ width: 4, height: 24, bgcolor: 'warning.main', borderRadius: 1 }} />
-                      Products ({detailsModal.payment.products.length})
+                      Products ({detailsProducts.length})
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {detailsModal.payment.products.map((product, idx) => (
+                      {detailsProducts.map((product, idx) => (
                         <Card key={idx} variant="outlined">
                           <CardContent>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                               <Box>
-                                <Typography variant="body1" fontWeight={600}>{product.productName}</Typography>
+                                <Typography variant="body1" fontWeight={600}>{product.productName || product.name || product.product?.name || "N/A"}</Typography>
+                                <Typography variant="body2" color="text.secondary">{product.productType || product.type || product.product?.type || "N/A"}</Typography>
                               </Box>
-                              {product.totalPrice && (
-                                <Typography variant="h6" fontWeight="bold">{formatCurrency(product.totalPrice)}</Typography>
-                              )}
                             </Box>
                             <Chip
-                              label={`${product.boxes} boxes × ${formatCurrency(product.price)}`}
+                              label={`${product.boxes} boxes`}
                               size="small"
                               color="primary"
                               variant="outlined"

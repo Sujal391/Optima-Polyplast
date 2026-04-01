@@ -98,13 +98,14 @@ const Dashboard = () => {
         {
           title: "Total Orders",
           value:
-            stats.orders.pending +
-            stats.orders.confirmed +
-            stats.orders.shipped +
-            stats.orders.cancelled +
-            stats.orders.preview +
-            stats.orders.processing,
-          description: `Shipped: ${stats.orders.shipped}, Pending: ${stats.orders.pending}`,
+            (stats.orders.pending || 0) +
+            (stats.orders.preview || 0) +
+            (stats.orders.sales_pending || 0) +
+            (stats.orders.approved_by_sales || 0) +
+            (stats.orders.rejected_by_sales || 0) +
+            (stats.orders.shipped || 0) +
+            (stats.orders.canceled || stats.orders.cancelled || 0),
+          description: `Shipped: ${stats.orders.shipped || 0}, Pending: ${stats.orders.pending || 0}`,
           icon: ShoppingCart,
           color: "bg-violet-500",
           lightColor: "bg-violet-50",
@@ -118,7 +119,7 @@ const Dashboard = () => {
     ? [
         {
           status: "Pending",
-          count: stats.orders.pending,
+          count: stats.orders.pending || 0,
           icon: Clock,
           color: "bg-amber-500",
           lightBg: "bg-amber-50",
@@ -126,35 +127,8 @@ const Dashboard = () => {
           borderColor: "border-l-amber-500",
         },
         {
-          status: "Confirmed",
-          count: stats.orders.confirmed,
-          icon: CheckCircle2,
-          color: "bg-blue-500",
-          lightBg: "bg-blue-50",
-          textColor: "text-blue-700",
-          borderColor: "border-l-blue-500",
-        },
-        {
-          status: "Shipped",
-          count: stats.orders.shipped,
-          icon: Truck,
-          color: "bg-indigo-500",
-          lightBg: "bg-indigo-50",
-          textColor: "text-indigo-700",
-          borderColor: "border-l-indigo-500",
-        },
-        {
-          status: "Cancelled",
-          count: stats.orders.cancelled,
-          icon: XCircle,
-          color: "bg-red-500",
-          lightBg: "bg-red-50",
-          textColor: "text-red-700",
-          borderColor: "border-l-red-500",
-        },
-        {
           status: "Preview",
-          count: stats.orders.preview,
+          count: stats.orders.preview || 0,
           icon: Eye,
           color: "bg-slate-500",
           lightBg: "bg-slate-50",
@@ -162,13 +136,49 @@ const Dashboard = () => {
           borderColor: "border-l-slate-500",
         },
         {
-          status: "Processing",
-          count: stats.orders.processing,
-          icon: Settings,
-          color: "bg-orange-500",
-          lightBg: "bg-orange-50",
-          textColor: "text-orange-700",
-          borderColor: "border-l-orange-500",
+          status: "Sales Pending",
+          count: stats.orders.sales_pending || 0,
+          icon: Clock,
+          color: "bg-yellow-500",
+          lightBg: "bg-yellow-50",
+          textColor: "text-yellow-700",
+          borderColor: "border-l-yellow-500",
+        },
+        {
+          status: "Approved by Sales",
+          count: stats.orders.approved_by_sales || 0,
+          icon: CheckCircle2,
+          color: "bg-blue-500",
+          lightBg: "bg-blue-50",
+          textColor: "text-blue-700",
+          borderColor: "border-l-blue-500",
+        },
+        {
+          status: "Rejected",
+          count: stats.orders.rejected_by_sales || 0,
+          icon: XCircle,
+          color: "bg-red-400",
+          lightBg: "bg-red-50",
+          textColor: "text-red-600",
+          borderColor: "border-l-red-400",
+        },
+        {
+          status: "Shipped",
+          count: stats.orders.shipped || 0,
+          icon: Truck,
+          color: "bg-indigo-500",
+          lightBg: "bg-indigo-50",
+          textColor: "text-indigo-700",
+          borderColor: "border-l-indigo-500",
+        },
+        {
+          status: "Canceled",
+          count: stats.orders.canceled || stats.orders.cancelled || 0,
+          icon: XCircle,
+          color: "bg-red-600",
+          lightBg: "bg-red-50",
+          textColor: "text-red-800",
+          borderColor: "border-l-red-600",
         },
       ]
     : [];

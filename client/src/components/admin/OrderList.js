@@ -264,16 +264,19 @@ const Order = () => {
     switch (lowerStatus) {
       case "pending":
         return { label: "Pending", icon: Clock, color: "bg-amber-50 text-amber-700 border-amber-100" };
-      case "confirmed":
-        return { label: "Confirmed", icon: CheckCircle2, color: "bg-emerald-50 text-emerald-700 border-emerald-100" };
-      case "shipped":
-        return { label: "Shipped", icon: Truck, color: "bg-blue-50 text-blue-700 border-blue-100" };
-      case "cancelled":
-        return { label: "Cancelled", icon: XCircle, color: "bg-red-50 text-red-700 border-red-100" };
       case "preview":
         return { label: "Preview", icon: Eye, color: "bg-slate-50 text-slate-700 border-slate-100" };
-      case "processing":
-        return { label: "Processing", icon: Settings, color: "bg-orange-50 text-orange-700 border-orange-100" };
+      case "sales_pending":
+        return { label: "Sales Pending", icon: Clock, color: "bg-yellow-50 text-yellow-700 border-yellow-100" };
+      case "approved_by_sales":
+        return { label: "Approved", icon: CheckCircle2, color: "bg-emerald-50 text-emerald-700 border-emerald-100" };
+      case "rejected_by_sales":
+        return { label: "Rejected", icon: XCircle, color: "bg-red-50 text-red-600 border-red-100" };
+      case "shipped":
+        return { label: "Shipped", icon: Truck, color: "bg-indigo-50 text-indigo-700 border-indigo-100" };
+      case "canceled":
+      case "cancelled":
+        return { label: "Canceled", icon: XCircle, color: "bg-red-50 text-red-800 border-red-200" };
       default:
         return { label: status, icon: CircleDot, color: "bg-slate-50 text-slate-700 border-slate-100" };
     }
@@ -382,12 +385,13 @@ const Order = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="All">All Status</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="preview">Preview</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="sales_pending">Sales Pending</SelectItem>
+                        <SelectItem value="approved_by_sales">Approved</SelectItem>
+                        <SelectItem value="rejected_by_sales">Rejected</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="canceled">Canceled</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
