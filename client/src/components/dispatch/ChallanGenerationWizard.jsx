@@ -70,7 +70,14 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   const [wizardData, setWizardData] = useState({
     splitInfo: {
       numberOfChallans: 1,
-      quantities: [totalOrderQty],
+      itemsDistribution: [
+        (order?.products || []).map((p) => ({
+          productId: p.product?._id || p.productId,
+          productName: p.product?.name || p.productName || "N/A",
+          boxes: p.boxes,
+          originalBoxes: p.boxes
+        }))
+      ],
     },
     scheduledDates: [getTodayDate()], // Auto-set to today's date
     deliveryChoice: "homeDelivery",
@@ -92,6 +99,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   });
 
   const [quantityWarning, setQuantityWarning] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const steps = [
     { title: "Edit Order", description: "Modify order products, quantities & prices" },
@@ -105,30 +113,65 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
     }
   }, [isEditingOrder]);
 
-  // Keep splitInfo in sync when totalOrderQty changes after save
+  // Keep splitInfo in sync when orderProducts change (after save)
   useEffect(() => {
     setWizardData((prev) => {
       const num = prev.splitInfo.numberOfChallans;
-      const newQuantities = [...prev.splitInfo.quantities];
-      const filledQty = newQuantities.slice(0, num - 1).reduce((acc, q) => acc + (q || 0), 0);
-      newQuantities[num - 1] = Math.max(totalOrderQty - filledQty, 0);
+      const newDistribution = [...prev.splitInfo.itemsDistribution];
+      
+      const lastIndex = num - 1;
+      const updatedLastDistrib = orderProducts.map(p => {
+        let allocatedSum = 0;
+        for (let i = 0; i < lastIndex; i++) {
+          const existingChallan = newDistribution[i] || [];
+          const item = existingChallan.find(x => x.productId === p.productId);
+          allocatedSum += (item ? (parseInt(item.boxes) || 0) : 0);
+        }
+        return {
+          productId: p.productId,
+          productName: p.productName,
+          originalBoxes: p.boxes,
+          boxes: Math.max(0, p.boxes - allocatedSum)
+        };
+      });
+      newDistribution[lastIndex] = updatedLastDistrib;
+
+      // also make sure previous distributions have updated originalBoxes
+      for (let i = 0; i < lastIndex; i++) {
+        newDistribution[i] = newDistribution[i] || [];
+        newDistribution[i] = orderProducts.map(p => {
+          const existing = newDistribution[i].find(x => x.productId === p.productId);
+          return {
+            productId: p.productId,
+            productName: p.productName,
+            originalBoxes: p.boxes,
+            boxes: existing ? existing.boxes : 0
+          };
+        });
+      }
+
       return {
         ...prev,
-        splitInfo: { ...prev.splitInfo, quantities: newQuantities },
+        splitInfo: { ...prev.splitInfo, itemsDistribution: newDistribution },
       };
     });
-  }, [totalOrderQty]);
+  }, [orderProducts]);
 
   useEffect(() => {
     validateQuantities();
-  }, [wizardData.splitInfo.quantities]);
+  }, [wizardData.splitInfo.itemsDistribution]);
 
   const validateQuantities = () => {
-    const { quantities } = wizardData.splitInfo;
-    const total = quantities.reduce((acc, qty) => acc + (qty || 0), 0);
-    if (total !== totalOrderQty) {
-      setQuantityWarning(`Total quantity must equal ${totalOrderQty}. Current total: ${total}`);
-      return false;
+    const { itemsDistribution } = wizardData.splitInfo;
+    for (const op of orderProducts) {
+      const productTotal = itemsDistribution.reduce((acc, challan) => {
+        const item = challan.find(x => x.productId === op.productId);
+        return acc + (item ? (parseInt(item.boxes) || 0) : 0);
+      }, 0);
+      if (productTotal !== op.boxes) {
+        setQuantityWarning(`Total ${op.productName} boxes must equal ${op.boxes}.`);
+        return false;
+      }
     }
     setQuantityWarning("");
     return true;
@@ -261,16 +304,26 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
   };
 
   const handleNumberOfChallansChange = (num) => {
-    const currentQuantities = [...wizardData.splitInfo.quantities];
+    const currentDistribution = [...wizardData.splitInfo.itemsDistribution];
     const currentDates = [...wizardData.scheduledDates];
     const currentVehicles = [...wizardData.vehicleDetails];
     const currentDeliveryCharges = [...wizardData.deliveryChargePerBox];
     const todayDate = getTodayDate();
 
-    let newQuantities, newDates, newVehicles, newDeliveryCharges;
+    let newDistribution, newDates, newVehicles, newDeliveryCharges;
 
-    if (num > currentQuantities.length) {
-      newQuantities = [...currentQuantities, ...Array(num - currentQuantities.length).fill(0)];
+    if (num > currentDistribution.length) {
+      newDistribution = [...currentDistribution];
+      for (let i = currentDistribution.length; i < num; i++) {
+        newDistribution.push(
+          orderProducts.map(p => ({
+            productId: p.productId,
+            productName: p.productName,
+            originalBoxes: p.boxes,
+            boxes: 0
+          }))
+        );
+      }
       newDates = [...currentDates, ...Array(num - currentDates.length).fill(todayDate)]; // Auto-set to today's date
       newVehicles = [
         ...currentVehicles,
@@ -282,47 +335,90 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
       ];
       newDeliveryCharges = [...currentDeliveryCharges, ...Array(num - currentDeliveryCharges.length).fill(0)];
     } else {
-      newQuantities = currentQuantities.slice(0, num);
+      newDistribution = currentDistribution.slice(0, num);
       newDates = currentDates.slice(0, num);
       newVehicles = currentVehicles.slice(0, num);
       newDeliveryCharges = currentDeliveryCharges.slice(0, num);
     }
 
-    const filledQty = newQuantities.slice(0, num - 1).reduce((acc, qty) => acc + (qty || 0), 0);
-    newQuantities[num - 1] = Math.max(totalOrderQty - filledQty, 0);
+    const lastIndex = num - 1;
+    newDistribution[lastIndex] = orderProducts.map(p => {
+      let allocatedSum = 0;
+      for (let i = 0; i < lastIndex; i++) {
+        const item = newDistribution[i].find(x => x.productId === p.productId);
+        allocatedSum += (item ? (parseInt(item.boxes) || 0) : 0);
+      }
+      return {
+        productId: p.productId,
+        productName: p.productName,
+        originalBoxes: p.boxes,
+        boxes: Math.max(0, p.boxes - allocatedSum)
+      };
+    });
 
     setWizardData({
       ...wizardData,
-      splitInfo: { numberOfChallans: num, quantities: newQuantities },
+      splitInfo: { numberOfChallans: num, itemsDistribution: newDistribution },
       scheduledDates: newDates,
       vehicleDetails: newVehicles,
       deliveryChargePerBox: newDeliveryCharges,
     });
   };
 
-  const handleQuantityChange = (index, value) => {
+  const handleItemQuantityChange = (challanIndex, productId, value) => {
     const numValue = parseInt(value) || 0;
-    const newQuantities = [...wizardData.splitInfo.quantities];
+    const newDistribution = [...wizardData.splitInfo.itemsDistribution];
     const numberOfChallans = wizardData.splitInfo.numberOfChallans;
+    const lastIndex = numberOfChallans - 1;
 
-    if (index < numberOfChallans - 1) {
-      const otherQuantities = newQuantities
-        .slice(0, numberOfChallans - 1)
-        .map((q, i) => (i === index ? numValue : q || 0));
-      const filledQty = otherQuantities.reduce((acc, qty) => acc + qty, 0);
-      if (filledQty > totalOrderQty) {
-        toast.error(`Total quantity cannot exceed ${totalOrderQty}`);
+    if (challanIndex < lastIndex) {
+      // Find the product being edited
+      const product = orderProducts.find(p => p.productId === productId);
+      if (!product) return;
+
+      // Ensure that this change doesn't cause allocated to exceed total order amount for this product
+      let otherAllocated = 0;
+      for (let i = 0; i < lastIndex; i++) {
+        if (i === challanIndex) continue;
+        const item = newDistribution[i].find(x => x.productId === productId);
+        otherAllocated += (item ? (parseInt(item.boxes) || 0) : 0);
+      }
+
+      if (otherAllocated + numValue > product.boxes) {
+        toast.error(`Total quantity for ${product.productName} cannot exceed ${product.boxes}`);
         return;
       }
-      newQuantities[index] = numValue;
-      newQuantities[numberOfChallans - 1] = totalOrderQty - filledQty;
+
+      // Update the value
+      const challanItems = [...newDistribution[challanIndex]];
+      const itemIndex = challanItems.findIndex(x => x.productId === productId);
+      if (itemIndex >= 0) {
+        challanItems[itemIndex] = { ...challanItems[itemIndex], boxes: numValue };
+      }
+      newDistribution[challanIndex] = challanItems;
+
+      // Auto update the last index
+      const lastChallanItems = [...newDistribution[lastIndex]];
+      const lastItemIndex = lastChallanItems.findIndex(x => x.productId === productId);
+      if (lastItemIndex >= 0) {
+        lastChallanItems[lastItemIndex] = { ...lastChallanItems[lastItemIndex], boxes: product.boxes - (otherAllocated + numValue) };
+      }
+      newDistribution[lastIndex] = lastChallanItems;
     } else {
-      newQuantities[index] = numValue;
+      // Direct edit on last challan if there is only 1 challan
+      if (numberOfChallans === 1) {
+        const challanItems = [...newDistribution[challanIndex]];
+        const itemIndex = challanItems.findIndex(x => x.productId === productId);
+        if (itemIndex >= 0) {
+           challanItems[itemIndex] = { ...challanItems[itemIndex], boxes: numValue };
+        }
+        newDistribution[challanIndex] = challanItems;
+      }
     }
 
     setWizardData({
       ...wizardData,
-      splitInfo: { ...wizardData.splitInfo, quantities: newQuantities },
+      splitInfo: { ...wizardData.splitInfo, itemsDistribution: newDistribution },
     });
   };
 
@@ -376,17 +472,22 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
   const handlePrev = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(currentStep)) return;
-    onSuccess({
-      splitInfo: wizardData.splitInfo,
-      scheduledDates: wizardData.scheduledDates.map((date) => new Date(date).toISOString()),
-      deliveryChoice: wizardData.deliveryChoice,
-      shippingAddress: wizardData.shippingAddress,
-      vehicleDetails: wizardData.vehicleDetails,
-      deliveryChargePerBox: wizardData.deliveryChargePerBox,
-      receiverName: wizardData.receiverName,
-    });
+    setIsGenerating(true);
+    try {
+      await onSuccess({
+        splitInfo: wizardData.splitInfo,
+        scheduledDates: wizardData.scheduledDates.map((date) => new Date(date).toISOString()),
+        deliveryChoice: wizardData.deliveryChoice,
+        shippingAddress: wizardData.shippingAddress,
+        vehicleDetails: wizardData.vehicleDetails,
+        deliveryChargePerBox: wizardData.deliveryChargePerBox,
+        receiverName: wizardData.receiverName,
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -646,7 +747,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
               <div className="space-y-4">
                 {Array.from({ length: wizardData.splitInfo.numberOfChallans }).map((_, idx) => {
                   const isLastRow = idx === wizardData.splitInfo.numberOfChallans - 1;
-                  const challanQty = wizardData.splitInfo.quantities[idx] || 0;
+                  const challanQty = (wizardData.splitInfo.itemsDistribution[idx] || []).reduce((acc, item) => acc + (parseInt(item.boxes) || 0), 0);
                   const challanCharge = wizardData.deliveryChargePerBox[idx] || 0;
 
                   return (
@@ -663,19 +764,34 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {/* Quantity */}
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Quantity (Boxes)</label>
-                            <input
-                              type="number" min="0"
-                              value={wizardData.splitInfo.quantities[idx] || ""}
-                              onChange={(e) => handleQuantityChange(idx, e.target.value)}
-                              disabled={isLastRow}
-                              className={`w-full p-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm transition-colors ${
-                                isLastRow ? "bg-slate-100 border-slate-200 cursor-not-allowed text-slate-400" : "bg-white border-slate-300 text-slate-800"
-                              }`}
-                            />
-                            {isLastRow && <p className="text-[10px] text-slate-400 mt-1">*Auto-balanced remainder</p>}
+                          {/* Items Quantity */}
+                          <div className="lg:col-span-3 mb-2">
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Item Distribution</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {orderProducts.map(product => {
+                                const challanData = wizardData.splitInfo.itemsDistribution[idx] || [];
+                                const item = challanData.find(x => x.productId === product.productId);
+                                const boxes = item ? item.boxes : 0;
+                                return (
+                                  <div key={product.productId} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-semibold text-slate-800 truncate" title={product.productName}>{product.productName}</p>
+                                      <p className="text-[10px] text-slate-500">Total Ordered: {product.boxes}</p>
+                                    </div>
+                                    <input
+                                      type="number" min="0" max={product.boxes}
+                                      value={boxes === 0 && !isLastRow ? "" : boxes}
+                                      onChange={(e) => handleItemQuantityChange(idx, product.productId, e.target.value)}
+                                      disabled={isLastRow && wizardData.splitInfo.numberOfChallans > 1}
+                                      className={`w-16 p-1.5 border rounded-md focus:ring-2 focus:ring-indigo-500 text-xs shadow-sm text-center transition-colors ${
+                                        isLastRow && wizardData.splitInfo.numberOfChallans > 1 ? "bg-slate-100 border-slate-200 cursor-not-allowed text-slate-400" : "bg-white border-slate-300 text-slate-800"
+                                      }`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {isLastRow && wizardData.splitInfo.numberOfChallans > 1 && <p className="text-[10px] text-slate-400 mt-1">*Auto-balanced remainders</p>}
                           </div>
                           
                           {/* Delivery Charge */}
@@ -771,26 +887,27 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
         {/* ── Footer Actions ── */}
         <div className="px-5 py-4 bg-white border-t border-slate-200 shrink-0 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
-          <Button variant="outline" onClick={onClose} className="text-slate-500 border-slate-200 hover:bg-slate-50 rounded-xl px-5">
+          <Button variant="outline" onClick={onClose} disabled={isGenerating} className="text-slate-500 border-slate-200 hover:bg-slate-50 rounded-xl px-5">
             <X className="h-4 w-4 mr-2" /> Cancel
           </Button>
           <div className="flex gap-3">
             {currentStep > 0 && (
-              <Button variant="outline" onClick={handlePrev} className="rounded-xl border-slate-200 text-slate-600 px-5">
+              <Button variant="outline" onClick={handlePrev} disabled={isGenerating} className="rounded-xl border-slate-200 text-slate-600 px-5">
                 <ArrowLeft className="h-4 w-4 mr-2" /> Back
               </Button>
             )}
             {currentStep < steps.length - 1 ? (
-              <Button onClick={handleNext} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 font-semibold shadow-sm">
+              <Button onClick={handleNext} disabled={isGenerating} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 font-semibold shadow-sm">
                 Continue <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={!!quantityWarning}
+                disabled={!!quantityWarning || isGenerating}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-6 font-semibold shadow-sm disabled:bg-slate-200 disabled:text-slate-400"
               >
-                <Check className="h-4 w-4 mr-2" /> Generate Challans
+                {isGenerating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                {isGenerating ? "Generating..." : "Generate Challans"}
               </Button>
             )}
           </div>

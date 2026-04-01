@@ -18,6 +18,9 @@ import {
   ArrowRight,
   ChevronRight,
   Package,
+  TrendingUp,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 
 import {
@@ -44,6 +47,8 @@ const ChallanReport = () => {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
+  const [revenue, setRevenue] = useState(null);
+  const [loadingRevenue, setLoadingRevenue] = useState(false);
   
   // Filter states
   const [startDate, setStartDate] = useState(format(new Date().setDate(new Date().getDate() - 30), 'yyyy-MM-dd'));
@@ -86,8 +91,25 @@ const ChallanReport = () => {
     }
   };
 
+  const fetchRevenue = async () => {
+    setLoadingRevenue(true);
+    try {
+      const response = await api.get(
+        `/admin/revenue/challan-report?startDate=${startDate}&endDate=${endDate}`
+      );
+      if (response.data && response.data.summary) {
+        setRevenue(response.data.summary);
+      }
+    } catch (err) {
+      console.error("Fetch Revenue Error:", err);
+    } finally {
+      setLoadingRevenue(false);
+    }
+  };
+
   useEffect(() => {
     fetchChallans();
+    fetchRevenue();
   }, [startDate, endDate, status]);
 
   const handleDownloadExcel = () => {
@@ -156,6 +178,107 @@ const ChallanReport = () => {
         </div>
       </div>
 
+      {/* Revenue Summary Section */}
+      {revenue && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100 overflow-hidden relative">
+            <div className="absolute -right-4 -top-4 opacity-10">
+              <FileText className="w-24 h-24 text-blue-600" />
+            </div>
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div className="z-10 relative">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Total Challans</p>
+                  {loadingRevenue ? (
+                    <div className="h-9 w-16 bg-blue-200 animate-pulse rounded mt-1"></div>
+                  ) : (
+                    <h3 className="text-3xl font-bold text-blue-900">{revenue.totalChallans || 0}</h3>
+                  )}
+                </div>
+                <div className="p-2 bg-blue-200/50 rounded-lg z-10 relative">
+                  <FileText className="w-5 h-5 text-blue-700" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-emerald-100 overflow-hidden relative">
+            <div className="absolute -right-4 -top-4 opacity-10">
+              <Wallet className="w-24 h-24 text-emerald-600" />
+            </div>
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div className="z-10 relative">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Total Amount</p>
+                  {loadingRevenue ? (
+                    <div className="h-9 w-32 bg-emerald-200 animate-pulse rounded mt-1"></div>
+                  ) : (
+                    <h3 className="text-2xl font-bold text-emerald-900 flex items-center">
+                      <span className="text-lg mr-1">₹</span>
+                      {revenue.totalAmountWithGSTAndDelivery?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || '0'}
+                    </h3>
+                  )}
+                </div>
+                <div className="p-2 bg-emerald-200/50 rounded-lg z-10 relative">
+                  <Wallet className="w-5 h-5 text-emerald-700" />
+                </div>
+              </div>
+              <p className="text-[10px] text-emerald-700 mt-2 font-bold uppercase tracking-wider z-10 relative">Incl. GST & Delivery</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-amber-100 overflow-hidden relative">
+            <div className="absolute -right-4 -top-4 opacity-10">
+              <Receipt className="w-24 h-24 text-amber-600" />
+            </div>
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div className="z-10 relative">
+                  <p className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">Total GST</p>
+                  {loadingRevenue ? (
+                    <div className="h-9 w-24 bg-amber-200 animate-pulse rounded mt-1"></div>
+                  ) : (
+                    <h3 className="text-2xl font-bold text-amber-900 flex items-center">
+                      <span className="text-lg mr-1">₹</span>
+                      {revenue.totalGST?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || '0'}
+                    </h3>
+                  )}
+                </div>
+                <div className="p-2 bg-amber-200/50 rounded-lg z-10 relative">
+                  <Receipt className="w-5 h-5 text-amber-700" />
+                </div>
+              </div>
+              <p className="text-[10px] text-amber-700 mt-2 font-bold uppercase tracking-wider z-10 relative">Base: ₹{revenue.totalAmount?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || '0'}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100 overflow-hidden relative">
+            <div className="absolute -right-4 -top-4 opacity-10">
+              <Truck className="w-24 h-24 text-purple-600" />
+            </div>
+            <CardContent className="p-6">
+              <div className="flex justify-between items-start">
+                <div className="z-10 relative">
+                  <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Delivery Chgs</p>
+                  {loadingRevenue ? (
+                    <div className="h-9 w-24 bg-purple-200 animate-pulse rounded mt-1"></div>
+                  ) : (
+                    <h3 className="text-2xl font-bold text-purple-900 flex items-center">
+                      <span className="text-lg mr-1">₹</span>
+                      {revenue.totalDeliveryCharge?.toLocaleString('en-IN', { maximumFractionDigits: 2 }) || '0'}
+                    </h3>
+                  )}
+                </div>
+                <div className="p-2 bg-purple-200/50 rounded-lg z-10 relative">
+                  <Truck className="w-5 h-5 text-purple-700" />
+                </div>
+              </div>
+              <p className="text-[10px] text-purple-700 mt-2 font-bold uppercase tracking-wider z-10 relative opacity-0">Hidden</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card className="mb-8 border-0 shadow-sm overflow-hidden bg-white">
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
@@ -187,7 +310,7 @@ const ChallanReport = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="bg-blue-600 hover:bg-blue-700 h-10" onClick={fetchChallans}>Fetch Reports</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 h-10" onClick={() => { fetchChallans(); fetchRevenue(); }}>Fetch Reports</Button>
           </div>
         </CardContent>
       </Card>

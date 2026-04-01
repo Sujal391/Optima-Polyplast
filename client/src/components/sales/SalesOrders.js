@@ -390,8 +390,8 @@ const SalesOrders = () => {
                 {/* Products */}
                 <div>
                   <h4 className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-3">Products ({selectedOrder.products?.length})</h4>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                    <table className="w-full text-sm text-left align-middle">
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+                    <table className="w-full min-w-[450px] text-sm text-left align-middle">
                       <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
                         <tr>
                           <th className="px-4 py-3">Product</th>

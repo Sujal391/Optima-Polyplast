@@ -120,12 +120,11 @@ const getCustomerInfo = (challan) => {
 
 // Updated A5 Portrait Single Challan HTML
 const getChallanHTML = (challan) => {
-  const subtotal = (challan.items || []).reduce((acc, item) => acc + (item.amount || 0), 0);
-  const gstRate = 0.05;
-  const gstAmount = subtotal * gstRate;
+  const subtotal = challan.totalAmount ?? (challan.items || []).reduce((acc, item) => acc + (item.amount || 0), 0);
+  const gstAmount = challan.gst ?? (subtotal * 0.05);
+  const totalWithGST = challan.totalAmountWithGST ?? (subtotal + gstAmount);
   const deliveryCharge = challan.deliveryCharge || 0;
-  const totalWithDelivery = subtotal + deliveryCharge;
-  const grandTotal = totalWithDelivery + gstAmount;
+  const grandTotal = challan.totalAmountWithDelivery ?? (totalWithGST + deliveryCharge);
   const displayDate = getDisplayDate(challan);
   const formattedAddress = formatAddress(challan.shippingAddress);
   const { customerName, firmName } = getCustomerInfo(challan);
@@ -180,7 +179,7 @@ const getChallanHTML = (challan) => {
           ${(challan.items || []).map((item, index) => `
             <tr>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${index + 1}</td>
-              <td style="border: 1px solid #ddd; padding: 4px;">${item.description || item.productName}</td>
+              <td style="border: 1px solid #ddd; padding: 4px;">${item.productName || item.description || "-"} ${item.category ? `(${item.category})` : ''}</td>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${item.boxes}</td>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
               <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
@@ -204,22 +203,22 @@ const getChallanHTML = (challan) => {
 
         <div style="width: 180px; font-size: 9px; background: #ecf0f1; padding: 8px; border-radius: 6px;">
           <p style="margin: 3px 0; display: flex; justify-content: space-between;">
-            <span>Subtotal:</span> <span>₹ ${subtotal.toFixed(2)}</span>
+            <span>Subtotal:</span> <span>₹ ${Number(subtotal).toFixed(2)}</span>
           </p>
           <p style="margin: 3px 0; display: flex; justify-content: space-between;">
-            <span>Delivery Charge:</span> <span>${deliveryCharge === 0 ? "Free" : `₹ ${deliveryCharge.toFixed(2)}`}</span>
+            <span>GST (5%):</span> <span>₹ ${Number(gstAmount).toFixed(2)}</span>
           </p>
           <div style="border-top: 1px dashed #999; margin: 6px 0 3px 0;"></div>
           <p style="margin: 3px 0; display: flex; justify-content: space-between; font-weight: bold;">
-            <span>Total with Delivery:</span> <span>₹ ${totalWithDelivery.toFixed(2)}</span>
+            <span>Total with GST:</span> <span>₹ ${Number(totalWithGST).toFixed(2)}</span>
           </p>
           <div style="border-top: 1px dashed #999; margin: 6px 0 3px 0;"></div>
           <p style="margin: 3px 0; display: flex; justify-content: space-between;">
-            <span>GST (5%):</span> <span>₹ ${gstAmount.toFixed(2)}</span>
+            <span>Delivery Charge:</span> <span>${Number(deliveryCharge) === 0 ? "Free" : `₹ ${Number(deliveryCharge).toFixed(2)}`}</span>
           </p>
           <div style="border-top: 2px solid #bdc3c7; margin: 6px 0 3px 0;"></div>
           <p style="margin: 3px 0; display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
-            <span>Grand Total:</span> <span>₹ ${grandTotal.toFixed(2)}</span>
+            <span>Grand Total:</span> <span>₹ ${Number(grandTotal).toFixed(2)}</span>
           </p>
         </div>
       </div>
@@ -440,7 +439,9 @@ const DispatchComponent = () => {
       const payload = {
         splitInfo: {
           numberOfChallans: wizardData.splitInfo.numberOfChallans,
-          quantities: wizardData.splitInfo.quantities,
+          itemsDistribution: wizardData.splitInfo.itemsDistribution.map(challan => 
+            challan.filter(p => p.boxes > 0).map(p => ({ productId: p.productId, boxes: p.boxes }))
+          ),
         },
         extraItems: wizardData.extraItems || [],
         scheduledDates: wizardData.scheduledDates.map((d) => new Date(d).toISOString()),
@@ -452,7 +453,22 @@ const DispatchComponent = () => {
       };
 
       const response = await api.post(`/dispatch/orders/${orderId}/generate-challan`, payload);
-      const outputChallans = response.data.challans || [];
+      let outputChallans = response.data.challans || [];
+      
+      // Enrich challans with category from selectedOrder to ensure it prints properly
+      outputChallans = outputChallans.map(challan => ({
+        ...challan,
+        items: (challan.items || []).map(item => {
+          const matchedProduct = selectedOrder.products?.find(
+            p => p.product?._id === item.productId || p.product?.name === item.productName || p.productName === item.productName
+          );
+          return {
+            ...item,
+            category: item.category || matchedProduct?.product?.category || matchedProduct?.category || ""
+          };
+        })
+      }));
+
       toast.success(`${response.data.count || outputChallans.length || 1} challan(s) generated!`);
       setGeneratedChallans(outputChallans);
       setSuccessModalData(outputChallans.length > 0 ? outputChallans : [{ invoiceNo: "Generated", dcNo: "Generated", items: [], ...response.data }]);

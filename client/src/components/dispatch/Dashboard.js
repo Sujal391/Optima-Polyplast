@@ -27,15 +27,15 @@ const navLinks = [
   { to: "/dispatch/processing-orders", label: "Processing Orders", icon: ClipboardList },
   { to: "/dispatch/challans", label: "All Challans", icon: FileText },
   { to: "/dispatch/dispatch-history", label: "Dispatch History", icon: History },
-  { to: "/dispatch/challan-history", label: "Challan History", icon: FileText },
+  // { to: "/dispatch/challan-history", label: "Challan History", icon: FileText },
 ];
 
 const Navbar = () => {
-  const [isProfileOpen, setIsProfileOpen]   = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [profileData, setProfileData]       = useState(null);
-  const profileRef   = useRef(null);
-  const location     = useLocation();
+  const [profileData, setProfileData] = useState(null);
+  const profileRef = useRef(null);
+  const location = useLocation();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -231,13 +231,15 @@ const Navbar = () => {
             </div>
             <div className="space-y-3 text-sm text-gray-700">
               {[
-                { label: "Name",    value: profileData?.name },
-                { label: "Email",   value: profileData?.email },
-                { label: "Phone",   value: profileData?.phoneNumber },
-                { label: "Role",    value: profileData?.role },
-                { label: "Joined",  value: profileData?.createdAt
+                { label: "Name", value: profileData?.name },
+                { label: "Email", value: profileData?.email },
+                { label: "Phone", value: profileData?.phoneNumber },
+                { label: "Role", value: profileData?.role },
+                {
+                  label: "Joined", value: profileData?.createdAt
                     ? new Date(profileData.createdAt).toLocaleDateString("en-IN")
-                    : undefined },
+                    : undefined
+                },
               ].map(({ label, value }) => value && (
                 <div key={label} className="flex gap-2">
                   <span className="font-medium text-gray-500 w-16 shrink-0">{label}:</span>
