@@ -145,8 +145,6 @@ const CreateOrderSheet = ({ open, onClose, customer }) => {
       .map((p) => ({ productId: p._id, boxes: selectedBoxes[p._id], price: p.price }));
 
     if (ordered.length === 0) { toast.error("Select at least one product."); return; }
-    const totalBoxes = ordered.reduce((s, p) => s + p.boxes, 0);
-    if (totalBoxes < 200) { toast.error("Minimum 200 boxes required across all products."); return; }
 
     if (deliveryChoice === "homeDelivery") {
       const { address, city, state, pinCode } = shipping;
