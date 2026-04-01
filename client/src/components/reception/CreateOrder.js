@@ -61,7 +61,15 @@ const CreateOrder = () => {
   const [customer, setCustomer]       = useState(null);
   const [products, setProducts]       = useState([]);
   const [selectedBoxes, setSelectedBoxes] = useState({});
+  const [customPrices, setCustomPrices]   = useState({});
   const [paymentMethod, setPaymentMethod] = useState("COD");
+
+  const getPrice = (id, defaultPrice) => {
+    if (customPrices[id] !== undefined && customPrices[id] !== "") {
+      return parseFloat(customPrices[id]) || 0;
+    }
+    return defaultPrice;
+  };
 
   // Status
   const [loadingAccess, setLoadingAccess]     = useState(false);
@@ -127,7 +135,7 @@ const CreateOrder = () => {
   const handleOrder = async () => {
     const ordered = products
       .filter((p) => selectedBoxes[p._id] > 0)
-      .map((p) => ({ productId: p._id, boxes: selectedBoxes[p._id], price: p.price }));
+      .map((p) => ({ productId: p._id, boxes: selectedBoxes[p._id], price: getPrice(p._id, p.price) }));
 
     if (ordered.length === 0) { toast.error("Select at least one product."); return; }
 
@@ -157,7 +165,7 @@ const CreateOrder = () => {
   const reset = () => {
     setName(""); setMobile(""); setEmail("");
     setPanelToken(null); setCustomer(null);
-    setProducts([]); setSelectedBoxes({});
+    setProducts([]); setSelectedBoxes({}); setCustomPrices({});
     setPaymentMethod("COD"); setOrderSuccess(null);
   };
 
@@ -315,7 +323,19 @@ const CreateOrder = () => {
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-sm text-gray-800 truncate">{product.name}</p>
                               <p className="text-xs text-gray-500">{product.category || product.type}</p>
-                              <p className="text-sm font-bold text-indigo-700 mt-0.5">₹{product.price}</p>
+                              <div className="flex items-center mt-0.5">
+                                <span className="text-sm font-bold text-indigo-700">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder={product.price}
+                                  value={customPrices[product._id] !== undefined ? customPrices[product._id] : product.price}
+                                  onChange={(e) => setCustomPrices((prev) => ({ ...prev, [product._id]: e.target.value }))}
+                                  className="w-20 text-sm font-bold text-indigo-700 bg-transparent border-b border-transparent hover:border-indigo-300 focus:border-indigo-600 focus:outline-none px-1 py-0.5 transition-colors"
+                                  title="Edit Price"
+                                />
+                              </div>
                             </div>
                           </div>
 
@@ -344,7 +364,7 @@ const CreateOrder = () => {
                           {selected && (
                             <div className="flex items-center justify-between mt-2">
                               <span className="text-xs text-indigo-600 font-medium">
-                                Subtotal: ₹{(qty * product.price).toLocaleString("en-IN")}
+                                Subtotal: ₹{(qty * getPrice(product._id, product.price)).toLocaleString("en-IN")}
                               </span>
                               <button
                                 onClick={() => setBoxes(product._id, "")}
@@ -405,23 +425,26 @@ const CreateOrder = () => {
                 {selectedCount > 0 && (
                   <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 mb-5 space-y-2">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Order Summary</p>
-                    {products.filter((p) => selectedBoxes[p._id] > 0).map((p) => (
-                      <div key={p._id} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700 truncate max-w-[60%]">{p.name}</span>
-                        <span className="text-gray-500 shrink-0">
-                          {selectedBoxes[p._id]} boxes × ₹{p.price} ={" "}
-                          <span className="font-semibold text-gray-800">
-                            ₹{(selectedBoxes[p._id] * p.price).toLocaleString("en-IN")}
+                    {products.filter((p) => selectedBoxes[p._id] > 0).map((p) => {
+                      const finalPrice = getPrice(p._id, p.price);
+                      return (
+                        <div key={p._id} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-700 truncate max-w-[60%]">{p.name}</span>
+                          <span className="text-gray-500 shrink-0">
+                            {selectedBoxes[p._id]} boxes × ₹{finalPrice} ={" "}
+                            <span className="font-semibold text-gray-800">
+                              ₹{(selectedBoxes[p._id] * finalPrice).toLocaleString("en-IN")}
+                            </span>
                           </span>
-                        </span>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                     <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-sm">
                       <span>{totalBoxes} boxes</span>
                       <span className="text-indigo-700">
                         ₹{products
                           .filter((p) => selectedBoxes[p._id] > 0)
-                          .reduce((s, p) => s + selectedBoxes[p._id] * p.price, 0)
+                          .reduce((s, p) => s + selectedBoxes[p._id] * getPrice(p._id, p.price), 0)
                           .toLocaleString("en-IN")}
                       </span>
                     </div>
