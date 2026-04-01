@@ -118,6 +118,56 @@ const getCustomerInfo = (challan) => {
   return { customerName, firmName };
 };
 
+const normalizeProductsResponse = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.products)) return data.products;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
+
+const createProductLookup = (products = []) => {
+  return products.reduce((acc, product) => {
+    if (product?._id) {
+      acc[String(product._id)] = {
+        name: product.name || "",
+        category: product.category || "",
+      };
+    }
+    return acc;
+  }, {});
+};
+
+const enrichChallanItems = (items = [], productLookup = {}, orderProducts = []) => {
+  return items.map((item) => {
+    const matchedOrderProduct = orderProducts.find(
+      (product) =>
+        String(product.product?._id || product.productId || "") === String(item.productId || "") ||
+        product.product?.name === item.productName ||
+        product.productName === item.productName
+    );
+    const matchedProduct = productLookup[String(item.productId || "")] || {};
+
+    return {
+      ...item,
+      productName:
+        matchedProduct.name ||
+        matchedOrderProduct?.product?.name ||
+        matchedOrderProduct?.productName ||
+        item.product?.name ||
+        item.productName ||
+        item.description ||
+        "",
+      category:
+        matchedProduct.category ||
+        matchedOrderProduct?.product?.category ||
+        matchedOrderProduct?.category ||
+        item.product?.category ||
+        item.category ||
+        "",
+    };
+  });
+};
+
 // Updated A5 Portrait Single Challan HTML
 const getChallanHTML = (challan) => {
   const subtotal = challan.totalAmount ?? (challan.items || []).reduce((acc, item) => acc + (item.amount || 0), 0);
@@ -454,19 +504,18 @@ const DispatchComponent = () => {
 
       const response = await api.post(`/dispatch/orders/${orderId}/generate-challan`, payload);
       let outputChallans = response.data.challans || [];
-      
-      // Enrich challans with category from selectedOrder to ensure it prints properly
+
+      let productLookup = {};
+      try {
+        const productsResponse = await api.get("/dispatch/products");
+        productLookup = createProductLookup(normalizeProductsResponse(productsResponse.data));
+      } catch (productError) {
+        console.error("Failed to fetch dispatch products for challan enrichment:", productError);
+      }
+
       outputChallans = outputChallans.map(challan => ({
         ...challan,
-        items: (challan.items || []).map(item => {
-          const matchedProduct = selectedOrder.products?.find(
-            p => p.product?._id === item.productId || p.product?.name === item.productName || p.productName === item.productName
-          );
-          return {
-            ...item,
-            category: item.category || matchedProduct?.product?.category || matchedProduct?.category || ""
-          };
-        })
+        items: enrichChallanItems(challan.items || [], productLookup, selectedOrder.products || []),
       }));
 
       toast.success(`${response.data.count || outputChallans.length || 1} challan(s) generated!`);

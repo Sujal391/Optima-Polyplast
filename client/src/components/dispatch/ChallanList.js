@@ -45,11 +45,50 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+const normalizeProductsResponse = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.products)) return data.products;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
+
+const createProductLookup = (products = []) => {
+  return products.reduce((acc, product) => {
+    if (product?._id) {
+      acc[String(product._id)] = {
+        name: product.name || "",
+        category: product.category || "",
+      };
+    }
+    return acc;
+  }, {});
+};
+
+const resolveChallanItem = (item, productLookup = {}) => {
+  const matchedProduct = productLookup[String(item?.productId || item?.product?._id || "")] || {};
+
+  return {
+    ...item,
+    productName:
+      matchedProduct.name ||
+      item?.product?.name ||
+      item?.productName ||
+      item?.description ||
+      "N/A",
+    category:
+      matchedProduct.category ||
+      item?.product?.category ||
+      item?.category ||
+      "",
+  };
+};
+
 const ChallanList = () => {
   const [challans, setChallans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [count, setCount] = useState(0);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [productLookup, setProductLookup] = useState({});
 
   // Filters
   const [startDate, setStartDate] = useState(() => {
@@ -100,6 +139,19 @@ const ChallanList = () => {
   useEffect(() => {
     fetchChallans();
   }, [startDate, endDate, status]);
+
+  useEffect(() => {
+    const fetchDispatchProducts = async () => {
+      try {
+        const res = await api.get("/dispatch/products");
+        setProductLookup(createProductLookup(normalizeProductsResponse(res.data)));
+      } catch (error) {
+        console.error("Error fetching dispatch products:", error);
+      }
+    };
+
+    fetchDispatchProducts();
+  }, []);
 
   const rescheduleChallan = async (rescheduleData) => {
     try {
@@ -181,6 +233,8 @@ const ChallanList = () => {
     return { customerName, firmName };
   };
 
+  const getResolvedItem = (item) => resolveChallanItem(item, productLookup);
+
   // --- UPDATED PDF GENERATION LOGIC FOR A5 PORTRAIT SINGLE CHALLAN ---
   const getChallanHTML = (challan) => {
     const subtotal = challan.totalAmount ?? (challan.items || []).reduce((acc, item) => acc + (item.amount || 0), 0);
@@ -242,7 +296,7 @@ const ChallanList = () => {
             ${(challan.items || []).map((item, index) => `
               <tr>
                 <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${index + 1}</td>
-                <td style="border: 1px solid #ddd; padding: 4px;">${item.productName || item.description || "-"} ${item.category ? `(${item.category})` : ''}</td>
+                <td style="border: 1px solid #ddd; padding: 4px;">${getResolvedItem(item).productName || "-"} ${getResolvedItem(item).category ? `(${getResolvedItem(item).category})` : ''}</td>
                 <td style="border: 1px solid #ddd; padding: 4px; text-align:center;">${item.boxes}</td>
                 <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.rate).toFixed(2)}</td>
                 <td style="border: 1px solid #ddd; padding: 4px; text-align:right;">₹ ${Number(item.amount).toFixed(2)}</td>
@@ -580,7 +634,7 @@ const ChallanList = () => {
                                         <tbody className="divide-y divide-slate-100 text-left">
                                           {(c.items || []).map((item, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                              <td className="px-4 py-3 font-medium text-slate-800">{item.productName || item.description} - {item.category}</td>
+                                              <td className="px-4 py-3 font-medium text-slate-800">{getResolvedItem(item).productName}{getResolvedItem(item).category ? ` - ${getResolvedItem(item).category}` : ""}</td>
                                               <td className="px-4 py-3 text-center text-slate-600 font-bold">{item.boxes}</td>
                                               <td className="px-4 py-3 text-right text-slate-600">{formatCurrencyValue(item.rate)}</td>
                                               <td className="px-4 py-3 text-right font-bold text-slate-800">{formatCurrencyValue(item.amount)}</td>
