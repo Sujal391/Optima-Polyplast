@@ -88,7 +88,12 @@ const getDisplayDate = (challan) => {
     const latestReschedule = challan.rescheduleHistory[challan.rescheduleHistory.length - 1];
     return new Date(latestReschedule.newDate).toLocaleDateString("en-GB");
   }
-  return new Date(challan.challanDate || challan.createdAt).toLocaleDateString("en-GB");
+  return new Date(
+    challan.challanDate ||
+    challan.date ||
+    challan.scheduledDate ||
+    challan.createdAt
+  ).toLocaleDateString("en-GB");
 };
 
 const formatAddress = (shippingAddress) => {
@@ -115,6 +120,7 @@ const getCustomerInfo = (challan) => {
     if (originalOrder.user?.name) customerName = originalOrder.user.name;
   }
   if (customerName === "-" && challan.receiverName) customerName = challan.receiverName;
+  if (firmName === "-" && challan.receiverName) firmName = challan.receiverName;
   return { customerName, firmName };
 };
 
@@ -139,13 +145,14 @@ const createProductLookup = (products = []) => {
 
 const enrichChallanItems = (items = [], productLookup = {}, orderProducts = []) => {
   return items.map((item) => {
+    const productId = item.productId?._id || item.productId;
     const matchedOrderProduct = orderProducts.find(
       (product) =>
-        String(product.product?._id || product.productId || "") === String(item.productId || "") ||
+        String(product.product?._id || product.productId || "") === String(productId || "") ||
         product.product?.name === item.productName ||
         product.productName === item.productName
     );
-    const matchedProduct = productLookup[String(item.productId || "")] || {};
+    const matchedProduct = productLookup[String(productId || "")] || {};
 
     return {
       ...item,
@@ -166,6 +173,32 @@ const enrichChallanItems = (items = [], productLookup = {}, orderProducts = []) 
         "",
     };
   });
+};
+
+const getFallbackShippingAddress = (order) => (
+  order?.shippingAddress || {
+    address: order?.user?.customerDetails?.address || "",
+    city: order?.user?.customerDetails?.city || "",
+    state: order?.user?.customerDetails?.state || "",
+    pinCode: order?.user?.customerDetails?.pinCode || "",
+  }
+);
+
+const normalizeGeneratedChallan = (challan, order, productLookup = {}) => {
+  const normalizedOrder =
+    challan?.originalOrder && typeof challan.originalOrder === "object"
+      ? challan.originalOrder
+      : order;
+
+  return {
+    ...challan,
+    challanDate: challan.challanDate || challan.date || challan.scheduledDate || challan.createdAt,
+    originalOrder: normalizedOrder,
+    order: challan.order || normalizedOrder,
+    receiverName: challan.receiverName || order?.firmName || order?.user?.name || "",
+    shippingAddress: challan.shippingAddress || getFallbackShippingAddress(order),
+    items: enrichChallanItems(challan.items || [], productLookup, order?.products || []),
+  };
 };
 
 // Updated A5 Portrait Single Challan HTML
@@ -423,14 +456,14 @@ const DispatchComponent = () => {
     setSuccessModalData(null);
   };
 
-  const handlePrintChallans = () => {
-    if (!successModalData) return;
+  const handlePrintChallans = (challans = successModalData, copies = printCopies, shouldCloseModal = true) => {
+    if (!challans?.length) return;
 
     let printHTML;
-    if (successModalData.length === 1) {
-      printHTML = getMultiChallanHTML(successModalData[0], printCopies);
+    if (challans.length === 1) {
+      printHTML = getMultiChallanHTML(challans[0], copies);
     } else {
-      printHTML = getBatchMultiChallanHTML(successModalData, printCopies);
+      printHTML = getBatchMultiChallanHTML(challans, copies);
     }
 
     const printWindow = window.open("", "_blank");
@@ -441,7 +474,9 @@ const DispatchComponent = () => {
         printWindow.print();
       };
     }
-    setSuccessModalData(null);
+    if (shouldCloseModal) {
+      setSuccessModalData(null);
+    }
   };
 
   const fetchProcessingOrders = async () => {
@@ -513,16 +548,16 @@ const DispatchComponent = () => {
         console.error("Failed to fetch dispatch products for challan enrichment:", productError);
       }
 
-      outputChallans = outputChallans.map(challan => ({
-        ...challan,
-        items: enrichChallanItems(challan.items || [], productLookup, selectedOrder.products || []),
-      }));
+      outputChallans = outputChallans.map((challan) =>
+        normalizeGeneratedChallan(challan, selectedOrder, productLookup)
+      );
 
       toast.success(`${response.data.count || outputChallans.length || 1} challan(s) generated!`);
       setGeneratedChallans(outputChallans);
       setSuccessModalData(outputChallans.length > 0 ? outputChallans : [{ invoiceNo: "Generated", dcNo: "Generated", items: [], ...response.data }]);
       setShowWizard(false);
       setSelectedOrder(null);
+      handlePrintChallans(outputChallans, DEFAULT_COPIES, false);
 
       try {
         await api.patch(`/dispatch/orders/${orderId}/status`, { status: "shipped" });

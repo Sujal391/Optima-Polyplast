@@ -781,7 +781,7 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                           <span className="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0">{idx + 1}</span>
                           <div>
                             <h4 className="font-bold text-slate-800 text-sm">Challan / Shipment {idx + 1}</h4>
-                            {challanQty > 0 && <p className="text-xs text-slate-400 mt-0.5">{challanQty} boxes · ₹{(challanQty * challanCharge).toLocaleString('en-IN')} delivery est.</p>}
+                            {challanQty > 0 && <p className="text-xs text-slate-400 mt-0.5">{challanQty} boxes</p>}
                           </div>
                         </div>
 
@@ -836,8 +836,14 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
                             <input
                               type="date"
                               value={wizardData.scheduledDates[idx] || getTodayDate()}
-                              readOnly disabled
-                              className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 cursor-not-allowed text-sm"
+                              disabled={false}
+                              readOnly={false}
+                              onChange={(e) => {
+                                const newDates = [...wizardData.scheduledDates];
+                                newDates[idx] = e.target.value;
+                                setWizardData({ ...wizardData, scheduledDates: newDates });
+                              }}
+                              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-slate-800 text-sm"
                             />
                             <p className="text-[10px] text-slate-400 mt-1">Auto-set to today</p>
                           </div>
