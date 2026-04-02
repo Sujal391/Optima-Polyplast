@@ -452,7 +452,9 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
   const handleVehicleChange = (index, field, value) => {
     const newVehicles = [...wizardData.vehicleDetails];
-    newVehicles[index] = { ...newVehicles[index], [field]: value };
+    const fieldValue =
+      field === "mobileNo" ? value.replace(/\D/g, "").slice(0, 10) : value;
+    newVehicles[index] = { ...newVehicles[index], [field]: fieldValue };
     setWizardData({ ...wizardData, vehicleDetails: newVehicles });
   };
 
@@ -469,8 +471,12 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
         return false;
       }
       // All dates are automatically set, so no need to validate them
-      if (wizardData.vehicleDetails.some((v) => !v.vehicleNo || !v.driverName || !v.mobileNo)) {
+      if (wizardData.vehicleDetails.some((v) => !v.vehicleNo || !v.driverName)) {
         toast.error("Please fill vehicle details for all challans");
+        return false;
+      }
+      if (wizardData.vehicleDetails.some((v) => v.mobileNo && !/^\d{10}$/.test(v.mobileNo))) {
+        toast.error("Driver mobile must be a 10-digit number if provided");
         return false;
       }
       if (wizardData.deliveryChargePerBox.some((c) => c === "" || c === null || c === undefined || isNaN(c) || c < 0)) {
@@ -874,12 +880,14 @@ const ChallanGenerationWizard = ({ order, onClose, onSuccess }) => {
 
                           {/* Driver Mobile */}
                           <div>
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Driver Mobile</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Driver Mobile (Optional)</label>
                             <input
                               type="tel"
                               value={wizardData.vehicleDetails[idx]?.mobileNo || ""}
                               onChange={(e) => handleVehicleChange(idx, "mobileNo", e.target.value)}
                               placeholder="9876543210"
+                              inputMode="numeric"
+                              maxLength={10}
                               className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm placeholder:text-slate-300"
                             />
                           </div>

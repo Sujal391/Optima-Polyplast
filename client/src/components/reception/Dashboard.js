@@ -252,7 +252,7 @@ const Navbar = () => {
           transition={{ duration: 0.7 }}
         >
           <h1 className="text-3xl sm:text-5xl font-bold text-slate-800 mb-3">
-            Welcome to Reception
+            Welcome to Accountant
           </h1>
           <p className="text-base sm:text-2xl text-slate-600 mb-6 max-w-xl">
             Manage your reception operations with ease.

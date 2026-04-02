@@ -248,6 +248,9 @@ const UserOrdersDrawer = ({ open, onClose, customer }) => {
 
     if (!paymentStatus) return toast.warning("Please select a status.");
     if (!paymentMode) return toast.warning("Please select a mode.");
+    if (paymentMode === "cheque" && !referenceId.trim()) {
+      return toast.warning("Reference ID is required for cheque payments.");
+    }
 
     const parsedAmount = parseFloat(receivedAmount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return toast.warning("Enter a valid amount.");
@@ -581,10 +584,24 @@ const UserOrdersDrawer = ({ open, onClose, customer }) => {
                 >
                   <option value="" disabled>Select...</option>
                   <option value="cash">Cash</option>
+                  <option value="cheque">Cheque</option>
                   <option value="online">Online</option>
                 </select>
               </div>
             </div>
+
+            {statusForm.paymentMode === "cheque" && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Reference ID</label>
+                <input
+                  type="text"
+                  value={statusForm.referenceId}
+                  onChange={(e) => setStatusForm(p => ({ ...p, referenceId: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Cheque number / Ref ID"
+                />
+              </div>
+            )}
 
             {statusForm.paymentMode === "online" && (
               <>
