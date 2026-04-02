@@ -104,6 +104,9 @@ const getOrderAmounts = (order = {}) => {
 const getResolvedPaymentStatus = (order = {}) =>
   order.paymentDetails?.status || order.paymentStatus || "pending";
 
+const isOrderShipped = (order = {}) =>
+  (order.orderStatus || "").toLowerCase() === "shipped";
+
 export default function OrderManagement() {
   const [orderHistory, setOrderHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +125,11 @@ export default function OrderManagement() {
   const [updatingOrder, setUpdatingOrder] = useState(false);
 
   const openEditModal = (order) => {
+    if (isOrderShipped(order)) {
+      toast.error("Shipped orders cannot be edited");
+      return;
+    }
+
     setEditOrder(order);
     setEditForm({
       products: order.products?.map(p => ({
@@ -142,6 +150,12 @@ export default function OrderManagement() {
   };
 
   const handleEditSubmit = async () => {
+    if (isOrderShipped(editOrder)) {
+      toast.error("Shipped orders cannot be edited");
+      closeEditModal();
+      return;
+    }
+
     setUpdatingOrder(true);
     try {
       const payload = {
@@ -342,8 +356,9 @@ export default function OrderManagement() {
                             variant="ghost" 
                             size="sm" 
                             className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-100 rounded-full"
+                            disabled={isOrderShipped(o)}
                             onClick={() => openEditModal(o)}
-                            title="Edit Order"
+                            title={isOrderShipped(o) ? "Shipped orders cannot be edited" : "Edit Order"}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -411,7 +426,9 @@ export default function OrderManagement() {
                         variant="outline" 
                         size="sm" 
                         className="h-7 text-xs px-3 border-amber-200 text-amber-600 hover:bg-amber-50"
+                        disabled={isOrderShipped(o)}
                         onClick={() => openEditModal(o)}
+                        title={isOrderShipped(o) ? "Shipped orders cannot be edited" : "Edit Order"}
                       >
                         <Edit className="h-3 w-3 mr-1.5" /> Edit
                       </Button>

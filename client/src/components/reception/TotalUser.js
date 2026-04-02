@@ -804,11 +804,11 @@ const CustomerManagement = () => {
       />
 
       {/* History Drawer */}
-      <UserOrdersDrawer
+      {/* <UserOrdersDrawer
         open={historySheetOpen}
         onClose={() => { setHistorySheetOpen(false); setHistoryCustomer(null); }}
         customer={historyCustomer}
-      />
+      /> */}
     </div>
   );
 };
