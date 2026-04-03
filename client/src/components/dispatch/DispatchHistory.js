@@ -52,12 +52,16 @@ const DispatchComponent = () => {
 
   const [expandedRow, setExpandedRow] = useState(null);
 
+  const filterShippedOrders = (orders = []) =>
+    orders.filter((order) => order?.orderStatus?.toLowerCase() === "shipped");
+
   const fetchOrderHistory = async () => {
     setIsLoading(true);
     try {
       const response = await api.get("/dispatch/order-history");
-      setOrderHistory(response.data?.orders || []);
-      setFilteredOrders(response.data?.orders || []);
+      const shippedOrders = filterShippedOrders(response.data?.orders || []);
+      setOrderHistory(shippedOrders);
+      setFilteredOrders(shippedOrders);
     } catch (error) {
       console.error("Error fetching order history:", error);
     } finally {
