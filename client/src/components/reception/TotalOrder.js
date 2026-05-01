@@ -3,10 +3,10 @@ import axios from 'axios';
 import cookies from 'js-cookie';
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { 
-  Search, Eye, Edit, Loader2, PackageSearch, 
-  MapPin, User, Building2, Phone, Mail, Hash, 
-  ShoppingCart, CreditCard, Clock, CheckCircle2, History, X 
+import {
+  Search, Eye, Edit, Loader2, PackageSearch,
+  MapPin, User, Building2, Phone, Mail, Hash,
+  ShoppingCart, CreditCard, Clock, CheckCircle2, History, X
 } from "lucide-react";
 
 import Paginator from '../common/Paginator';
@@ -46,7 +46,7 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       cookies.remove("token");
-      try { window.location.href = "/"; } catch {}
+      try { window.location.href = "/"; } catch { }
     }
     return Promise.reject(err);
   }
@@ -135,6 +135,7 @@ export default function OrderManagement() {
       products: order.products?.map(p => ({
         productId: p.product?._id || p.product?.id || p.product,
         name: p.product?.name || "Unknown Product",
+        category: p.product?.category || "",
         boxes: p.boxes || 0,
         price: p.price || 0
       })) || [],
@@ -167,7 +168,7 @@ export default function OrderManagement() {
         deliveryChoice: editForm.deliveryChoice,
         shippingAddress: editForm.shippingAddress
       };
-      
+
       const res = await api.patch(`/reception/orders/${editOrder._id}/edit`, payload);
       toast.success(res.data?.message || "Order updated successfully");
       closeEditModal();
@@ -229,9 +230,9 @@ export default function OrderManagement() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-gray-100">
       <ToastContainer position="top-right" autoClose={3000} />
-      
+
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -265,7 +266,7 @@ export default function OrderManagement() {
 
         {/* Desktop Table / Mobile Cards container */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          
+
           {/* Desktop view */}
           <div className="hidden lg:block">
             <Table>
@@ -343,18 +344,18 @@ export default function OrderManagement() {
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-100 rounded-full"
                             onClick={() => setDetailModal({ isOpen: true, order: o })}
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-100 rounded-full"
                             disabled={isOrderShipped(o)}
                             onClick={() => openEditModal(o)}
@@ -398,12 +399,12 @@ export default function OrderManagement() {
                       <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mt-0.5">{o.paymentMethod || "COD"}</p>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <p className="text-xs text-gray-500 font-mono">{o.user?.customerDetails?.userCode || "(Misc)"}</p>
                     <p className="text-xs text-gray-500 text-right">{formatDate(o.createdAt)}</p>
                   </div>
-                  
+
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getOrderStatusColor(o.orderStatus)}`}>
@@ -414,17 +415,17 @@ export default function OrderManagement() {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="h-7 text-xs px-3 border-gray-200"
                         onClick={() => setDetailModal({ isOpen: true, order: o })}
                       >
                         <Eye className="h-3 w-3 mr-1.5" /> View
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="h-7 text-xs px-3 border-amber-200 text-amber-600 hover:bg-amber-50"
                         disabled={isOrderShipped(o)}
                         onClick={() => openEditModal(o)}
@@ -461,8 +462,8 @@ export default function OrderManagement() {
       </div>
 
       {/* 📌 ORDER DETAILS DIALOG */}
-      <Dialog 
-        open={detailModal.isOpen} 
+      <Dialog
+        open={detailModal.isOpen}
         onOpenChange={(open) => !open && setDetailModal({ isOpen: false, order: null })}
       >
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-gray-50 gap-0">
@@ -483,7 +484,7 @@ export default function OrderManagement() {
               </DialogHeader>
 
               <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
-                
+
                 {/* Top Info Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
@@ -514,10 +515,9 @@ export default function OrderManagement() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs text-gray-500 font-medium">Payment ({detailModal.order.paymentMethod || 'COD'})</p>
-                      <p className={`text-sm font-semibold truncate ${
-                        detailPaymentStatus === 'completed' || detailPaymentStatus === 'paid'
-                          ? 'text-green-700' : 'text-yellow-700'
-                      }`}>
+                      <p className={`text-sm font-semibold truncate ${detailPaymentStatus === 'completed' || detailPaymentStatus === 'paid'
+                        ? 'text-green-700' : 'text-yellow-700'
+                        }`}>
                         {detailPaymentStatus}
                       </p>
                     </div>
@@ -545,11 +545,11 @@ export default function OrderManagement() {
                       </div>
                       <div className="grid grid-cols-3 text-sm">
                         <span className="text-gray-500 font-medium col-span-1">Phone:</span>
-                        <span className="text-gray-900 col-span-2 flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-gray-400"/> {detailModal.order.user?.phoneNumber || "N/A"}</span>
+                        <span className="text-gray-900 col-span-2 flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-gray-400" /> {detailModal.order.user?.phoneNumber || "N/A"}</span>
                       </div>
                       <div className="grid grid-cols-3 text-sm">
                         <span className="text-gray-500 font-medium col-span-1">Email:</span>
-                        <span className="text-gray-900 col-span-2 flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-gray-400"/> {detailModal.order.user?.email || "N/A"}</span>
+                        <span className="text-gray-900 col-span-2 flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-gray-400" /> {detailModal.order.user?.email || "N/A"}</span>
                       </div>
                     </div>
                   </div>
@@ -614,7 +614,7 @@ export default function OrderManagement() {
                       </TableBody>
                     </Table>
                   </div>
-                  
+
                   {/* Order Totals */}
                   <div className="bg-gray-50/80 p-4 border-t border-gray-100 flex flex-col items-end gap-2">
                     <div className="flex justify-between w-full sm:w-64 text-sm text-gray-600">
@@ -713,7 +713,7 @@ export default function OrderManagement() {
           </DialogHeader>
 
           <div className="px-6 py-4 overflow-y-auto max-h-[65vh] space-y-6">
-            
+
             {/* Products Array */}
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Products</h3>
@@ -721,7 +721,9 @@ export default function OrderManagement() {
                 {editForm.products.map((p, idx) => (
                   <div key={idx} className="flex flex-col sm:flex-row gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
                     <div className="flex-1">
-                      <p className="font-semibold text-sm text-gray-800">{p.name}</p>
+                      <p className="font-semibold text-sm text-gray-800">
+                        {p.name} {p.category && <span className="text-gray-500 font-normal">({p.category})</span>}
+                      </p>
                     </div>
                     <div className="flex gap-3">
                       <div>
