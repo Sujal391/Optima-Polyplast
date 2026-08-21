@@ -61,7 +61,15 @@ export default function LabelManagement() {
       setBottlesLoading(true);
       try {
         const res = await getBottleProductionCategories();
-        setBottles(res?.data || []);
+        const rawList = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.data?.bottleCategories)
+            ? res.data.bottleCategories
+            : Array.isArray(res)
+              ? res
+              : [];
+        const bottleOnly = rawList.filter(b => !b.type || b.type.toLowerCase() === 'bottle');
+        setBottles(bottleOnly.length > 0 ? bottleOnly : rawList);
       } catch (err) {
         console.error('Failed to load bottles:', err);
       } finally {
@@ -77,8 +85,8 @@ export default function LabelManagement() {
       const params = {};
       if (categoryFilter) params.bottleCategory = categoryFilter;
       const response = await getLabels(params);
-      if (response.success) {
-        let data = response.data || [];
+      if (response && (response.success || response.status)) {
+        let data = Array.isArray(response.data) ? response.data : (Array.isArray(response) ? response : []);
         if (debouncedSearch) {
           data = data.filter(l =>
             l.bottleName?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -171,7 +179,8 @@ export default function LabelManagement() {
     setHistoryLoading(true);
     try {
       const response = await getLabelHistory(label._id);
-      setLabelHistory(response.data || []);
+      const histData = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+      setLabelHistory(histData);
     } catch (err) {
       setError(err.message || 'Failed to fetch label history');
     } finally {
@@ -179,8 +188,8 @@ export default function LabelManagement() {
     }
   };
 
-  const uniqueCategories = [...new Set(labels.map(l => l.bottleCategory).filter(Boolean))];
-  const paginatedLabels = labels.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const uniqueCategories = Array.isArray(labels) ? [...new Set(labels.map(l => l.bottleCategory).filter(Boolean))] : [];
+  const paginatedLabels = Array.isArray(labels) ? labels.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) : [];
 
   const Pagination = () => {
     const pages = Math.ceil(labels.length / rowsPerPage);
@@ -334,7 +343,7 @@ export default function LabelManagement() {
                   <select name="productId" value={formData.productId} onChange={handleInputChange} className={inputCls}
                     disabled={bottlesLoading}>
                     <option value="">{bottlesLoading ? 'Loading bottles...' : '-- Select Bottle --'}</option>
-                    {bottles.map(b => (
+                    {Array.isArray(bottles) && bottles.map(b => (
                       <option key={b._id} value={b._id}>
                         {b.name} — {b.category}
                       </option>
@@ -470,7 +479,7 @@ export default function LabelManagement() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-semibold text-gray-900">Bottle Production</span>
-                          <span className="text-xs text-gray-500">• {new Date(item.date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium' })}</span>
+                          <span className="text-xs text-gray-500">• {item.date ? new Date(item.date).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium' }) : 'N/A'}</span>
                         </div>
                         <p className="text-sm text-gray-600">Recorded by: {item.recordedBy}</p>
                         {item.remarks && <p className="text-xs text-gray-500 mt-1">Remarks: {item.remarks}</p>}
